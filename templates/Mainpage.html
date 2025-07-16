@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Main Page</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+<body>
+    <h1>Welcome to the Main Page</h1>
+
+    <p>
+        Today's news release system is different from traditional media. Traditional media mainly focus on dissemination of news information, 
+        while modern news release systems not only offer users the ability to read and browse news content but also allow users to express their views 
+        and to communicate with other users.<br><br>
+        The system function can be divided into two main components, which are a management part and a display part. 
+        The news release system should allow non-registered users to read news articles. But for non-registered users, they will not be able to comment on the news. 
+        If a registered user logs in, they will be allowed to comment on news articles, publish their own news pieces, and share the updates with other users in real-time. 
+        Additionally, ordinary registered users can manage their personal news articles. These articles can also be subject to management by the administrator, 
+        which ensures the security and standardisation of the system.
+    </p>
+
+    <div class="link-container">
+        <a href="/members">Go to Members Page</a>
+        <a href="/ProjectDoc">Go to Project Documents Page</a>
+    </div>
+</body>
+</html>
