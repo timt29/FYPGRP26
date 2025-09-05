@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return render_template("Mainpage.html")  # This loads your HTML file
+    return render_template("index.php")  # This loads your HTML file
 
 @app.route("/members")
 def members():
