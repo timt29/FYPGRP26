@@ -5,12 +5,13 @@
   <meta charset="UTF-8" />
   <title>EchoPress - Homepage</title>
   <link rel="stylesheet" href="../static/css/style.css" />
+  <link rel="icon" href="../static/img/favicon.png" type="image/png" />
 </head>
 
 <body>
   <!-- Header -->
   <header class="header">
-    <a href="/" class="logo" >EchoPress</a>
+    <a href="/" class="logo">EchoPress</a>
     <div class="search-container">
       <input type="text" placeholder="Search for news..." />
       <button>Search</button>
@@ -39,7 +40,7 @@
     <section class="articles">
       <article class="article big-article">
         <div class="text">
-          <a href="article1" style="color: #000000;">
+          <a href="article1" style="color: #000000; text-decoration: none;">
             <h2>
               Circle Line disruption: Service between Marina Bay and Promenade
               stations has resumed
@@ -71,7 +72,7 @@
 
       <article class="article medium-article">
         <div class="text">
-          <a href="article2" style="color: #000000;">
+          <a href="article2" style="color: #000000; text-decoration: none;">
             <h3>
               Woman charged over possessing almost 200 etomidate-laced vapes,
               buying another 50
@@ -94,7 +95,7 @@
       <div class="small-articles">
         <article class="article small-article">
           <div class="text">
-            <a href="article3" style="color: #000000;">
+            <a href="article3" style="color: #000000; text-decoration: none;">
               <h3>
                 Jail for money mule who was promised $100 a day to withdraw cash
                 for scammers
@@ -110,31 +111,24 @@
               Misuse Act. Deputy Public Prosecutor Tan Jing Min said Quah often
               confided in his primary school friend, identified in court
               documents as Wei Jian, about his financial struggles – he needed
-              money to pay for the needs of his newborn child. In June 2023, Wei
-              Jian told Quah about an opportunity to earn $100 a day by
-              withdrawing cash from ATMs. That month, Wei Jian and Quah met
-              another man, named Ryan, to collect seven ATM cards registered
-              under three different names, SIM cards and a mobile phone.
+              money to pay for the needs of his newborn child.
             </p>
           </div>
         </article>
 
         <article class="article small-article">
           <div class="text">
-            <a href="article4" style="color: #000000;">
+            <a href="article4" style="color: #000000; text-decoration: none;">
               <h3>
-                Police seeking information on missing teen last seen in Sengkang
-                on July 2
+                Fire breaks out at Chai Chee Avenue HDB block; 4 taken to hospital, 50 residents evacuated
               </h3>
             </a>
             <p>
-              SINGAPORE – The police are appealing for information on the
-              whereabouts of Jermaine Lim Xinyi, 16, who was last seen on July
-              2. She was last seen around 11 Rivervale Link in the Sengkang area
-              at about 6.55am that day. Anyone with information is requested to
-              call the police hotline on 1800-255-0000 or make an online
-              submission at www.police.gov.sg/i-witness All information will be
-              kept strictly confidential, the police said.
+              SINGAPORE – A fire broke out at an HDB block in Chai Chee Avenue on Sept 5, resulting in four people being
+              taken to hospital and prompting the evacuation of about 50 residents.
+              The Singapore Civil Defence Force (SCDF) said it was alerted to a fire at Block 31 Chai Chee Avenue at
+              about 11.05pm.
+              “The living room of an eighth-floor unit was on fire,” SCDF added.
             </p>
           </div>
         </article>
