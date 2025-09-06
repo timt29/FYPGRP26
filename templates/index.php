@@ -10,7 +10,7 @@
 <body>
   <!-- Header -->
   <header class="header">
-    <div class="logo">EchoPress</div>
+    <a href="/" class="logo" >EchoPress</a>
     <div class="search-container">
       <input type="text" placeholder="Search for news..." />
       <button>Search</button>
@@ -39,7 +39,7 @@
     <section class="articles">
       <article class="article big-article">
         <div class="text">
-          <a href="article1.html">
+          <a href="article1" style="color: #000000;">
             <h2>
               Circle Line disruption: Service between Marina Bay and Promenade
               stations has resumed
@@ -65,17 +65,18 @@
             managed by SBS Transit, delayed train services between Bukit
             Panjang and Beauty World MRT stations on Aug 28.
           </p>
-          <p>Just stop breaking down. What a joke lol hahahaha</p>
         </div>
-        <img src="../static/img/SMRT.webp" alt="Kpods thumbnail" class="thumbnail" />
+        <img src="../static/img/SMRT.webp" alt="Smrt thumbnail" class="thumbnail" />
       </article>
 
       <article class="article medium-article">
         <div class="text">
-          <h3>
-            Woman charged over possessing almost 200 etomidate-laced vapes,
-            buying another 50
-          </h3>
+          <a href="article2" style="color: #000000;">
+            <h3>
+              Woman charged over possessing almost 200 etomidate-laced vapes,
+              buying another 50
+            </h3>
+          </a>
           <p>SAY NO TO VAPE/KPOD</p>
           <p>
             SINGAPORE – A woman was charged over possessing 195
@@ -92,41 +93,50 @@
 
       <div class="small-articles">
         <article class="article small-article">
-          <h3>
-            Jail for money mule who was promised $100 a day to withdraw cash
-            for scammers
-          </h3>
-          <p>
-            SINGAPORE – A financially strapped man withdrew scam proceeds in
-            cash from ATMs to earn $100 a day so that he could buy diapers and
-            milk powder for his newborn child. Yves Quah Jun Boon, 24, was
-            sentenced to eight months’ jail on Sept 5 after he withdrew more
-            than $150,000 from various ATMs in one day in June 2023. He
-            pleaded guilty to money laundering and a charge under the Computer
-            Misuse Act. Deputy Public Prosecutor Tan Jing Min said Quah often
-            confided in his primary school friend, identified in court
-            documents as Wei Jian, about his financial struggles – he needed
-            money to pay for the needs of his newborn child. In June 2023, Wei
-            Jian told Quah about an opportunity to earn $100 a day by
-            withdrawing cash from ATMs. That month, Wei Jian and Quah met
-            another man, named Ryan, to collect seven ATM cards registered
-            under three different names, SIM cards and a mobile phone.
-          </p>
+          <div class="text">
+            <a href="article3" style="color: #000000;">
+              <h3>
+                Jail for money mule who was promised $100 a day to withdraw cash
+                for scammers
+              </h3>
+            </a>
+            <p>
+              SINGAPORE – A financially strapped man withdrew scam proceeds in
+              cash from ATMs to earn $100 a day so that he could buy diapers and
+              milk powder for his newborn child. Yves Quah Jun Boon, 24, was
+              sentenced to eight months’ jail on Sept 5 after he withdrew more
+              than $150,000 from various ATMs in one day in June 2023. He
+              pleaded guilty to money laundering and a charge under the Computer
+              Misuse Act. Deputy Public Prosecutor Tan Jing Min said Quah often
+              confided in his primary school friend, identified in court
+              documents as Wei Jian, about his financial struggles – he needed
+              money to pay for the needs of his newborn child. In June 2023, Wei
+              Jian told Quah about an opportunity to earn $100 a day by
+              withdrawing cash from ATMs. That month, Wei Jian and Quah met
+              another man, named Ryan, to collect seven ATM cards registered
+              under three different names, SIM cards and a mobile phone.
+            </p>
+          </div>
         </article>
+
         <article class="article small-article">
-          <h3>
-            Police seeking information on missing teen last seen in Sengkang
-            on July 2
-          </h3>
-          <p>
-            SINGAPORE – The police are appealing for information on the
-            whereabouts of Jermaine Lim Xinyi, 16, who was last seen on July
-            2. She was last seen around 11 Rivervale Link in the Sengkang area
-            at about 6.55am that day. Anyone with information is requested to
-            call the police hotline on 1800-255-0000 or make an online
-            submission at www.police.gov.sg/i-witness All information will be
-            kept strictly confidential, the police said.
-          </p>
+          <div class="text">
+            <a href="article4" style="color: #000000;">
+              <h3>
+                Police seeking information on missing teen last seen in Sengkang
+                on July 2
+              </h3>
+            </a>
+            <p>
+              SINGAPORE – The police are appealing for information on the
+              whereabouts of Jermaine Lim Xinyi, 16, who was last seen on July
+              2. She was last seen around 11 Rivervale Link in the Sengkang area
+              at about 6.55am that day. Anyone with information is requested to
+              call the police hotline on 1800-255-0000 or make an online
+              submission at www.police.gov.sg/i-witness All information will be
+              kept strictly confidential, the police said.
+            </p>
+          </div>
         </article>
       </div>
     </section>

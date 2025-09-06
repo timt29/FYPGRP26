@@ -8,9 +8,9 @@ app = Flask(__name__)
 def home():
     return render_template("index.php")  # This loads your HTML file
 
-@app.route("/members")
-def members():
-    return render_template("Members.html")  # This loads your HTML file
+@app.route("/article1")
+def article1():
+    return render_template("article1.html")  # This loads your HTML file
 
 @app.route("/ProjectDoc")
 def ProjectDoc():
