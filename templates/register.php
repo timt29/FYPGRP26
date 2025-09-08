@@ -51,15 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Register - City EV Chargers</title>
+<title>Register</title>
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="logo-container">
-    <img src="logo.png" alt="City EV Chargers Logo" class="logo" />
-    <h1 class="site-title">CityEVChargers</h1>
-  </div>
-
   <div class="login-container">
     <h2>Register</h2>
 

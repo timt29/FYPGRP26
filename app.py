@@ -24,6 +24,13 @@ def article3():
 def article4():
     return render_template("article4.html")  # This loads your HTML file
 
+@app.route("/login")
+def login():
+    return render_template("login.php")  # This loads your HTML file
+
+@app.route("/register")
+def register():
+    return render_template("register.php")  # This loads your HTML file
 
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
