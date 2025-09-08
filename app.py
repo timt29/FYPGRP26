@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, redirect, url_for, session
 import webbrowser
 import threading
 
@@ -24,13 +24,37 @@ def article3():
 def article4():
     return render_template("article4.html")  # This loads your HTML file
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    return render_template("login.php")  # This loads your HTML file
+    if request.method == "POST":
+        email = request.form["email"]
+        password = request.form["password"]
 
-@app.route("/register")
+        # TODO: Check credentials from DB
+        if email == "test@example.com" and password == "1234":
+            session["user"] = email
+            return redirect(url_for("home"))
+        else:
+            return "Invalid login!"
+
+    return render_template("login.html")
+
+@app.route("/register", methods=["GET", "POST"])
 def register():
-    return render_template("register.php")  # This loads your HTML file
+    if request.method == "POST":
+        name = request.form["name"]
+        email = request.form["email"]
+        password = request.form["password"]
+        confirm_password = request.form["confirm_password"]
+
+        # TODO: Add validation + database saving here
+        if password != confirm_password:
+            return "Passwords do not match!"
+        
+        # Redirect after success
+        return redirect(url_for("login"))
+
+    return render_template("register.html")
 
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
