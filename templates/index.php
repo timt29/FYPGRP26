@@ -17,8 +17,8 @@
       <button>Search</button>
     </div>
     <div class="auth-buttons">
-      <a href= "login.php" class="signin">Sign In</button>
-      <a href= "register.php" class="register">Register</button>
+      <a href="/login" class="signin">Sign In</a>
+      <a href="/register" class="register">Register</a>
     </div>
   </header>
 

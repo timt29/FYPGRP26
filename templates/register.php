@@ -6,13 +6,11 @@ $errors = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name']);
-    $phone = trim($_POST['phone']);
     $email = trim($_POST['email']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
-    $type = $_POST['type'];
 
-    if (empty($name) || empty($email) || empty($password) || empty($confirm_password) || empty($type)) {
+    if (empty($name) || empty($email) || empty($password) || empty($confirm_password)) {
         $errors[] = "Please fill in all required fields.";
     }
 
@@ -24,11 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = "Passwords do not match.";
     }
 
-    if ($type !== 'User' && $type !== 'Admin') {
-        $errors[] = "Invalid user type selected.";
-    }
-
-    if (empty($errors)) {
+    /*if (empty($errors)) {
         // Check if email exists
         $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = ?");
         $stmt->execute([$email]);
@@ -42,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             header("Location: login.php");
             exit();
         }
-    }
+    }*/
 }
 ?>
 
@@ -72,9 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <label for="name">Name*</label>
       <input type="text" id="name" name="name" required value="<?= htmlspecialchars($_POST['name'] ?? '') ?>">
 
-      <label for="phone">Phone</label>
-      <input type="text" id="phone" name="phone" value="<?= htmlspecialchars($_POST['phone'] ?? '') ?>">
-
       <label for="email">Email*</label>
       <input type="email" id="email" name="email" required value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
 
@@ -83,13 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       <label for="confirm_password">Confirm Password*</label>
       <input type="password" id="confirm_password" name="confirm_password" required>
-
-      <label for="type">User Type*</label>
-      <select id="type" name="type" required>
-        <option value="">Select</option>
-        <option value="User" <?= (($_POST['type'] ?? '') === 'User') ? 'selected' : '' ?>>User</option>
-        <option value="Admin" <?= (($_POST['type'] ?? '') === 'Admin') ? 'selected' : '' ?>>Admin</option>
-      </select>
 
       <button type="submit" style="margin-top:20px;">Register</button>
     </form>

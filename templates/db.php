@@ -1,6 +1,6 @@
 <?php
 $host = 'localhost';
-$db = 'ev_charging';
+$db = 'nrs';
 $user = 'root';  
 $pass = '';      
 

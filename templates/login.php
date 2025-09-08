@@ -2,6 +2,8 @@
 session_start();
 require 'db.php';
 
+$error = ''; // Always initialize
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email']);
     $password = $_POST['password'];
@@ -13,7 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->execute([$email]);
         $user = $stmt->fetch();
 
-        if ($user && $password == $user['password']) {
+        // Use password_verify if passwords are hashed
+        if ($user && password_verify($password, $user['password'])) {
             $_SESSION['user_id'] = $user['user_id'];
             $_SESSION['name'] = $user['name'];
             $_SESSION['type'] = $user['type'];
@@ -26,7 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -57,3 +59,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <p class="register-link">Not registered? <a href="register.php">Register here</a>.</p>
   </div>
 </body>
+</html>
+
