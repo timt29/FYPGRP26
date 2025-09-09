@@ -166,3 +166,20 @@
   text-align: center;
   border-radius: 6px;
 }
+
+p {
+  font-family: Arial, Helvetica, sans-serif ,sans-serif; /* Change the font */
+  padding: 5px; /* Reduce padding to smaller value */
+  font-size: 1rem; /* Optionally, reduce the font size as well */
+  line-height: 1.6; /* Adjust line height for readability */
+}
+.small-text {
+  font-family: Arial, Helvetica, sans-serif;
+  padding: 5px 100px 5px;
+  font-size: 18px;  /* Smaller font size */
+  line-height: 2;
+}
+.main-title {
+  font-size: 2rem;  /* Adjust size to your preference */
+  text-align: center;
+}
