@@ -44,7 +44,7 @@ def login():
 
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM user WHERE email = %s", (email,))
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
 
         cursor.close()
@@ -74,7 +74,7 @@ def register():
 
         try:
             cursor.execute(
-                "INSERT INTO user (name, email, password) VALUES (%s, %s, %s)",
+                "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
                 (name, email, password),
             )
             conn.commit()
@@ -89,7 +89,7 @@ def register():
 
 @app.route("/logout")
 def logout():
-    session.pop("user", None)
+    session.pop("users", None)
     return redirect(url_for("home"))
 
 def open_browser():
