@@ -1,8 +1,20 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import webbrowser
 import threading
+import mysql.connector
 
 app = Flask(__name__)
+app.secret_key = "your_secret_key"  # Replace with a secure key
+
+# MySQL connection function
+def get_db_connection():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",  
+        password="password", 
+        database="nrs"
+    )
+
 
 @app.route("/")
 def home():
@@ -30,12 +42,19 @@ def login():
         email = request.form["email"]
         password = request.form["password"]
 
-        # TODO: Check credentials from DB
-        if email == "test@example.com" and password == "1234":
-            session["user"] = email
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM user WHERE email = %s", (email,))
+        user = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if user and user["password"] == password:
+            session["user"] = user["name"]   # store username in session
             return redirect(url_for("home"))
         else:
-            return "Invalid login!"
+            return "Invalid email or password!"
 
     return render_template("login.html")
 
@@ -47,14 +66,31 @@ def register():
         password = request.form["password"]
         confirm_password = request.form["confirm_password"]
 
-        # TODO: Add validation + database saving here
         if password != confirm_password:
             return "Passwords do not match!"
-        
-        # Redirect after success
-        return redirect(url_for("login"))
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute(
+                "INSERT INTO user (name, email, password) VALUES (%s, %s, %s)",
+                (name, email, password),
+            )
+            conn.commit()
+            return redirect(url_for("login"))
+        except mysql.connector.IntegrityError:
+            return "Email already exists!"
+        finally:
+            cursor.close()
+            conn.close()
 
     return render_template("register.html")
+
+@app.route("/logout")
+def logout():
+    session.pop("user", None)
+    return redirect(url_for("home"))
 
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
