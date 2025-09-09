@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>EchoPress — Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+</head>
+<body style="margin:0;font-family:Arial,Helvetica,sans-serif;background:#f7f7f7;color:#111;">
+
+  <!-- Top Bar -->
+  <header class="topbar" style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#222;">
+    <!-- Left: logo + search -->
+    <div class="left" style="display:flex;align-items:center;gap:16px;">
+      <a href="/" class="brand" style="display:inline-block;line-height:0;">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress"
+             style="height:50px;width:50px;object-fit:contain;display:block;" />
+      </a>
+      <div class="search" style="display:flex;align-items:center;gap:6px;">
+        <input type="text" placeholder="Searching for… ?" aria-label="Search"
+               style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;" />
+        <button aria-label="Search"
+                style="padding:6px 12px;border:none;border-radius:6px;background:#555;color:#fff;cursor:pointer;">
+          Search
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: welcome + menu -->
+    <div class="right" style="position:relative;display:flex;align-items:center;gap:12px;">
+      <span class="welcome" style="color:#fff;font-size:0.95rem;">
+        Welcome back, {{ session.get('user', 'Subscriber') }}!
+      </span>
+
+      <!-- Burger button -->
+      <button id="menuBtn" class="burger" aria-label="Menu"
+              style="background:transparent;border:0;display:flex;flex-direction:column;gap:3px;cursor:pointer;">
+        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
+        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
+        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
+      </button>
+
+      <!-- Dropdown panel -->
+      <div id="menuPanel"
+           style="position:absolute;top:42px;right:0;width:220px;background:#fff;border:1px solid #e5e5e5;border-radius:10px;
+                  box-shadow:0 8px 24px rgba(0,0,0,.12);overflow:hidden;display:none;z-index:1000;">
+        <a href="/bookmarks" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Bookmark</a>
+        <a href="/my-articles" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View My Articles</a>
+        <a href="/analytics" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Analytics</a>
+        <a href="/profile" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">Edit Profile</a>
+        <a href="{{ url_for('logout') }}" style="display:block;padding:12px 14px;text-decoration:none;color:#b00020;text-align:center;">Log Out</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Section Tabs (centered) -->
+  <nav class="tabs" style="width:100%;border-bottom:1px solid #e5e5e5;background:#fff;">
+    <div style="max-width:1200px;margin:0 auto;padding:10px 16px;
+                display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;">
+      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">For you</a>
+      <a href="#" class="tab" style="text-decoration:none;color:#0b4da2;background:#e8f2ff;border:1px solid #cfe4ff;padding:6px 10px;border-radius:18px;font-size:0.9rem">Trending</a>
+      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Politics</a>
+      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Sports</a>
+      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Technology</a>
+      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Economic</a>
+      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">AsiaNews</a>
+      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">WorldNews</a>
+    </div>
+  </nav>
+
+  <!-- Page Layout -->
+  <main class="layout" style="display:flex;gap:20px;align-items:flex-start;padding:18px;max-width:1200px;margin:0 auto;">
+
+    <!-- LEFT: Articles -->
+    <section class="feed" style="flex:1;display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Article 1 -->
+      <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
+        <div style="flex:1;min-width:0;">
+          <a href="article1" style="color:#000;text-decoration:none;">
+            <h2>Circle Line disruption: Service between Marina Bay and Promenade stations has resumed</h2>
+          </a>
+          <p> A train fault on the Circle Line resulted in no train services
+            between Marina Bay and Promenade for about 35 minutes on Monday
+            (Sept 1) morning. Rail operator SMRT announced the disruption on
+            social media at 8.41am. It said then that free regular bus
+            services was available between Marina Bay and Promenade MRT
+            stations. In an update at 9.18am, SMRT said train services resumed
+            its scheduled operations at about 9.10am. President of SMRT Trains
+            Lam Sheau Kai said the train fault occurred at about 8.35am, and
+            staff were immediately deployed to rectify the fault. He said the
+            affected train was moved towards the overrun tracks to clear the
+            line, and train services are resuming. "We apologise for the
+            disruption during the morning peak commute and sincerely
+            appreciate your patience and understanding," Lam said. Previous
+            disruptions This is the latest incident in a recent series of
+            train disruptions across Singapore's MRT and LRT networks. Most
+            recently, a signalling fault on the Downtown Line, which is
+            managed by SBS Transit, delayed train services between Bukit
+            Panjang and Beauty World MRT stations on Aug 28.</p>
+        </div>
+        <a href="article1" style="flex:0 0 320px;display:block;">
+          <img src="../static/img/SMRT.webp" alt="Smrt thumbnail"
+               style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        </a>
+      </article>
+
+      <!-- Article 2 -->
+      <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
+        <div style="flex:1;min-width:0;">
+          <a href="article2" style="color:#000;text-decoration:none;">
+            <h3>Woman charged over possessing almost 200 etomidate-laced vapes, buying another 50</h3>
+          </a>
+          <p>SAY NO TO VAPE/KPOD</p>
+          <p>SINGAPORE – A woman was charged over possessing 195
+            etomidate-laced vapes, or Kpods, and buying another 50 such pods
+            on separate occasions in 2024. On Sept 4, Law Jia Yi, 23, was
+            handed five charges in relation to vapes. She was also charged
+            over possessing a knife with a 20cm-long blade, a card knife and a
+            screwdriver without lawful purposes in August 2024 at a carpark in
+            Yishun.</p>
+        </div>
+        <a href="article2" style="flex:0 0 320px;display:block;">
+          <img src="../static/img/kpods.png" alt="Kpods thumbnail"
+               style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        </a>
+      </article>
+
+      <!-- Article 3 -->
+      <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
+        <div style="flex:1;min-width:0;">
+          <a href="article3" style="color:#000;text-decoration:none;">
+            <h3>Jail for money mule who was promised $100 a day to withdraw cash for scammers</h3>
+          </a>
+          <p>
+            SINGAPORE – A financially strapped man withdrew scam proceeds in cash from ATMs to earn $100 a day so that he could buy diapers and
+            milk powder for his newborn child. Yves Quah Jun Boon, 24, was sentenced to eight months’ jail on Sept 5 after he withdrew more than
+            $150,000 from various ATMs in one day in June 2023. He pleaded guilty to money laundering and a charge under the Computer Misuse Act.
+            Deputy Public Prosecutor Tan Jing Min said Quah often confided in his primary school friend, identified in court documents as Wei Jian,
+            about his financial struggles – he needed money to pay for the needs of his newborn child.
+          </p>
+        </div>
+        <a href="article3" style="flex:0 0 320px;display:block;">
+          <img src="{{ url_for('static', filename='img/scam.jpg') }}" alt="Scam case"
+               style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        </a>
+      </article>
+
+      <!-- Article 4 -->
+      <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
+        <div style="flex:1;min-width:0;">
+          <a href="article4" style="color:#000;text-decoration:none;">
+            <h3>Fire breaks out at Chai Chee Avenue HDB block; 4 taken to hospital, 50 residents evacuated</h3>
+          </a>
+          <p>
+            SINGAPORE – A fire broke out at an HDB block in Chai Chee Avenue on Sept 5, resulting in four people being
+            taken to hospital and prompting the evacuation of about 50 residents.
+            The Singapore Civil Defence Force (SCDF) said it was alerted to a fire at Block 31 Chai Chee Avenue at about 11.05pm.
+            “The living room of an eighth-floor unit was on fire,” SCDF added.
+          </p>
+        </div>
+        <a href="article4" style="flex:0 0 320px;display:block;">
+          <img src="{{ url_for('static', filename='img/fire.jpeg') }}" alt="Fire incident"
+               style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        </a>
+      </article>
+    </section>
+
+    <!-- RIGHT: Sidebar -->
+    <aside class="sidebar" style="flex:0 0 320px;display:flex;flex-direction:column;gap:16px;">
+      <a class="cta" href="article1"
+         style="display:block;text-align:center;padding:12px 14px;border-radius:10px;background:#0a66c2;color:#fff;text-decoration:none;font-weight:600;">
+        + Create Your Story
+      </a>
+      <div class="ads"
+           style="height:380px;background:#f1f1f1;border:1px dashed #cfcfcf;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#999;font-size:1.1rem;">
+        <span>Ads</span>
+      </div>
+    </aside>
+  </main>
+
+  <!-- JS for menu toggle -->
+  <script>
+    (function() {
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      function closePanel() { panel.style.display = 'none'; }
+      function togglePanel() {
+        panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+      }
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation(); togglePanel();
+      });
+      document.addEventListener('click', function(e) {
+        if (!panel.contains(e.target) && e.target !== btn) { closePanel(); }
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closePanel();
+      });
+    })();
+  </script>
+</body>
+</html>
