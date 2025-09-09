@@ -18,7 +18,7 @@ def get_db_connection():
 
 @app.route("/")
 def home():
-    return render_template("index.php")  # This loads your HTML file
+    return render_template("index.html")  # This loads your HTML file
 
 @app.route("/article1")
 def article1():
@@ -39,6 +39,10 @@ def article4():
 @app.route("/adminHomepage")
 def adminHomepage():
     return render_template("adminHomepage.html")  # This loads your HTML file
+
+@app.route("/modHomepage")
+def modHomepage():
+    return render_template("modHomepage.html")  # This loads your HTML file
 
 @app.route("/login", methods=["GET", "POST"])
 def login():

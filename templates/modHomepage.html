@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoPress Dashboard</title>
+    <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>EchoPress</h2>
+        <a href="#">Dashboard</a>
+        <a href="#">Flagged Articles</a>
+        <a href="#">Flagged Comments</a>
+        <a href="#">Pending Articles</a>
+        <a href="#">Manage Categories</a>
+        <a href="#">Manage Users</a>
+        <a href="#">Setting</a>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <!-- Top bar -->
+        <div class="topbar">
+            <h1>Moderator's Dashboard</h1>
+            <div class="admin-menu">
+                <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
+                <div class="dropdown" id="admin-dropdown">
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Pending Tasks</h2>
+            <div class="cards">
+                <div class="card">
+                    <h3>4</h3>
+                    <p>Review Flagged Articles</p>
+                </div>
+                <div class="card">
+                    <h3>3</h3>
+                    <p>Review Flagged Comments</p>
+                </div>
+                <div class="card">
+                    <h3>7</h3>
+                    <p>Article Pending Approval</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleDropdown() {
+            document.getElementById("admin-dropdown").style.display =
+                document.getElementById("admin-dropdown").style.display === "block"
+                    ? "none"
+                    : "block";
+        }
+
+        function toggleReports() {
+            const submenu = document.getElementById("reports-submenu");
+            submenu.style.display = submenu.style.display === "flex" ? "none" : "flex";
+        }
+
+        // Close dropdown if clicked outside
+        window.onclick = function (event) {
+            if (!event.target.matches('.admin-btn')) {
+                document.getElementById("admin-dropdown").style.display = "none";
+            }
+        }
+    </script>
+</body>
+
+</html>
