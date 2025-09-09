@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
+from functools import wraps
 import webbrowser
 import threading
 import mysql.connector
@@ -15,6 +16,22 @@ def get_db_connection():
         database="nrs"
     )
 
+def login_required(user_type):
+    """
+    Decorator to protect routes based on login and user type.
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if "userID" not in session:
+                flash("Please log in first.")
+                return redirect(url_for("login"))
+            if session.get("usertype") != user_type:
+                flash("Access denied.")
+                return redirect(url_for("login"))
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 @app.route("/")
 def home():
@@ -37,12 +54,24 @@ def article4():
     return render_template("article4.html")  # This loads your HTML file
 
 @app.route("/adminHomepage")
+@login_required("Admin")
 def adminHomepage():
     return render_template("adminHomepage.html")  # This loads your HTML file
 
 @app.route("/modHomepage")
+@login_required("Moderator")
 def modHomepage():
     return render_template("modHomepage.html")  # This loads your HTML file
+
+@app.route("/subscriberHomepage")
+@login_required("Subscriber")
+def subscriberHomepage():
+    return render_template("subscriberHomepage.html")
+
+@app.route("/authorHomepage")
+@login_required("Author")
+def authorHomepage():
+    return render_template("authorHomepage.html")
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -58,13 +87,31 @@ def login():
         cursor.close()
         conn.close()
 
-        if user and user["password"] == password:
-            session["user"] = user["name"]   # store username in session
-            return redirect(url_for("home"))
+        if user:
+            # Plain text password (for now, not recommended)
+            if password == user["password"]:
+                session["userID"] = user["userID"]
+                session["usertype"] = user["usertype"]  # store usertype in session
+
+                # Role-based redirects
+                if user["usertype"] == "Admin":
+                    return redirect(url_for("adminHomepage"))
+                elif user["usertype"] == "Moderator":
+                    return redirect(url_for("modHomepage"))
+                elif user["usertype"] == "Subscriber":
+                    return redirect(url_for("subscriberHomepage"))  # make this route
+                elif user["usertype"] == "Author":
+                    return redirect(url_for("authorHomepage"))  # make this route
+                else:
+                    flash("Invalid user type.")
+                    return redirect(url_for("login"))
+            else:
+                flash("Incorrect password.")
         else:
-            return "Invalid email or password!"
+            flash("User not found.")
 
     return render_template("login.html")
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -97,7 +144,8 @@ def register():
 
 @app.route("/logout")
 def logout():
-    session.pop("users", None)
+    session.clear()  # removes all session data
+    flash("You have been logged out.")
     return redirect(url_for("home"))
 
 def open_browser():
