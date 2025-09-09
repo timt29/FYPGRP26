@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoPress Dashboard</title>
+    <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>EchoPress</h2>
+        <a href="#">Dashboard</a>
+        <a href="#">Search Account</a>
+        <a href="#">Create User Account</a>
+        <a href="#">Update User Account</a>
+        <a href="#">View All User</a>
+        <a href="#">Suspend / Reactivate</a>
+        <a href="#">Delete User Account</a>
+        <button onclick="toggleReports()">Reports ▸</button>
+        <div class="submenu" id="reports-submenu">
+            <a href="#">Monthly Report</a>
+            <a href="#">Yearly Report</a>
+        </div>
+        <a href="#">Setting</a>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <!-- Top bar -->
+        <div class="topbar">
+            <h1>Dashboard</h1>
+            <div class="admin-menu">
+                <button class="admin-btn" onclick="toggleDropdown()">Admin ▼</button>
+                <div class="dropdown" id="admin-dropdown">
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Total Users</h2>
+            <div class="cards">
+                <div class="card">
+                    <h3>30</h3>
+                    <p>Total Users</p>
+                </div>
+                <div class="card">
+                    <h3>1</h3>
+                    <p>New Users Today</p>
+                </div>
+                <div class="card">
+                    <h3>7</h3>
+                    <p>Suspended Users</p>
+                </div>
+                <div class="card">
+                    <h3>22</h3>
+                    <p>Active Users</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleDropdown() {
+            document.getElementById("admin-dropdown").style.display =
+                document.getElementById("admin-dropdown").style.display === "block"
+                    ? "none"
+                    : "block";
+        }
+
+        function toggleReports() {
+            const submenu = document.getElementById("reports-submenu");
+            submenu.style.display = submenu.style.display === "flex" ? "none" : "flex";
+        }
+
+        // Close dropdown if clicked outside
+        window.onclick = function (event) {
+            if (!event.target.matches('.admin-btn')) {
+                document.getElementById("admin-dropdown").style.display = "none";
+            }
+        }
+    </script>
+</body>
+
+</html>

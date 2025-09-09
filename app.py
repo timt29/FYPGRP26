@@ -36,6 +36,10 @@ def article3():
 def article4():
     return render_template("article4.html")  # This loads your HTML file
 
+@app.route("/adminHomepage")
+def adminHomepage():
+    return render_template("adminHomepage.html")  # This loads your HTML file
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
