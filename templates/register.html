@@ -17,29 +17,46 @@
     </div>
   </header>
 
-  <!-- Registration Form -->
-  <main class="form-container">
-    <h2>Create Your Account</h2>
-    <form method="POST" action="/register">
-      <label for="name">Full Name</label>
-      <input type="text" id="name" name="name" required />
+  <!-- Content -->
+  <div class="container">
+    <!-- Left Welcome Section -->
+    <div class="welcome">
+      <h1>Welcome</h1>
+      <p>
+        to your publishing hub - where your voice drives conversations,
+        your stories inspire change, and your presence shape the narrative.
+        Register now and be part of our community!
+      </p>
+      <div class="social-icons">
+        <span></span><span></span><span></span><span></span>
+      </div>
+    </div>
 
-      <label for="email">Email</label>
-      <input type="email" id="email" name="email" required />
+    <!-- Right Registration Form -->
+    <div class="register-box">
+      <h2>Register Now</h2>
+      <form method="POST" action="/register">
+        <label for="name">Name</label>
+        <input type="text" id="name" name="name" required />
 
-      <label for="password">Password</label>
-      <input type="password" id="password" name="password" required />
+        <label for="email">Email Address</label>
+        <input type="email" id="email" name="email" required />
 
-      <label for="confirm_password">Confirm Password</label>
-      <input type="password" id="confirm_password" name="confirm_password" required />
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required />
 
-      <button type="submit" class="btn">Register</button>
-    </form>
-
-    <p>Already have an account? <a href="/login">Sign In</a></p>
-  </main>
+        <div class="form-bottom">
+          <div class="remember">
+            <input type="checkbox" id="remember" name="remember" />
+            <label for="remember">Remember Me</label>
+          </div>
+          
+          <button type="submit">Register</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </body>
-
 </html>
 
 

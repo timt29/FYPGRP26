@@ -183,3 +183,157 @@ p {
   font-size: 2rem;  /* Adjust size to your preference */
   text-align: center;
 }
+
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 30px;
+  border-bottom: 1px solid #ddd;
+}
+.logo {
+  font-size: 20px;
+  font-weight: bold;
+  text-decoration: none;
+  color: #000;
+}
+.signin {
+  text-decoration: none;
+  border: 1px solid #333;
+  padding: 5px 15px;
+  border-radius: 3px;
+  color: #000;
+}
+
+/* Layout */
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 80vh;
+  gap: 50px;
+  padding: 40px;
+}
+
+/* Left welcome text */
+.welcome {
+  flex: 1;
+  max-width: 500px; /* constrains width so text wraps nicely */
+  text-align: center; /* centers text */
+}
+.welcome h1 {
+  font-size: 32px;
+  margin-bottom: 20px;
+}
+.welcome p {
+  font-size: 16px;
+  color: #555;
+  line-height: 1.5;
+  max-width: 400px; /* Adjust width as needed */
+  word-wrap: break-word;
+}
+.social-icons {
+  margin-top: 20px;
+}
+.social-icons span {
+  display: inline-block;
+  width: 25px;
+  height: 25px;
+  margin-right: 10px;
+  background: #ccc; /* placeholder circles */
+  border-radius: 50%;
+}
+
+/* Right form */
+.register-box {
+  flex: 1;
+  max-width: 400px;
+  background: #f9f9f9;
+  padding: 30px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.register-box h2 {
+  margin-bottom: 20px;
+}
+.register-box label {
+  display: block;
+  margin-top: 10px;
+  font-weight: bold;
+  font-size: 14px;
+}
+.register-box input[type="text"],
+.register-box input[type="email"],
+.register-box input[type="password"] {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+.register-box .remember {
+  margin-top: 15px;
+}
+.register-box button {
+  margin-top: 20px;
+  padding: 10px 20px;
+  border: none;
+  background: #333;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.register-box button:hover {
+  background: #555;
+}
+
+.form-bottom {
+  display: flex;
+  justify-content: space-between; /* pushes checkbox left, button right */
+  align-items: center;
+  margin-top: 15px; /* spacing below password */
+}
+
+.form-bottom .remember {
+  display: flex;
+  align-items: center;
+}
+
+.form-bottom button {
+  margin-top: 0; /* remove previous margin if any */
+}
+
+.form-links {
+  margin-top: 15px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.form-links p {
+  margin: 8px 0;
+}
+
+.form-links a {
+  color: #333;
+  text-decoration: underline;
+}
+
+.separator {
+  border-top: 1px solid #ccc;
+  line-height: 0.1em;
+  margin: 10px 0;
+}
+
+.separator::before {
+  content: "Or";
+  background: #f9f9f9; /* same as form background */
+  padding: 0 10px;
+  color: #555;
+}
