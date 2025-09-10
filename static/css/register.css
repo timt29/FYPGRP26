@@ -56,9 +56,14 @@ body {
 /* Left welcome text */
 .welcome {
   flex: 1;
-  max-width: 500px; /* constrains width so text wraps nicely */
-  text-align: center; /* centers text */
+  max-width: 500px;
+  display: flex;            /* make it a flex container */
+  flex-direction: column;   /* stack children vertically */
+  justify-content: center;  /* vertical centering */
+  align-items: center;      /* horizontal centering */
+  text-align: center;       /* text is centered */
 }
+
 .welcome h1 {
   font-size: 32px;
   margin-bottom: 20px;
@@ -67,7 +72,7 @@ body {
   font-size: 16px;
   color: #555;
   line-height: 1.5;
-  max-width: 400px; /* Adjust width as needed */
+  max-width: 360px; /* Adjust width as needed */
   word-wrap: break-word;
 }
 .social-icons {
@@ -127,18 +132,25 @@ body {
 
 .form-bottom {
   display: flex;
-  justify-content: space-between; /* pushes checkbox left, button right */
-  align-items: center;
-  margin-top: 15px; /* spacing below password */
+  flex-direction: column; 
+  align-items: flex-start; 
+  margin-top: 15px;
+  gap: 10px; /* spacing between checkbox and button */
 }
 
 .form-bottom .remember {
   display: flex;
-  align-items: center;
+  align-items: center;  /* center checkbox and label */
+  gap: 5px;
+}
+
+.form-bottom .remember input[type="checkbox"] {
+  vertical-align: middle;
+  margin: 0;
 }
 
 .form-bottom button {
-  margin-top: 0; /* remove previous margin if any */
+  align-self: flex-end; /* push register button to right */
 }
 
 .form-links {
@@ -167,4 +179,23 @@ body {
   background: #f9f9f9; /* same as form background */
   padding: 0 10px;
   color: #555;
+}
+
+.social-icons {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px; /* space between icons */
+  justify-content: center; /* center horizontally */
+}
+
+.social-icons img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  border-radius: 50%; /* optional: makes them circular */
+  transition: transform 0.2s;
+}
+
+.social-icons img:hover {
+  transform: scale(1.1); /* small hover effect */
 }
