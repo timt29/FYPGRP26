@@ -131,27 +131,27 @@ body {
 }
 
 .form-bottom {
-  display: flex;
-  flex-direction: column; 
-  align-items: flex-start; 
+  display: flex;             /* horizontal layout */
+  align-items: center;       /* vertically center checkbox + label + button */
+  justify-content: space-between; /* space between checkbox+label and button */
   margin-top: 15px;
-  gap: 10px; /* spacing between checkbox and button */
+  gap: 10px;                 /* optional spacing */
 }
 
 .form-bottom .remember {
   display: flex;
-  align-items: center;  /* center checkbox and label */
-  gap: 5px;
+  align-items: center;       /* center checkbox and label vertically */
+  gap: 5px;                  /* space between checkbox and label */
 }
 
 .form-bottom .remember input[type="checkbox"] {
-  vertical-align: middle;
   margin: 0;
 }
 
 .form-bottom button {
-  align-self: flex-end; /* push register button to right */
+  margin: 0;                 /* remove top margin */
 }
+
 
 .form-links {
   margin-top: 15px;

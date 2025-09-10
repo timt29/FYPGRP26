@@ -372,6 +372,43 @@ def toggle_suspend():
 
     return redirect(url_for("manage_users"))
 
+# Forgot Password page
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "POST":
+        email = request.form["email"]
+        new_password = request.form["new_password"]
+        confirm_password = request.form["confirm_password"]
+
+        if new_password != confirm_password:
+            flash("Passwords do not match.")
+            return redirect(url_for("forgot_password"))
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+
+        if user:
+
+            cursor.execute(
+                "UPDATE users SET password = %s WHERE email = %s",
+                (new_password, email)
+            )
+            conn.commit()
+            flash("Password has been reset. Please login with the new password.")
+            cursor.close()
+            conn.close()
+            return redirect(url_for("login"))
+        else:
+            flash("Email not found.")
+            cursor.close()
+            conn.close()
+            return redirect(url_for("forgot_password"))
+
+    return render_template("forgot_password.html")
+
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
 
