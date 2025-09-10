@@ -66,7 +66,18 @@ def modHomepage():
 @app.route("/subscriberHomepage")
 @login_required("Subscriber")
 def subscriberHomepage():
-    return render_template("subscriberHomepage.html")
+    if "userID" not in session or session.get("usertype") != "Subscriber":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT message, created_at FROM warnings WHERE userID = %s", (session["userID"],))
+    warnings = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template("subscriberHomepage.html", warnings=warnings)
 
 @app.route("/subscriberArticle1")
 @login_required("Subscriber")
@@ -213,6 +224,12 @@ def login():
         if user:
             # Plain text password (for now, not recommended)
             if password == user["password"]:
+                # 🚨 Check for suspension BEFORE setting session
+                if user["usertype"].lower() == "suspended":
+                    flash("Your account has been suspended. Please contact support.")
+                    return redirect(url_for("login"))
+
+                # ✅ Only set session if not suspended
                 session["userID"] = user["userID"]
                 session["usertype"] = user["usertype"]  # store usertype in session
                 session["user"] = user["name"]
@@ -223,9 +240,9 @@ def login():
                 elif user["usertype"] == "Moderator":
                     return redirect(url_for("modHomepage"))
                 elif user["usertype"] == "Subscriber":
-                    return redirect(url_for("subscriberHomepage"))  # make this route
+                    return redirect(url_for("subscriberHomepage"))  
                 elif user["usertype"] == "Author":
-                    return redirect(url_for("authorHomepage"))  # make this route
+                    return redirect(url_for("authorHomepage"))  
                 else:
                     flash("Invalid user type.")
                     return redirect(url_for("login"))
@@ -243,18 +260,14 @@ def register():
         name = request.form["name"]
         email = request.form["email"]
         password = request.form["password"]
-        confirm_password = request.form["confirm_password"]
-
-        if password != confirm_password:
-            return "Passwords do not match!"
 
         conn = get_db_connection()
         cursor = conn.cursor()
 
         try:
             cursor.execute(
-                "INSERT INTO users (name, email, password) VALUES (%s, %s, %s)",
-                (name, email, password),
+            "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
+            (name, email, password, "Subscriber")  # <-- force subscriber
             )
             conn.commit()
             return redirect(url_for("login"))
@@ -271,6 +284,93 @@ def logout():
     session.clear()  # removes all session data
     flash("You have been logged out.")
     return redirect(url_for("home"))
+
+@app.route("/manageUsers")
+def manage_users():
+    if "userID" not in session or session.get("usertype") != "Moderator":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Only fetch subscribers and authors
+    cursor.execute("""
+        SELECT userID, name, email, usertype 
+        FROM users 
+        WHERE usertype IN ('Subscriber', 'Author', 'Suspended')
+    """)
+    users = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template("manageUsers.html", users=users)
+
+@app.route("/warnUser", methods=["POST"])
+def warn_user():
+    if "userID" not in session or session.get("usertype") != "Moderator":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    warned_user_id = request.form.get("userID")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Insert a warning message (you can customize the text later)
+    warning_message = "You have received a warning from the moderator."
+    cursor.execute(
+        "INSERT INTO warnings (userID, message) VALUES (%s, %s)",
+        (warned_user_id, warning_message)
+    )
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    flash("Warning sent successfully!")
+    return redirect(url_for("manage_users"))
+
+@app.route("/toggleSuspend", methods=["POST"])
+def toggle_suspend():
+    if "userID" not in session or session.get("usertype") != "Moderator":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    user_id = request.form["userID"]
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Get the current usertype
+    cursor.execute("SELECT usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
+    user = cursor.fetchone()
+
+    if user:
+        if user["usertype"] == "Suspended":
+            # Unsuspend: restore previous_usertype
+            restored_type = user["previous_usertype"] if user["previous_usertype"] else "Subscriber"
+            cursor.execute("""
+                UPDATE users 
+                SET usertype = %s, previous_usertype = NULL
+                WHERE userID = %s
+            """, (restored_type, user_id))
+            flash(f"User {user_id} has been unsuspended.")
+        else:
+            # Suspend: save current usertype to previous_usertype
+            cursor.execute("""
+                UPDATE users 
+                SET previous_usertype = usertype, usertype = 'Suspended'
+                WHERE userID = %s
+            """, (user_id,))
+            flash(f"User {user_id} has been suspended.")
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+    return redirect(url_for("manage_users"))
 
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")

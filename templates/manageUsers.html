@@ -1,0 +1,106 @@
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users - EchoPress</title>
+    <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+    </head>
+
+    <body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>EchoPress</h2>
+        <a href="/modHomepage">Dashboard</a>
+        <a href="#">Flagged Articles</a>
+        <a href="#">Flagged Comments</a>
+        <a href="#">Pending Articles</a>
+        <a href="#">Manage Categories</a>
+        <a href="/manageUsers" class="active">Manage Users</a>
+        <a href="#">Setting</a>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <!-- Top bar -->
+        <div class="topbar">
+        <h1>Moderator's Dashboard</h1>
+        <div class="admin-menu">
+            <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
+            <div class="dropdown" id="admin-dropdown">
+            <a href="/logout">Logout</a>
+            </div>
+        </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+        <h2>Manage Users</h2>
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="flash-messages">
+            {% for message in messages %}
+                <div class="flash">{{ message }}</div>
+            {% endfor %}
+            </div>
+        {% endif %}
+        {% endwith %}
+        <table class="users-table">
+            <thead>
+            <tr>
+                <th>User ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Usertype</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.userID }}</td>
+                <td>{{ user.name }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.usertype }}</td>
+                <td>
+                <form method="POST" action="/warnUser" style="display:inline;">
+                    <input type="hidden" name="userID" value="{{ user.userID }}">
+                    <button type="submit" class="btn">Warning</button>
+                </form>
+
+                <form method="POST" action="/toggleSuspend" style="display:inline;">
+                    <input type="hidden" name="userID" value="{{ user.userID }}">
+                    {% if user.usertype == "Suspended" %}
+                    <button type="submit" class="btn unsuspend">Unsuspend</button>
+                    {% else %}
+                    <button type="submit" class="btn delete">Suspend</button>
+                    {% endif %}
+                </form>
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+
+    <script>
+        function toggleDropdown() {
+        document.getElementById("admin-dropdown").style.display =
+            document.getElementById("admin-dropdown").style.display === "block"
+            ? "none"
+            : "block";
+        }
+
+        // Close dropdown if clicked outside
+        window.onclick = function (event) {
+        if (!event.target.matches('.admin-btn')) {
+            document.getElementById("admin-dropdown").style.display = "none";
+        }
+        }
+    </script>
+    </body>
+
+    </html>

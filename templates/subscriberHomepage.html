@@ -74,6 +74,18 @@
     <!-- LEFT: Articles -->
     <section class="feed" style="flex:1;display:flex;flex-direction:column;gap:16px;">
 
+      {% if warnings %}
+        <div style="background:#fff3cd;color:#856404;border:1px solid #ffeeba;
+                    border-radius:8px;padding:12px 16px;margin-bottom:16px;">
+          <h3 style="margin-top:0;">⚠️ Your Warnings</h3>
+          <ul style="margin:0;padding-left:20px;">
+            {% for w in warnings %}
+              <li>{{ w.created_at }} — {{ w.message }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
       <!-- Article 1 -->
       <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
         <div style="flex:1;min-width:0;">
