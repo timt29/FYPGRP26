@@ -27,10 +27,11 @@ CREATE TABLE `users` (
   `name` varchar(100) NOT NULL,
   `email` varchar(150) NOT NULL,
   `password` varchar(255) NOT NULL,
-  `usertype` enum('Admin','Moderator','Subscriber','Author') NOT NULL,
+  `usertype` enum('Admin','Moderator','Subscriber','Author','Suspended') NOT NULL,
+  `previous_usertype` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`userID`),
   UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -39,7 +40,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'Alice','alice@example.com','test','Admin'),(2,'Mike','mike@example.com','test','Moderator'),(3,'Sam','sam@example.com','test','Subscriber'),(4,'Amy','amy@example.com','test','Author');
+INSERT INTO `users` VALUES (1,'Alice','alice@example.com','test','Admin',NULL),(2,'Mike','mike@example.com','test','Moderator',NULL),(3,'Sam','sam@example.com','test','Subscriber',NULL),(4,'Amy','amy@example.com','test','Author',NULL),(5,'Tim','tim@example.com','test','Suspended','Subscriber');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -52,4 +53,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-09-09 20:40:53
+-- Dump completed on 2025-09-11  0:47:16
