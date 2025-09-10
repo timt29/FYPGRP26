@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Create User Account - EchoPress</title>
+  <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+</head>
+
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>EchoPress</h2>
+    <a href="/adminHomepage">Dashboard</a>
+    <a href="/searchAccount">Search Account</a>
+    <a href="/createUser" class="active">Create User Account</a>
+    <a href="/updateUser">Update User Account</a>
+    <a href="/viewAllUsers">View All User</a>
+    <a href="#">Suspend / Reactivate</a>
+    <a href="#">Delete User Account</a>
+    <button onclick="toggleReports()">Reports ▸</button>
+    <div class="submenu" id="reports-submenu">
+      <a href="#">New Users</a>
+      <a href="#">Article Submissions</a>
+      <a href="#">Log in Activity</a>
+    </div>
+    <a href="#">Setting</a>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Top bar -->
+    <div class="topbar">
+      <h1>Create User Account</h1>
+      <div class="admin-menu">
+        <button class="admin-btn" onclick="toggleDropdown()">Admin ▼</button>
+        <div class="dropdown" id="admin-dropdown">
+          <a href="/logout">Logout</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <h2>Create a New User</h2>
+
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="flash-messages">
+            {% for msg in messages %}
+              <p style="color:red;">{{ msg }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="/createUser">
+        <table class="form-table">
+            <tr>
+            <td><label for="name">Name</label></td>
+            <td><input type="text" id="name" name="name" required /></td>
+            </tr>
+
+            <tr>
+            <td><label for="email">Email</label></td>
+            <td><input type="email" id="email" name="email" required /></td>
+            </tr>
+
+            <tr>
+            <td><label for="password">Password</label></td>
+            <td><input type="password" id="password" name="password" required /></td>
+            </tr>
+
+            <tr>
+            <td><label for="confirm_password">Confirm Password</label></td>
+            <td><input type="password" id="confirm_password" name="confirm_password" required /></td>
+            </tr>
+
+            <tr>
+            <td><label for="usertype">Role</label></td>
+            <td>
+                <select id="usertype" name="usertype" required>
+                <option value="">-- Select Role --</option>
+                <option value="Author">Author</option>
+                <option value="Moderator">Moderator</option>
+                <option value="Admin">Admin</option>
+                </select>
+            </td>
+            </tr>
+
+            <tr>
+            <td colspan="2" style="text-align: center; padding-top: 15px;">
+                <button type="submit">Create User</button>
+            </td>
+            </tr>
+        </table>
+        </form>
+    </div>
+  </div>
+
+  <script>
+    function toggleDropdown() {
+      document.getElementById("admin-dropdown").style.display =
+        document.getElementById("admin-dropdown").style.display === "block"
+          ? "none"
+          : "block";
+    }
+
+    function toggleReports() {
+      const submenu = document.getElementById("reports-submenu");
+      submenu.style.display = submenu.style.display === "flex" ? "none" : "flex";
+    }
+
+    window.onclick = function (event) {
+      if (!event.target.matches('.admin-btn')) {
+        document.getElementById("admin-dropdown").style.display = "none";
+      }
+    }
+  </script>
+</body>
+</html>

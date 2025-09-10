@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Search Account - EchoPress</title>
+  <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+</head>
+
+<body>
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h2>EchoPress</h2>
+    <a href="/adminHomepage">Dashboard</a>
+    <a href="/searchAccount" class="active">Search Account</a>
+    <a href="/createUser">Create User Account</a>
+    <a href="/updateUser">Update User Account</a>
+    <a href="/viewAllUsers">View All User</a>
+    <a href="#">Suspend / Reactivate</a>
+    <a href="#">Delete User Account</a>
+    <button onclick="toggleReports()">Reports ▸</button>
+    <div class="submenu" id="reports-submenu">
+      <a href="#">New Users</a>
+      <a href="#">Article Submissions</a>
+      <a href="#">Log in Activity</a>
+    </div>
+    <a href="#">Setting</a>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Top bar -->
+    <div class="topbar">
+      <h1>Admin - Search Account</h1>
+      <div class="admin-menu">
+        <button class="admin-btn" onclick="toggleDropdown()">Admin ▼</button>
+        <div class="dropdown" id="admin-dropdown">
+          <a href="/logout">Logout</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+      <h2>Search for a User</h2>
+      <form method="POST" action="/searchAccount">
+        <input type="text" name="search_term" placeholder="Enter name or email" value="{{ search_term }}" required />
+        <button type="submit">Search</button>
+      </form>
+
+      {% if users %}
+      <h3>Results:</h3>
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>User Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+          <tr>
+            <td>{{ user.userID }}</td>
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.usertype }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% elif search_term %}
+      <p>No users found for "{{ search_term }}".</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <script>
+    function toggleDropdown() {
+      document.getElementById("admin-dropdown").style.display =
+        document.getElementById("admin-dropdown").style.display === "block"
+          ? "none"
+          : "block";
+    }
+
+    function toggleReports() {
+      const submenu = document.getElementById("reports-submenu");
+      submenu.style.display = submenu.style.display === "flex" ? "none" : "flex";
+    }
+
+    // Close dropdown if clicked outside
+    window.onclick = function (event) {
+      if (!event.target.matches('.admin-btn')) {
+        document.getElementById("admin-dropdown").style.display = "none";
+      }
+    }
+  </script>
+</body>
+
+</html>

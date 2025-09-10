@@ -409,6 +409,122 @@ def forgot_password():
 
     return render_template("forgot_password.html")
 
+@app.route("/viewAllUsers")
+def view_all_users():
+    if "userID" not in session or session.get("usertype") != "Admin":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT userID, name, email, usertype FROM users")
+    users = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template("viewAllUsers.html", users=users)
+
+@app.route("/searchAccount", methods=["GET", "POST"])
+def search_account():
+    if "userID" not in session or session.get("usertype") != "Admin":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    users = []
+    search_term = ""
+
+    if request.method == "POST":
+        search_term = request.form["search_term"]
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT userID, name, email, usertype 
+            FROM users 
+            WHERE name LIKE %s OR email LIKE %s
+        """, (f"%{search_term}%", f"%{search_term}%"))
+        users = cursor.fetchall()
+        cursor.close()
+        conn.close()
+
+    return render_template("searchAccount.html", users=users, search_term=search_term)
+
+@app.route("/createUser", methods=["GET", "POST"])
+def create_user():
+    if "userID" not in session or session.get("usertype") != "Admin":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        name = request.form["name"]
+        email = request.form["email"]
+        password = request.form["password"]
+        confirm_password = request.form["confirm_password"]
+        usertype = request.form["usertype"]
+
+        if password != confirm_password:
+            flash("Passwords do not match.")
+            return redirect(url_for("create_user"))
+
+        # Insert into DB
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
+            (name, email, password, usertype)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash("User created successfully!")
+        return redirect(url_for("view_all_users"))
+
+    return render_template("createUser.html")
+
+@app.route("/updateUser", methods=["GET", "POST"])
+def update_user():
+    if "userID" not in session or session.get("usertype") != "Admin":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == "POST":
+        user_id = request.form.get("userID")  # hidden field for identifying user
+        name = request.form.get("name")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        confirm_password = request.form.get("confirm_password")
+        usertype = request.form.get("usertype")
+
+        # validate
+        if password != confirm_password:
+            flash("Passwords do not match.")
+            return redirect(url_for("update_user"))
+
+        # update query
+        cursor.execute("""
+            UPDATE users 
+            SET name = %s, email = %s, password = %s, usertype = %s
+            WHERE userID = %s
+        """, (name, email, password, usertype, user_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash("User updated successfully!")
+        return redirect(url_for("view_all_users"))  # go back to user list
+
+    # If GET, show all users in dropdown to select one
+    cursor.execute("SELECT userID, name, email, usertype FROM users")
+    users = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template("updateUser.html", users=users)
+
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
 
