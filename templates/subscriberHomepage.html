@@ -95,60 +95,51 @@
       <!-- Article 2 -->
       <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
         <div style="flex:1;min-width:0;">
-          <a href="subscriberArticle2.html" style="color:#000;text-decoration:none;">
+          <a href="{{ url_for('subscriberArticle2') }}" style="color:#000;text-decoration:none;">
             <h3>Woman charged over possessing almost 200 etomidate-laced vapes, buying another 50</h3>
           </a>
           <p>SAY NO TO VAPE/KPOD</p>
           <p>SINGAPORE – A woman was charged over possessing 195
             etomidate-laced vapes, or Kpods, and buying another 50 such pods
-            on separate occasions in 2024. On Sept 4, Law Jia Yi, 23, was
-            handed five charges in relation to vapes. She was also charged
-            over possessing a knife with a 20cm-long blade, a card knife and a
-            screwdriver without lawful purposes in August 2024 at a carpark in
-            Yishun.</p>
+            on separate occasions in 2024. On Sept 4...</p>
         </div>
-        <a href="subscriberArticle2.html" style="flex:0 0 320px;display:block;">
-          <img src="../static/img/kpods.png" alt="Kpods thumbnail"
-               style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        <a href="{{ url_for('subscriberArticle2') }}" style="flex:0 0 320px;display:block;">
+          <img src="{{ url_for('static', filename='img/kpods.png') }}" alt="Kpods thumbnail"
+              style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
         </a>
       </article>
 
       <!-- Article 3 -->
       <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
         <div style="flex:1;min-width:0;">
-          <a href="article3" style="color:#000;text-decoration:none;">
+          <a href="{{ url_for('subscriberArticle3') }}" style="color:#000;text-decoration:none;">
             <h3>Jail for money mule who was promised $100 a day to withdraw cash for scammers</h3>
           </a>
           <p>
             SINGAPORE – A financially strapped man withdrew scam proceeds in cash from ATMs to earn $100 a day so that he could buy diapers and
-            milk powder for his newborn child. Yves Quah Jun Boon, 24, was sentenced to eight months’ jail on Sept 5 after he withdrew more than
-            $150,000 from various ATMs in one day in June 2023. He pleaded guilty to money laundering and a charge under the Computer Misuse Act.
-            Deputy Public Prosecutor Tan Jing Min said Quah often confided in his primary school friend, identified in court documents as Wei Jian,
-            about his financial struggles – he needed money to pay for the needs of his newborn child.
+            milk powder for his newborn child....
           </p>
         </div>
-        <a href="article3" style="flex:0 0 320px;display:block;">
+        <a href="{{ url_for('subscriberArticle3') }}" style="flex:0 0 320px;display:block;">
           <img src="{{ url_for('static', filename='img/scam.jpg') }}" alt="Scam case"
-               style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+              style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
         </a>
       </article>
 
       <!-- Article 4 -->
       <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
         <div style="flex:1;min-width:0;">
-          <a href="article4" style="color:#000;text-decoration:none;">
-            <h3>Fire breaks out at Chai Chee Avenue HDB block; 4 taken to hospital, 50 residents evacuated</h3>
+          <a href="{{ url_for('subscriberArticle4') }}" style="color:#000;text-decoration:none;">
+            <h3>Fire breaks out at Tuas industrial building; no injuries reported</h3>
           </a>
           <p>
             SINGAPORE – A fire broke out at an HDB block in Chai Chee Avenue on Sept 5, resulting in four people being
-            taken to hospital and prompting the evacuation of about 50 residents.
-            The Singapore Civil Defence Force (SCDF) said it was alerted to a fire at Block 31 Chai Chee Avenue at about 11.05pm.
-            “The living room of an eighth-floor unit was on fire,” SCDF added.
+            taken to hospital ....
           </p>
         </div>
-        <a href="article4" style="flex:0 0 320px;display:block;">
+        <a href="{{ url_for('subscriberArticle4') }}" style="flex:0 0 320px;display:block;">
           <img src="{{ url_for('static', filename='img/fire.jpeg') }}" alt="Fire incident"
-               style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+              style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
         </a>
       </article>
     </section>
