@@ -68,6 +68,35 @@ def modHomepage():
 def subscriberHomepage():
     return render_template("subscriberHomepage.html")
 
+@app.route("/subscriberArticle1")
+@login_required("Subscriber")
+def subscriberArticle1():
+    article = {
+        "slug": "article1",
+        "title": "Circle Line disruption: Service between Marina Bay and Promenade stations has resumed",
+        "author": "EchoPress Author",
+        "published_at": "1 Sept 2025, 9:10am",
+        "updated_at": "1 Sept 2025, 9:30am",
+        "image_url": url_for("static", filename="img/SMRT.webp"),
+        "paragraphs": [
+            ("A train fault on the Circle Line resulted in no train services between Marina Bay and "
+             "Promenade for about 35 minutes on Monday (Sept 1) morning. Rail operator SMRT announced "
+             "the disruption on social media at 8.41am. It said then that free regular bus services "
+             "was available between Marina Bay and Promenade MRT stations. In an update at 9.18am, "
+             "SMRT said train services resumed its scheduled operations at about 9.10am. President of "
+             "SMRT Trains Lam Sheau Kai said the train fault occurred at about 8.35am, and staff were "
+             "immediately deployed to rectify the fault. He said the affected train was moved towards "
+             "the overrun tracks to clear the line, and train services are resuming. “We apologise for "
+             "the disruption during the morning peak commute and sincerely appreciate your patience and "
+             "understanding,” Lam said. Previous disruptions This is the latest incident in a recent "
+             "series of train disruptions across Singapore's MRT and LRT networks. Most recently, a "
+             "signalling fault on the Downtown Line, which is managed by SBS Transit, delayed train "
+             "services between Bukit Panjang and Beauty World MRT stations on Aug 28.")
+        ],
+    }
+    return render_template("subscriberArticle1.html", article=article)
+
+
 @app.route("/authorHomepage")
 @login_required("Author")
 def authorHomepage():
@@ -92,6 +121,7 @@ def login():
             if password == user["password"]:
                 session["userID"] = user["userID"]
                 session["usertype"] = user["usertype"]  # store usertype in session
+                session["user"] = user["name"]
 
                 # Role-based redirects
                 if user["usertype"] == "Admin":

@@ -29,7 +29,7 @@
     <!-- Right: welcome + menu -->
     <div class="right" style="position:relative;display:flex;align-items:center;gap:12px;">
       <span class="welcome" style="color:#fff;font-size:0.95rem;">
-        Welcome back, {{ session.get('user', 'Subscriber') }}!
+        Welcome, {{ session.get('user', 'Subscriber') }} !
       </span>
 
       <!-- Burger button -->
@@ -77,38 +77,25 @@
       <!-- Article 1 -->
       <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
         <div style="flex:1;min-width:0;">
-          <a href="article1" style="color:#000;text-decoration:none;">
+          <a href="{{ url_for('subscriberArticle1') }}" style="color:#000;text-decoration:none;">
             <h2>Circle Line disruption: Service between Marina Bay and Promenade stations has resumed</h2>
           </a>
-          <p> A train fault on the Circle Line resulted in no train services
-            between Marina Bay and Promenade for about 35 minutes on Monday
-            (Sept 1) morning. Rail operator SMRT announced the disruption on
-            social media at 8.41am. It said then that free regular bus
-            services was available between Marina Bay and Promenade MRT
-            stations. In an update at 9.18am, SMRT said train services resumed
-            its scheduled operations at about 9.10am. President of SMRT Trains
-            Lam Sheau Kai said the train fault occurred at about 8.35am, and
-            staff were immediately deployed to rectify the fault. He said the
-            affected train was moved towards the overrun tracks to clear the
-            line, and train services are resuming. "We apologise for the
-            disruption during the morning peak commute and sincerely
-            appreciate your patience and understanding," Lam said. Previous
-            disruptions This is the latest incident in a recent series of
-            train disruptions across Singapore's MRT and LRT networks. Most
-            recently, a signalling fault on the Downtown Line, which is
-            managed by SBS Transit, delayed train services between Bukit
-            Panjang and Beauty World MRT stations on Aug 28.</p>
+          <p>
+            A train fault on the Circle Line resulted in no train services between Marina Bay and Promenade for about 35 minutes on Monday
+            (Sept 1) morning. Rail operator SMRT announced the disruption on social media at 8.41am. ...
+          </p>
         </div>
-        <a href="article1" style="flex:0 0 320px;display:block;">
-          <img src="../static/img/SMRT.webp" alt="Smrt thumbnail"
-               style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        <a href="{{ url_for('subscriberArticle1') }}" style="flex:0 0 320px;display:block;">
+          <img src="{{ url_for('static', filename='img/SMRT.webp') }}" alt="Smrt thumbnail"
+              style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
         </a>
       </article>
+
 
       <!-- Article 2 -->
       <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
         <div style="flex:1;min-width:0;">
-          <a href="article2" style="color:#000;text-decoration:none;">
+          <a href="subscriberArticle2.html" style="color:#000;text-decoration:none;">
             <h3>Woman charged over possessing almost 200 etomidate-laced vapes, buying another 50</h3>
           </a>
           <p>SAY NO TO VAPE/KPOD</p>
@@ -120,7 +107,7 @@
             screwdriver without lawful purposes in August 2024 at a carpark in
             Yishun.</p>
         </div>
-        <a href="article2" style="flex:0 0 320px;display:block;">
+        <a href="subscriberArticle2.html" style="flex:0 0 320px;display:block;">
           <img src="../static/img/kpods.png" alt="Kpods thumbnail"
                style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
         </a>
@@ -170,7 +157,7 @@
     <aside class="sidebar" style="flex:0 0 320px;display:flex;flex-direction:column;gap:16px;">
       <a class="cta" href="article1"
          style="display:block;text-align:center;padding:12px 14px;border-radius:10px;background:#0a66c2;color:#fff;text-decoration:none;font-weight:600;">
-        + Create Your Story
+        Create Your Story
       </a>
       <div class="ads"
            style="height:380px;background:#f1f1f1;border:1px dashed #cfcfcf;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#999;font-size:1.1rem;">
