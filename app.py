@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from functools import wraps
 import webbrowser
 import threading
@@ -7,15 +7,16 @@ import mysql.connector
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
 
-# MySQL connection function
+# ---------- DB ----------
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
-        user="root",  
-        password="password", 
+        user="root",
+        password="password",
         database="nrs"
     )
 
+# ---------- Auth wrapper ----------
 def login_required(user_type):
     """
     Decorator to protect routes based on login and user type.
@@ -33,55 +34,56 @@ def login_required(user_type):
         return decorated_function
     return decorator
 
+# ---------- Public pages ----------
 @app.route("/")
 def home():
-    return render_template("index.html")  # This loads your HTML file
+    return render_template("index.html")
 
 @app.route("/article1")
 def article1():
-    return render_template("article1.html")  # This loads your HTML file
+    return render_template("article1.html")
 
 @app.route("/article2")
 def article2():
-    return render_template("article2.html")  # This loads your HTML file
+    return render_template("article2.html")
 
 @app.route("/article3")
 def article3():
-    return render_template("article3.html")  # This loads your HTML file
+    return render_template("article3.html")
 
 @app.route("/article4")
 def article4():
-    return render_template("article4.html")  # This loads your HTML file
+    return render_template("article4.html")
 
+# ---------- Role homepages ----------
 @app.route("/adminHomepage")
 @login_required("Admin")
 def adminHomepage():
-    return render_template("adminHomepage.html")  # This loads your HTML file
+    return render_template("adminHomepage.html")
 
 @app.route("/modHomepage")
 @login_required("Moderator")
 def modHomepage():
-    return render_template("modHomepage.html")  # This loads your HTML file
+    return render_template("modHomepage.html")
 
 @app.route("/subscriberHomepage")
 @login_required("Subscriber")
 def subscriberHomepage():
-    if "userID" not in session or session.get("usertype") != "Subscriber":
-        flash("Access denied.")
-        return redirect(url_for("login"))
-
+    # fetch warnings for this subscriber
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("SELECT message, created_at FROM warnings WHERE userID = %s", (session["userID"],))
     warnings = cursor.fetchall()
     cursor.close()
     conn.close()
-
     return render_template("subscriberHomepage.html", warnings=warnings)
 
+# ---------- Subscriber article pages (with pin support) ----------
 @app.route("/subscriberArticle1")
-@login_required("Subscriber")
 def subscriberArticle1():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+
     article = {
         "slug": "article1",
         "title": "Circle Line disruption: Service between Marina Bay and Promenade stations has resumed",
@@ -105,7 +107,8 @@ def subscriberArticle1():
              "services between Bukit Panjang and Beauty World MRT stations on Aug 28.")
         ],
     }
-    return render_template("subscriberArticle1.html", article=article)
+    pinned = set(session.get("pinned_articles", []))
+    return render_template("subscriberArticle1.html", article=article, is_pinned=(article["slug"] in pinned))
 
 @app.route("/subscriberArticle2")
 def subscriberArticle2():
@@ -140,8 +143,8 @@ def subscriberArticle2():
             "The authorities have said that those who voluntarily seek support to quit vaping will not face any penalties for doing so."
         ],
     }
-
-    return render_template("subscriberArticle2.html", article=article)
+    pinned = set(session.get("pinned_articles", []))
+    return render_template("subscriberArticle2.html", article=article, is_pinned=(article["slug"] in pinned))
 
 @app.route("/subscriberArticle3")
 def subscriberArticle3():
@@ -174,8 +177,8 @@ def subscriberArticle3():
             "Those convicted of money laundering can be jailed for up to 10 years, fined up to $500,000, or both."
         ],
     }
-
-    return render_template("subscriberArticle3.html", article=article)
+    pinned = set(session.get("pinned_articles", []))
+    return render_template("subscriberArticle3.html", article=article, is_pinned=(article["slug"] in pinned))
 
 @app.route("/subscriberArticle4")
 def subscriberArticle4():
@@ -198,15 +201,67 @@ def subscriberArticle4():
             "There were no reported injuries. Investigations into the cause of the fire are under way."
         ],
     }
+    pinned = set(session.get("pinned_articles", []))
+    return render_template("subscriberArticle4.html", article=article, is_pinned=(article["slug"] in pinned))
 
-    return render_template("subscriberArticle4.html", article=article)
+# ---------- Create article (draft / publish flashes) ----------
+@app.route("/create-article", methods=["GET", "POST"])
+def create_article():
+    if not session.get("user"):
+        return redirect(url_for("login"))
 
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        category = request.form.get("category", "").strip()
+        content = request.form.get("content", "").strip()
+        image = request.files.get("image")
+        action = request.form.get("action")  # "draft" or "publish"
 
+        # TODO: persist to DB if needed
+        if action == "draft":
+            flash("✅ Your story has been saved as a draft.", "success")
+        elif action == "publish":
+            flash("🚀 Your story has been uploaded successfully!", "success")
+        else:
+            flash("⚠️ Something went wrong. Please try again.", "error")
+
+        return redirect(url_for("subscriberHomepage"))
+
+    # GET
+    return render_template("create_article.html")
+
+# ---------- Pin API ----------
+@app.route("/pin-article", methods=["POST"])
+def pin_article():
+    if not session.get("user"):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    data = request.get_json(silent=True) or {}
+    slug = data.get("slug")
+    if not slug:
+        return jsonify({"ok": False, "error": "missing slug"}), 400
+
+    pinned = session.get("pinned_articles", [])
+    if not isinstance(pinned, list):
+        pinned = list(pinned)
+
+    if slug in pinned:
+        pinned.remove(slug)
+        changed_to = "unpin"
+    else:
+        pinned.append(slug)
+        changed_to = "pin"
+
+    session["pinned_articles"] = pinned
+    return jsonify({"ok": True, "state": changed_to})
+
+# ---------- Author homepage ----------
 @app.route("/authorHomepage")
 @login_required("Author")
 def authorHomepage():
     return render_template("authorHomepage.html")
 
+# ---------- Auth ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -217,32 +272,31 @@ def login():
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
-
         cursor.close()
         conn.close()
 
         if user:
-            # Plain text password (for now, not recommended)
+            # NOTE: plaintext password check (not recommended for production)
             if password == user["password"]:
-                # 🚨 Check for suspension BEFORE setting session
+                # Block suspended BEFORE setting session
                 if user["usertype"].lower() == "suspended":
                     flash("Your account has been suspended. Please contact support.")
                     return redirect(url_for("login"))
 
-                # ✅ Only set session if not suspended
+                # Set session
                 session["userID"] = user["userID"]
-                session["usertype"] = user["usertype"]  # store usertype in session
+                session["usertype"] = user["usertype"]
                 session["user"] = user["name"]
 
-                # Role-based redirects
+                # Role redirects
                 if user["usertype"] == "Admin":
                     return redirect(url_for("adminHomepage"))
                 elif user["usertype"] == "Moderator":
                     return redirect(url_for("modHomepage"))
                 elif user["usertype"] == "Subscriber":
-                    return redirect(url_for("subscriberHomepage"))  
+                    return redirect(url_for("subscriberHomepage"))
                 elif user["usertype"] == "Author":
-                    return redirect(url_for("authorHomepage"))  
+                    return redirect(url_for("authorHomepage"))
                 else:
                     flash("Invalid user type.")
                     return redirect(url_for("login"))
@@ -250,9 +304,7 @@ def login():
                 flash("Incorrect password.")
         else:
             flash("User not found.")
-
     return render_template("login.html")
-
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -263,11 +315,10 @@ def register():
 
         conn = get_db_connection()
         cursor = conn.cursor()
-
         try:
             cursor.execute(
-            "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
-            (name, email, password, "Subscriber")  # <-- force subscriber
+                "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
+                (name, email, password, "Subscriber")
             )
             conn.commit()
             return redirect(url_for("login"))
@@ -276,15 +327,15 @@ def register():
         finally:
             cursor.close()
             conn.close()
-
     return render_template("register.html")
 
 @app.route("/logout")
 def logout():
-    session.clear()  # removes all session data
+    session.clear()
     flash("You have been logged out.")
     return redirect(url_for("home"))
 
+# ---------- Moderator: manage users ----------
 @app.route("/manageUsers")
 def manage_users():
     if "userID" not in session or session.get("usertype") != "Moderator":
@@ -293,15 +344,12 @@ def manage_users():
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-
-    # Only fetch subscribers and authors
     cursor.execute("""
-        SELECT userID, name, email, usertype 
-        FROM users 
+        SELECT userID, name, email, usertype
+        FROM users
         WHERE usertype IN ('Subscriber', 'Author', 'Suspended')
     """)
     users = cursor.fetchall()
-
     cursor.close()
     conn.close()
 
@@ -318,13 +366,11 @@ def warn_user():
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Insert a warning message (you can customize the text later)
     warning_message = "You have received a warning from the moderator."
     cursor.execute(
         "INSERT INTO warnings (userID, message) VALUES (%s, %s)",
         (warned_user_id, warning_message)
     )
-
     conn.commit()
     cursor.close()
     conn.close()
@@ -343,24 +389,21 @@ def toggle_suspend():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Get the current usertype
     cursor.execute("SELECT usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
     user = cursor.fetchone()
 
     if user:
         if user["usertype"] == "Suspended":
-            # Unsuspend: restore previous_usertype
             restored_type = user["previous_usertype"] if user["previous_usertype"] else "Subscriber"
             cursor.execute("""
-                UPDATE users 
+                UPDATE users
                 SET usertype = %s, previous_usertype = NULL
                 WHERE userID = %s
             """, (restored_type, user_id))
             flash(f"User {user_id} has been unsuspended.")
         else:
-            # Suspend: save current usertype to previous_usertype
             cursor.execute("""
-                UPDATE users 
+                UPDATE users
                 SET previous_usertype = usertype, usertype = 'Suspended'
                 WHERE userID = %s
             """, (user_id,))
@@ -372,7 +415,7 @@ def toggle_suspend():
 
     return redirect(url_for("manage_users"))
 
-# Forgot Password page
+# ---------- Forgot password ----------
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
     if request.method == "POST":
@@ -386,12 +429,10 @@ def forgot_password():
 
         conn = get_db_connection()
         cursor = conn.cursor()
-
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
 
         if user:
-
             cursor.execute(
                 "UPDATE users SET password = %s WHERE email = %s",
                 (new_password, email)
@@ -406,9 +447,9 @@ def forgot_password():
             cursor.close()
             conn.close()
             return redirect(url_for("forgot_password"))
-
     return render_template("forgot_password.html")
 
+# ---------- Admin views ----------
 @app.route("/viewAllUsers")
 def view_all_users():
     if "userID" not in session or session.get("usertype") != "Admin":
@@ -438,8 +479,8 @@ def search_account():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
-            SELECT userID, name, email, usertype 
-            FROM users 
+            SELECT userID, name, email, usertype
+            FROM users
             WHERE name LIKE %s OR email LIKE %s
         """, (f"%{search_term}%", f"%{search_term}%"))
         users = cursor.fetchall()
@@ -465,7 +506,6 @@ def create_user():
             flash("Passwords do not match.")
             return redirect(url_for("create_user"))
 
-        # Insert into DB
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -491,21 +531,19 @@ def update_user():
     cursor = conn.cursor(dictionary=True)
 
     if request.method == "POST":
-        user_id = request.form.get("userID")  # hidden field for identifying user
+        user_id = request.form.get("userID")
         name = request.form.get("name")
         email = request.form.get("email")
         password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
         usertype = request.form.get("usertype")
 
-        # validate
         if password != confirm_password:
             flash("Passwords do not match.")
             return redirect(url_for("update_user"))
 
-        # update query
         cursor.execute("""
-            UPDATE users 
+            UPDATE users
             SET name = %s, email = %s, password = %s, usertype = %s
             WHERE userID = %s
         """, (name, email, password, usertype, user_id))
@@ -515,9 +553,8 @@ def update_user():
         conn.close()
 
         flash("User updated successfully!")
-        return redirect(url_for("view_all_users"))  # go back to user list
+        return redirect(url_for("view_all_users"))
 
-    # If GET, show all users in dropdown to select one
     cursor.execute("SELECT userID, name, email, usertype FROM users")
     users = cursor.fetchall()
     cursor.close()
@@ -525,6 +562,7 @@ def update_user():
 
     return render_template("updateUser.html", users=users)
 
+# ---------- Dev helper ----------
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
 

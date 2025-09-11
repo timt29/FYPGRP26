@@ -1,0 +1,133 @@
+@ -0,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Create Your Story — EchoPress</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+</head>
+<body style="margin:0;font-family:Arial,Helvetica,sans-serif;background:#f7f7f7;color:#111;">
+
+  <!-- Top Bar -->
+  <header style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#222;">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <a href="{{ url_for('subscriberHomepage') }}" style="display:inline-block;line-height:0;">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress"
+             style="height:50px;width:50px;object-fit:contain;display:block;" />
+      </a>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <input type="text" placeholder="Searching for… ?" aria-label="Search"
+               style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;" />
+        <button style="padding:6px 12px;border:none;border-radius:6px;background:#555;color:#fff;cursor:pointer;">Search</button>
+      </div>
+    </div>
+
+    <div style="position:relative;display:flex;align-items:center;gap:12px;">
+      <span style="color:#fff;font-size:0.95rem;">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      <button id="menuBtn" aria-label="Menu"
+              style="background:transparent;border:0;display:flex;flex-direction:column;gap:3px;cursor:pointer;">
+        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
+        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
+        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
+      </button>
+      <div id="menuPanel"
+           style="position:absolute;top:42px;right:0;width:220px;background:#fff;border:1px solid #e5e5e5;border-radius:10px;
+                  box-shadow:0 8px 24px rgba(0,0,0,.12);overflow:hidden;display:none;z-index:1000;">
+        <a href="/bookmarks"   style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Bookmark</a>
+        <a href="/my-articles" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View My Articles</a>
+        <a href="/analytics"   style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Analytics</a>
+        <a href="/profile"     style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">Edit Profile</a>
+        <a href="{{ url_for('logout') }}" style="display:block;padding:12px 14px;text-decoration:none;color:#b00020;text-align:center;">Log Out</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Content layout: form left, ads right -->
+  <main style="display:flex;gap:20px;align-items:flex-start;padding:18px;max-width:1200px;margin:0 auto;">
+
+    <!-- LEFT: Create form -->
+    <section style="flex:1;">
+      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;">
+        <div style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:700;">Create Your Story</div>
+
+        <form method="POST" action="{{ url_for('create_article') }}" enctype="multipart/form-data"
+              style="padding:18px;display:flex;flex-direction:column;gap:16px;">
+
+          <!-- Heading -->
+          <div>
+            <label for="title" style="display:block;margin-bottom:6px;font-weight:600;">Add Heading:</label>
+            <input type="text" id="title" name="title" required
+                   style="width:100%;padding:10px;border:1px solid #cfcfcf;border-radius:8px;">
+          </div>
+
+          <!-- Category -->
+          <div>
+            <label for="category" style="display:block;margin-bottom:6px;font-weight:600;">Select Category:</label>
+            <select id="category" name="category" required
+                    style="width:260px;padding:10px;border:1px solid #cfcfcf;border-radius:8px;background:#fff;">
+              <option value="" disabled selected>Choose one…</option>
+              <option>Trending</option>
+              <option>Politics</option>
+              <option>Sports</option>
+              <option>Technology</option>
+              <option>Economic</option>
+              <option>AsiaNews</option>
+              <option>WorldNews</option>
+            </select>
+          </div>
+
+          <!-- Cover image -->
+          <div>
+            <label for="image" style="display:block;margin-bottom:6px;font-weight:600;">Upload Cover Image:</label>
+            <input type="file" id="image" name="image"
+                   style="width:260px;padding:8px;border:1px solid #cfcfcf;border-radius:8px;background:#fff;">
+          </div>
+
+          <!-- Body -->
+          <div>
+            <label for="content" style="display:block;margin-bottom:6px;font-weight:600;">Tell Us Your Story:</label>
+            <textarea id="content" name="content" rows="12" required
+                      style="width:100%;padding:12px;border:1px solid #cfcfcf;border-radius:8px;resize:vertical;"></textarea>
+          </div>
+
+          <!-- Buttons -->
+          <div style="display:flex;gap:16px;justify-content:center;margin-top:8px;">
+            <button type="submit" name="action" value="draft"
+                    style="min-width:180px;padding:10px 16px;border:1px solid #ccc;border-radius:8px;background:#f5f5f5;cursor:pointer;">
+              Save As Draft
+            </button>
+            <button type="submit" name="action" value="publish"
+                    style="min-width:180px;padding:10px 16px;border:none;border-radius:8px;background:#0a66c2;color:#fff;cursor:pointer;">
+              Upload Article
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- RIGHT: Ads column -->
+    <aside style="flex:0 0 320px;">
+      <div style="position:sticky;top:18px;">
+        <div style="height:420px;background:#f1f1f1;border:1px dashed #cfcfcf;border-radius:10px;
+                    display:flex;align-items:center;justify-content:center;color:#999;font-size:1.1rem;">
+          <span>Ads</span>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Tiny JS for menu toggle -->
+  <script>
+    (function(){
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      function closeP(){ panel.style.display='none'; }
+      function toggleP(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
+      btn.addEventListener('click',e=>{ e.stopPropagation(); toggleP(); });
+      document.addEventListener('click',e=>{ if(panel && !panel.contains(e.target) && e.target!==btn) closeP(); });
+      document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeP(); });
+    })();
+  </script>
+</body>
+</html>
