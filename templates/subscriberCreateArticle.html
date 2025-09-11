@@ -43,7 +43,7 @@
         <a href="/bookmarks">View Bookmark</a>
         <a href="/analytics">View Analytics</a>
         <a href="/profile">Edit Profile</a>
-        <a href="{{ url_for('logout') }}" class="logout">Log Out</a>
+        <a href="#" class="logout-link">Log Out</a>
       </div>
     </div>
   </header>
@@ -220,5 +220,46 @@
       if (btnPublish) btnPublish.addEventListener('click', () => send('publish'));
     })();
   </script>
+
+  <!-- Logout Confirmation Modal -->
+<div id="logoutModal" class="modal-overlay">
+  <div class="modal">
+    <h2>Log Out?</h2>
+    <div class="buttons">
+      <button class="yes" id="confirmLogout">Yes</button>
+      <button class="no" id="cancelLogout">No</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const modal = document.getElementById("logoutModal");
+    const confirmBtn = document.getElementById("confirmLogout");
+    const cancelBtn = document.getElementById("cancelLogout");
+
+    // intercept logout links
+    document.querySelectorAll(".logout-link").forEach(link => {
+      link.addEventListener("click", e => {
+        e.preventDefault();
+        modal.style.display = "flex";
+      });
+    });
+
+    confirmBtn.addEventListener("click", () => {
+      window.location.href = "{{ url_for('logout') }}";
+    });
+
+    cancelBtn.addEventListener("click", () => {
+      modal.style.display = "none";
+    });
+
+    // close modal on Escape key
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") modal.style.display = "none";
+    });
+  })();
+</script>
+
 </body>
 </html>

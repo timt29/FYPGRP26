@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>My Articles — EchoPress</title>
+  <title>Bookmarked Articles — EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -25,8 +25,8 @@
       <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
-        <a href="{{ url_for('my_articles') }}" class="active">View My Articles</a>
-        <a href="/bookmarks">View Bookmark</a>
+        <a href="{{ url_for('bookmarks') }}" class="active">View Bookmarks</a>
+        <a href="{{ url_for('my_articles') }}">View My Articles</a>
         <a href="/analytics">View Analytics</a>
         <a href="/profile">Edit Profile</a>
         <a href="#" class="logout-link">Log Out</a>
@@ -51,59 +51,52 @@
   <!-- Page -->
   <main class="page">
 
-    <!-- LEFT: My Articles list -->
+    <!-- LEFT: Bookmarked list -->
     <section class="feed">
       <div class="article-card detail">
         <div class="row-between" style="margin-bottom:12px;">
-          <div class="card-header" style="margin:0;">My Articles</div>
-          <div class="row-between" style="gap:10px;">
-            <a class="btn btn-primary" href="{{ url_for('create_edit_delete_article') }}">Create New</a>
-            <div class="sort-wrap">
-              <select onchange="window.location.search='?sort='+this.value">
-                <option value="">Sort by</option>
-                <option value="recent"  {{ 'selected' if request.args.get('sort')=='recent'  else '' }}>Most Recent</option>
-                <option value="title"   {{ 'selected' if request.args.get('sort')=='title'   else '' }}>Title (A–Z)</option>
-                <option value="status"  {{ 'selected' if request.args.get('sort')=='status'  else '' }}>Status</option>
-                <option value="category"{{ 'selected' if request.args.get('sort')=='category'else '' }}>Category</option>
-              </select>
-            </div>
+          <div class="card-header" style="margin:0;">Bookmarked Articles</div>
+          <div class="sort-wrap">
+            <select onchange="window.location.search='?sort='+this.value">
+              <option value="">Sort by</option>
+              <option value="recent"  {{ 'selected' if request.args.get('sort')=='recent'  else '' }}>Most Recent</option>
+              <option value="title"   {{ 'selected' if request.args.get('sort')=='title'   else '' }}>Title (A–Z)</option>
+              <option value="category"{{ 'selected' if request.args.get('sort')=='category'else '' }}>Category</option>
+            </select>
           </div>
         </div>
 
         {% if not articles %}
-          <p>No articles yet. <a href="{{ url_for('create_edit_delete_article') }}">Create one</a>.</p>
+          <p>No bookmarks yet.</p>
         {% else %}
           {% for a in articles %}
-            {% set has_img = a.image_name %}
-            {% if has_img %}
-              {% set thumb = url_for('static', filename='uploads/' ~ a.image_name) %}
-            {% endif %}
-
-            <div class="list-item">
+            <div class="list-item" id="bk-{{ a.slug }}">
               <div class="item-info">
-                <a href="{{ url_for('create_edit_delete_article') }}?edit={{ a.id }}" style="color:#000;text-decoration:none;">
+                {% set href =
+                  (a.slug=='article1' and url_for('subscriberArticle1')) or
+                  (a.slug=='article2' and url_for('subscriberArticle2')) or
+                  (a.slug=='article3' and url_for('subscriberArticle3')) or
+                  (a.slug=='article4' and url_for('subscriberArticle4')) %}
+                <a href="{{ href }}" style="color:#000;text-decoration:none;">
                   <h3 class="item-title">{{ a.title }}</h3>
                 </a>
-                <p class="item-desc">
-                  {{ (a.content or '')[:240] }}{% if (a.content or '')|length > 240 %}…{% endif %}
-                </p>
+                <p class="item-desc">{{ (a.content or '')[:240] }}{% if (a.content or '')|length > 240 %}…{% endif %}</p>
                 <div class="row-between">
                   <div class="item-meta">
                     <span class="pill">{{ a.category }}</span>
-                    <span class="pill">{{ a.status|capitalize }}</span>
+                    <span class="pill">Bookmarked</span>
                   </div>
                   <div class="actions">
-                    <a class="btn btn-light" href="{{ url_for('create_edit_delete_article') }}?edit={{ a.id }}">Edit</a>
-                    <form method="post" action="{{ url_for('delete_article', aid=a.id) }}" onsubmit="return confirm('Delete this article?');">
-                      <button class="btn btn-light" type="submit" style="border:1px solid #ccc;">Delete</button>
-                    </form>
+                    <button class="btn btn-light unpin-btn" data-slug="{{ a.slug }}" type="button" style="border:1px solid #ccc;">
+                      Unpin
+                    </button>
                   </div>
                 </div>
               </div>
 
-              {% if has_img %}
-                <a href="{{ url_for('create_edit_delete_article') }}?edit={{ a.id }}" style="flex:0 0 220px;display:block;">
-                  <img class="thumb" src="{{ thumb }}" alt="thumbnail">
+              {% if a.image_url %}
+                <a href="{{ href }}" style="flex:0 0 220px;display:block;">
+                  <img class="thumb" src="{{ a.image_url }}" alt="thumbnail">
                 </a>
               {% else %}
                 <div class="no-thumb">No Image</div>
@@ -121,9 +114,10 @@
 
   </main>
 
-  <!-- menu toggle -->
+  <!-- menu + unpin JS -->
   <script>
     (function(){
+      // menu
       const btn=document.getElementById('menuBtn');
       const panel=document.getElementById('menuPanel');
       function closeP(){ panel.style.display='none'; }
@@ -131,6 +125,37 @@
       btn.addEventListener('click',e=>{ e.stopPropagation(); toggleP(); });
       document.addEventListener('click',e=>{ if(panel && !panel.contains(e.target) && e.target!==btn) closeP(); });
       document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeP(); });
+
+      // Unpin buttons
+      document.querySelectorAll('.unpin-btn').forEach(b=>{
+        b.addEventListener('click', async e=>{
+          const slug = b.dataset.slug;
+          try {
+            const res = await fetch("{{ url_for('pin_article') }}", {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ slug })
+            });
+            const data = await res.json();
+            if (data.ok) {
+              // remove from DOM after unpin
+              const card = document.getElementById('bk-'+slug);
+              if (card) card.remove();
+              // if list becomes empty, show message
+              if (!document.querySelector('.list-item')) {
+                const container = document.querySelector('.article-card.detail');
+                const p = document.createElement('p');
+                p.textContent = "No bookmarks yet. Open an article and use the kebab → “Pin / Unpin”.";
+                container.appendChild(p);
+              }
+            } else {
+              alert('Failed to update bookmark.');
+            }
+          } catch (err) {
+            alert('Network error.');
+          }
+        });
+      });
     })();
   </script>
 

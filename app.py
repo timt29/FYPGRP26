@@ -367,6 +367,72 @@ def delete_article(aid):
     flash("Article deleted.", "success")
     return redirect(url_for("my_articles"))
 
+def _all_builtin_articles():
+    # Reuse the same content you already have in subscriberArticle1..4
+    return [
+        {
+            "slug": "article1",
+            "title": "Circle Line disruption: Service between Marina Bay and Promenade stations has resumed",
+            "image_name": None,  # if you store uploads later
+            "image_url": url_for("static", filename="img/SMRT.webp"),
+            "category": "Trending",
+            "content": ("A train fault on the Circle Line resulted in no train services between Marina Bay and "
+                        "Promenade for about 35 minutes on Monday (Sept 1) morning. Rail operator SMRT announced "
+                        "the disruption on social media at 8.41am. ..."),
+        },
+        {
+            "slug": "article2",
+            "title": "Woman charged over possessing almost 200 etomidate-laced vapes, buying another 50",
+            "image_name": None,
+            "image_url": url_for("static", filename="img/sel-kpod.jpeg"),
+            "category": "Crime",
+            "content": ("SINGAPORE – A woman was charged over possessing 195 etomidate-laced vapes, or Kpods, "
+                        "and buying another 50 such pods on separate occasions in 2024. ..."),
+        },
+        {
+            "slug": "article3",
+            "title": "Jail for money mule who was promised $100 a day to withdraw cash for scammers",
+            "image_name": None,
+            "image_url": url_for("static", filename="img/scam.jpg"),
+            "category": "Crime",
+            "content": ("SINGAPORE – A financially strapped man withdrew scam proceeds in cash from ATMs "
+                        "to earn $100 a day so that he could buy diapers and milk powder for his newborn child. ..."),
+        },
+        {
+            "slug": "article4",
+            "title": "Fire breaks out at Tuas industrial building; no injuries reported",
+            "image_name": None,
+            "image_url": url_for("static", filename="img/fire.jpeg"),
+            "category": "Local",
+            "content": ("SINGAPORE – A fire broke out at an industrial building in Tuas on Saturday morning "
+                        "(Sept 6). The Singapore Civil Defence Force (SCDF) said it was alerted at 10.25am. ..."),
+        },
+    ]
+
+
+# ---------- Bookmarks page ----------
+@app.route("/bookmarks")
+def bookmarks():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+
+    pinned = set(session.get("pinned_articles", []))
+    all_articles = _all_builtin_articles()
+
+    # filter by pinned
+    articles = [a for a in all_articles if a["slug"] in pinned]
+
+    # optional sorting by ?sort=recent|title|category
+    sort = request.args.get("sort", "").lower()
+    if sort == "title":
+        articles.sort(key=lambda x: x["title"].lower())
+    elif sort == "category":
+        articles.sort(key=lambda x: x.get("category", "").lower())
+    # "recent" not meaningful for built-ins; keep as-is or add timestamps later
+
+    return render_template("subscriberBookmarks.html", articles=articles)
+
+
 # ---------- Author homepage ----------
 @app.route("/authorHomepage")
 @login_required("Author")
