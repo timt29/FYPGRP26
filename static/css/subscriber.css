@@ -311,7 +311,50 @@ html,body{ background:var(--bg); color:var(--ink); font-family:Arial,Helvetica,s
 .sort-wrap { position: relative; }
 .sort-wrap select { padding: 6px 8px; border: 1px solid #dcdcdc; border-radius: 8px; background: #fff; }
 
+/* === Analytics tiles === */
+.stats-grid{
+  display:grid;
+  grid-template-columns: repeat(4, minmax(120px,1fr));
+  gap:16px;
+}
 
+.stat-box{
+  background:#fff;
+  border:1px solid #e5e5e5;
+  border-radius:12px;
+  padding:18px 12px;
+  text-align:center;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  min-height:88px;
+  box-shadow:0 1px 0 rgba(0,0,0,.02);
+}
+
+.stat-num{
+  font-size:1.4rem;
+  font-weight:700;
+  color:#111;
+  line-height:1.1;
+  margin-bottom:6px;
+}
+
+.stat-label{
+  font-size:.9rem;
+  color:#666;
+}
+
+/* (Optional) search row on analytics page */
+.search-row{
+  margin-bottom:12px;
+}
+.search-row input{
+  width:100%;
+  padding:8px 10px;
+  border:1px solid #ddd;
+  border-radius:8px;
+}
 
 
 

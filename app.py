@@ -432,6 +432,21 @@ def bookmarks():
 
     return render_template("subscriberBookmarks.html", articles=articles)
 
+@app.route("/analytics")
+def analytics():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+
+    # Static counters for now (wireframe values)
+    stats = {"views": 100, "likes": 20, "dislikes": 3, "shares": 9}
+
+    # Articles created by this user (session-based)
+    # Ensure your create/save code appends dicts with keys: title, content, category, status, image_url
+    my_articles = session.get("my_articles", [])
+
+    return render_template("subscriberAnalytics.html", stats=stats, articles=my_articles)
+
+
 
 # ---------- Author homepage ----------
 @app.route("/authorHomepage")
