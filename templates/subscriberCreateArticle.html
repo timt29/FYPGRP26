@@ -2,10 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Create Your Story — EchoPress</title>
+  <title>{{ 'Edit Article' if article else 'Create Your Story' }} — EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
+  <style>
+    /* Minimal helpers in case any class is missing in subscriber.css */
+    .toast {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      background: #fff; border: 1px solid #ccc;
+      padding: 18px 24px; border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      z-index: 3000; display: none; text-align: center;
+      max-width: 90vw;
+    }
+    .toast.show { display: flex; align-items: center; justify-content: center; }
+    .modal-overlay { display: none; }
+  </style>
 </head>
 <body>
 
@@ -23,12 +37,10 @@
 
     <div class="right">
       <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
-      <button id="menuBtn" class="burger" aria-label="Menu">
-        <span></span><span></span><span></span>
-      </button>
+      <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
+        <a href="{{ url_for('my_articles') }}">View My Articles</a>
         <a href="/bookmarks">View Bookmark</a>
-        <a href="/my-articles">View My Articles</a>
         <a href="/analytics">View Analytics</a>
         <a href="/profile">Edit Profile</a>
         <a href="{{ url_for('logout') }}" class="logout">Log Out</a>
@@ -36,75 +48,95 @@
     </div>
   </header>
 
-  <!-- Content layout: form left, ads right -->
-  <main class="page">
+  <!-- Tabs (optional, can remove if not used on this page) -->
+  <nav class="tabs">
+    <div class="tabs-inner">
+      <a href="#" class="tab">For you</a>
+      <a href="#" class="tab active">Trending</a>
+      <a href="#" class="tab">Politics</a>
+      <a href="#" class="tab">Sports</a>
+      <a href="#" class="tab">Technology</a>
+      <a href="#" class="tab">Economic</a>
+      <a href="#" class="tab">AsiaNews</a>
+      <a href="#" class="tab">WorldNews</a>
+    </div>
+  </nav>
 
-    <!-- LEFT: Create form -->
+  <!-- Layout -->
+  <main class="page">
+    <!-- Left -->
     <section class="feed">
       <div class="article-card detail">
-        <div class="card-header">Create Your Story</div>
+        <div class="card-header">{{ 'Edit Article' if article else 'Create Your Story' }}</div>
 
-        <form id="createForm" method="POST" action="{{ url_for('create_article') }}" enctype="multipart/form-data" class="create-form">
-          <!-- Heading -->
+        <!-- IMPORTANT: id=editorForm and action points to the correct route -->
+        <form id="editorForm" method="POST" action="{{ url_for('create_edit_delete_article') }}"
+              enctype="multipart/form-data" class="create-form">
+          <input type="hidden" name="id" value="{{ article.id if article else '' }}">
+
           <div>
             <label for="title">Add Heading:</label>
-            <input type="text" id="title" name="title" required>
+            <input type="text" id="title" name="title" value="{{ article.title if article else '' }}" required>
           </div>
 
-          <!-- Category -->
           <div>
             <label for="category">Select Category:</label>
             <select id="category" name="category" required>
-              <option value="" disabled selected>Choose one…</option>
-              <option>Trending</option>
-              <option>Politics</option>
-              <option>Sports</option>
-              <option>Technology</option>
-              <option>Economic</option>
-              <option>AsiaNews</option>
-              <option>WorldNews</option>
+              <option value="" disabled {{ 'selected' if not article }}>Choose one…</option>
+              {% for opt in ['Trending','Politics','Sports','Technology','Economic','AsiaNews','WorldNews'] %}
+                <option value="{{ opt }}" {{ 'selected' if article and article.category==opt else '' }}>{{ opt }}</option>
+              {% endfor %}
             </select>
           </div>
 
-          <!-- Cover image -->
           <div>
             <label for="image">Upload Cover Image:</label>
             <input type="file" id="image" name="image">
+            {% if article and article.image_name %}
+              <div style="margin-top:6px;font-size:.9rem;color:#666;">Current file: <em>{{ article.image_name }}</em></div>
+            {% endif %}
           </div>
 
-          <!-- Body -->
           <div>
             <label for="content">Tell Us Your Story:</label>
-            <textarea id="content" name="content" rows="12" required></textarea>
+            <textarea id="content" name="content" rows="12" required>{{ article.content if article else '' }}</textarea>
           </div>
 
-          <!-- Buttons -->
           <div class="form-buttons">
-            <input type="hidden" name="action" id="actionField" value="">
-            <button type="button" id="btnDraft"   class="btn btn-light">Save As Draft</button>
-            <button type="button" id="btnPublish" class="btn btn-primary">Upload Article</button>
+            <!-- We do NOT rely on form submit directly; JS sends with chosen action -->
+            {% if article %}
+              <button type="button" class="btn btn-light" id="btnDraft"   data-action="draft">Save Edit</button>
+              <button type="button" class="btn btn-primary" id="btnPublish" data-action="publish">Publish Edit</button>
+            {% else %}
+              <button type="button" class="btn btn-light" id="btnDraft"   data-action="draft">Save As Draft</button>
+              <button type="button" class="btn btn-primary" id="btnPublish" data-action="publish">Upload Article</button>
+            {% endif %}
           </div>
         </form>
       </div>
     </section>
 
-    <!-- RIGHT: Ads column -->
+    <!-- Right -->
     <aside class="sidebar">
-      <div class="ads">
-        <span>Ads</span>
-      </div>
+      <div class="ads">Ads</div>
     </aside>
-
-    <div id="confirmOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-hidden="true" style="display:none;">
-      <div class="modal">
-        <h3 id="confirmTitle">Processing…</h3>
-        <p id="confirmText">Please wait while we save your story.</p>
-        <div class="spinner" aria-hidden="true"></div>
-      </div>
-    </div>
   </main>
 
-  <!-- JS for menu toggle -->
+  <!-- Processing Overlay -->
+  <div id="overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-hidden="true">
+    <div class="modal">
+      <h3 id="confirmTitle">Processing…</h3>
+      <p id="confirmText">Please wait while we save your story.</p>
+      <div class="spinner" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <!-- Center Confirmation Popup -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <span id="toastMsg"></span>
+  </div>
+
+  <!-- Menu toggle -->
   <script>
     (function(){
       const btn=document.getElementById('menuBtn');
@@ -117,69 +149,76 @@
     })();
   </script>
 
+  <!-- Create / Publish logic -->
   <script>
-      (function(){
-        const form      = document.getElementById('createForm');
-        const btnDraft  = document.getElementById('btnDraft');
-        const btnPub    = document.getElementById('btnPublish');
-        const actionFld = document.getElementById('actionField');
+    (function(){
+      const form    = document.getElementById('editorForm');
+      const overlay = document.getElementById('overlay');
+      const toast   = document.getElementById('toast');
+      const msgSpan = document.getElementById('toastMsg');
 
-        const overlay   = document.getElementById('confirmOverlay');
-        const titleEl   = document.getElementById('confirmTitle');
-        const textEl    = document.getElementById('confirmText');
+      const btnDraft   = document.getElementById('btnDraft');
+      const btnPublish = document.getElementById('btnPublish');
 
-        function showOverlay(title, text, showSpinner=true){
-          titleEl.textContent = title;
-          textEl.textContent  = text;
-          const spinner = overlay.querySelector('.spinner');
-          if (spinner) spinner.style.display = showSpinner ? 'block' : 'none';
-          overlay.style.display = 'flex';
-          overlay.setAttribute('aria-hidden','false');
+      function showOverlay(title, text, showSpinner=true){
+        document.getElementById('confirmTitle').textContent = title || 'Processing…';
+        document.getElementById('confirmText').textContent  = text  || 'Please wait…';
+        const sp = overlay.querySelector('.spinner');
+        if (sp) sp.style.display = showSpinner ? 'block' : 'none';
+        overlay.style.display = 'flex';
+        overlay.setAttribute('aria-hidden','false');
+      }
+      function hideOverlay(){
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden','true');
+      }
+      function showToast(msg){
+        msgSpan.textContent = msg || 'Done.';
+        toast.classList.add('show');
+      }
+      function hideToast(){
+        toast.classList.remove('show');
+      }
+
+      async function send(action){
+        // Show processing immediately
+        showOverlay("Processing…", action === 'draft' ? "Saving draft…" : "Uploading article…", true);
+
+        // Wait exactly 4 seconds before posting
+        await new Promise(r => setTimeout(r, 4000));
+
+        // Build form payload
+        const fd = new FormData(form);
+        fd.set('action', action);
+
+        try {
+          const res = await fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd
+          });
+
+          const data = await res.json().catch(() => ({}));
+          hideOverlay();
+
+          // Show confirmation for ~2s, then redirect
+          showToast(data.message || (action==='draft' ? 'Saved draft.' : 'Uploaded.'));
+          setTimeout(() => {
+            hideToast();
+            if (data.redirect) window.location.href = data.redirect;
+            else window.location.href = "{{ url_for('subscriberHomepage') }}";
+          }, 2000);
+
+        } catch (err) {
+          hideOverlay();
+          showToast('⚠️ Network error. Please try again.');
+          setTimeout(hideToast, 2500);
         }
-        function hideOverlay(){
-          overlay.style.display = 'none';
-          overlay.setAttribute('aria-hidden','true');
-        }
+      }
 
-        async function postFormWithDelay(action){
-          // 1) show "Processing…" immediately
-          showOverlay("Processing…", action === "draft" ? "Saving draft…" : "Uploading article…", true);
-
-          // 2) wait exactly 4s before contacting server
-          await new Promise(r => setTimeout(r, 4000));
-
-          // 3) send AJAX to server
-          actionFld.value = action;
-          const url = form.getAttribute('action');
-          const fd  = new FormData(form);
-
-          try{
-            const res = await fetch(url, {
-              method: 'POST',
-              body: fd,
-              headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            });
-            const data = await res.json();
-
-            // 4) swap overlay to confirmation message (no spinner)
-            showOverlay(data.ok ? "Success" : "Error", data.message, false);
-
-            // 5) after 1.2s, redirect to homepage
-            setTimeout(() => {
-              window.location.href = data.redirect || "{{ url_for('subscriberHomepage') }}";
-            }, 1200);
-
-          }catch(err){
-            // Show error but don't redirect automatically
-            showOverlay("Error", "Unable to submit right now. Please try again.", false);
-            // Optional: hide after a few seconds
-            setTimeout(hideOverlay, 2500);
-          }
-        }
-
-        btnDraft.addEventListener('click',  () => postFormWithDelay('draft'));
-        btnPub  .addEventListener('click',  () => postFormWithDelay('publish'));
-      })();
-</script>
+      if (btnDraft)   btnDraft.addEventListener('click', () => send('draft'));
+      if (btnPublish) btnPublish.addEventListener('click', () => send('publish'));
+    })();
+  </script>
 </body>
 </html>

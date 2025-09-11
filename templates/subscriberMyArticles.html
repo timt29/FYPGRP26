@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Articles — EchoPress</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="left">
+      <a href="{{ url_for('subscriberHomepage') }}" class="brand">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress">
+      </a>
+      <div class="search"><input type="text" placeholder="Searching for… ?"><button>Search</button></div>
+    </div>
+    <div class="right">
+      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      <a class="btn btn-primary" href="{{ url_for('create_article') }}">Create New</a>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="feed">
+      <div class="article-card detail">
+        <div class="card-header">My Articles</div>
+
+        {% if not articles %}
+          <p style="margin:8px 0;">No articles yet. <a href="{{ url_for('create_article') }}">Create one</a>.</p>
+        {% else %}
+          <ul style="list-style:none;margin:0;padding:0;">
+            {% for a in articles %}
+              <li style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #eee;padding:10px 0;">
+                <div>
+                  <div style="font-weight:600;">{{ a.title }}</div>
+                  <div style="color:#666;font-size:.9rem;">{{ a.category }} • {{ a.status|capitalize }}</div>
+                </div>
+                <div style="display:flex;gap:8px;">
+                  <a class="btn btn-light" href="{{ url_for('edit_article', aid=a.id) }}">Edit</a>
+                  <form method="post" action="{{ url_for('delete_article', aid=a.id) }}" onsubmit="return confirm('Delete this article?');">
+                    <button class="btn btn-light" type="submit" style="border:1px solid #ccc;">Delete</button>
+                  </form>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="ads">Ads</div>
+    </aside>
+  </main>
+</body>
+</html>

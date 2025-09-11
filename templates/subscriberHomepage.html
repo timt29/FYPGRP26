@@ -27,8 +27,8 @@
       <span class="welcome">Welcome, {{ session.get('user', 'Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
+        <a href="{{ url_for('my_articles') }}">View My Articles</a>
         <a href="/bookmarks">View Bookmark</a>
-        <a href="/my-articles">View My Articles</a>
         <a href="/analytics">View Analytics</a>
         <a href="/profile">Edit Profile</a>
         <a href="{{ url_for('logout') }}" class="logout">Log Out</a>
@@ -110,7 +110,7 @@
 
     <!-- RIGHT: Sidebar -->
     <aside class="sidebar">
-      <a href="{{ url_for('create_article') }}" class="btn btn-primary">Create Your Story</a>
+      <a href="{{ url_for('create_edit_delete_article') }}" class="btn btn-primary">Create Your Story</a>
       <div class="ads">Ads</div>
     </aside>
   </main>

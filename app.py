@@ -1,4 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+from flask import jsonify
+import uuid
 from functools import wraps
 import webbrowser
 import threading
@@ -205,39 +207,61 @@ def subscriberArticle4():
     return render_template("subscriberArticle4.html", article=article, is_pinned=(article["slug"] in pinned))
 
 # ---------- Create article (draft / publish flashes) ----------
-@app.route("/create-article", methods=["GET", "POST"])
-def create_article():
+@app.route("/article-editor", methods=["GET", "POST"])
+def create_edit_delete_article():
     if not session.get("user"):
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": "Please log in first.",
+                            "redirect": url_for("login")}), 401
         return redirect(url_for("login"))
 
-    if request.method == "POST":
-        title = request.form.get("title","").strip()
-        category = request.form.get("category","").strip()
-        content = request.form.get("content","").strip()
-        image = request.files.get("image")
-        action = request.form.get("action")  # "draft" or "publish"
+    # GET = open editor (create mode) or edit mode via ?edit=<id>
+    if request.method == "GET":
+        edit_id = (request.args.get("edit") or "").strip()
+        article = _store_find(edit_id) if edit_id else None  # uses helpers from earlier
+        return render_template("subscriberCreateArticle.html", article=article)
 
-        # pick the message
-        if action == "draft":
-            msg = "✅ Your story has been saved as a draft."
-            cat = "success"
-        elif action == "publish":
-            msg = "🚀 Your story has been uploaded successfully!"
-            cat = "success"
-        else:
-            msg = "⚠️ Something went wrong. Please try again."
-            cat = "error"
+    # POST = AJAX save/publish from editor
+    is_ajax  = request.headers.get("X-Requested-With") == "XMLHttpRequest"
+    action   = (request.form.get("action") or "").strip()     # 'draft' | 'publish'
+    edit_id  = (request.form.get("id") or "").strip()
+    title    = (request.form.get("title") or "").strip()
+    category = (request.form.get("category") or "").strip()
+    content  = (request.form.get("content") or "").strip()
+    image    = request.files.get("image")
+    image_name = image.filename if image else ""
 
-        # If it's an AJAX (fetch) request, return JSON so the page can control timing.
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return jsonify({"ok": (cat == "success"), "message": msg, "redirect": url_for("subscriberHomepage")})
+    if action not in ("draft", "publish") or not title or not category or not content:
+        msg = "Please complete the form."
+        return (jsonify({"ok": False, "message": msg}), 400) if is_ajax else redirect(url_for("create_edit_delete_article"))
 
-        # Fallback: normal post/redirect/flash
-        flash(msg, cat)
-        return redirect(url_for("subscriberHomepage"))
+    status   = "draft" if action == "draft" else "published"
+    articles = _store_get_all()  # helpers from earlier message
 
-    return render_template("subscriberCreateArticle.html")
+    if edit_id:
+        target = _store_find(edit_id)
+        if not target:
+            msg = "Article not found."
+            return (jsonify({"ok": False, "message": msg}), 404) if is_ajax else redirect(url_for("my_articles"))
+        target.update({
+            "title": title, "category": category, "content": content,
+            "image_name": image_name or target.get("image_name", ""), "status": status
+        })
+        msg = "✅ Your edits have been saved as a draft." if status == "draft" else "🚀 Your edits have been published!"
+    else:
+        import uuid
+        new_id = uuid.uuid4().hex[:12]
+        articles.append({
+            "id": new_id, "title": title, "category": category, "content": content,
+            "image_name": image_name, "status": status
+        })
+        msg = "✅ Your story has been saved as a draft." if status == "draft" else "🚀 Your story has been uploaded successfully!"
 
+    session.modified = True
+    if is_ajax:
+        return jsonify({"ok": True, "message": msg, "redirect": url_for("subscriberHomepage")})
+    flash(msg, "success")
+    return redirect(url_for("subscriberHomepage"))
 
 # ---------- Pin API ----------
 @app.route("/pin-article", methods=["POST"])
@@ -263,6 +287,85 @@ def pin_article():
 
     session["pinned_articles"] = pinned
     return jsonify({"ok": True, "state": changed_to})
+
+# --- HELPERS ------------------------------------------------------
+def _store_get_all():
+    """Return the list that keeps the subscriber's articles in session."""
+    if "my_articles" not in session:
+        session["my_articles"] = []  # each item: {id,title,category,content,image_name,status}
+    return session["my_articles"]
+
+def _store_find(aid):
+    for a in _store_get_all():
+        if a["id"] == aid:
+            return a
+    return None
+
+# --- MY ARTICLES LIST ---------------------------------------------
+@app.route("/my-articles")
+def my_articles():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+    articles = _store_get_all()
+    return render_template("subscriberMyArticles.html", articles=articles)
+
+# --- CREATE / EDIT (same page) -----------------------------------
+@app.route("/create-article", methods=["GET", "POST"])
+def create_article():
+    # must be logged in
+    if not session.get("user"):
+        # If the request was made via fetch (AJAX), return JSON; otherwise redirect to login
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": "Please log in first.", "redirect": url_for("login")}), 401
+        return redirect(url_for("login"))
+
+    if request.method == "GET":
+        # render the page (create mode)
+        return render_template("subscriberCreateArticle.html", article=None)
+
+    # POST (AJAX from the page’s JS)
+    action   = (request.form.get("action") or "").strip()   # "draft" or "publish"
+    title    = (request.form.get("title") or "").strip()
+    category = (request.form.get("category") or "").strip()
+    content  = (request.form.get("content") or "").strip()
+    image    = request.files.get("image")
+
+    # (optional) Do any temp saving you like here; we’ll just simulate success
+    if action == "draft":
+        msg = "✅ Your story has been saved as a draft."
+    elif action == "publish":
+        msg = "🚀 Your story has been uploaded successfully!"
+    else:
+        return jsonify({"ok": False, "message": "⚠️ Something went wrong. Please try again."}), 400
+
+    # Tell the client to go back to the subscriber home when done showing the confirmation
+    return jsonify({"ok": True, "message": msg, "redirect": url_for("subscriberHomepage")})
+
+# --- EDIT SHORTCUT ------------------------------------------------
+@app.route("/edit-article/<aid>")
+def edit_article(aid):
+    if not session.get("user"):
+        return redirect(url_for("login"))
+    article = _store_find(aid)
+    if not article:
+        flash("Article not found.", "error")
+        return redirect(url_for("my_articles"))
+    # reuse the same template with 'article' filled
+    return render_template("subscriberCreateArticle.html", article=article)
+
+# --- DELETE -------------------------------------------------------
+@app.route("/delete-article/<aid>", methods=["POST"])
+def delete_article(aid):
+    if not session.get("user"):
+        return jsonify({"ok": False, "message": "Unauthorized"}), 401
+    articles = _store_get_all()
+    keep = [a for a in articles if a["id"] != aid]
+    session["my_articles"] = keep
+    session.modified = True
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return jsonify({"ok": True, "message": "🗑️ Article deleted.", "redirect": url_for("my_articles")})
+    flash("Article deleted.", "success")
+    return redirect(url_for("my_articles"))
 
 # ---------- Author homepage ----------
 @app.route("/authorHomepage")
