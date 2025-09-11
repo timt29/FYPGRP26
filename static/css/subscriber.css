@@ -345,6 +345,41 @@ html,body{ background:var(--bg); color:var(--ink); font-family:Arial,Helvetica,s
   color:#666;
 }
 
+.stats-grid{ display:grid; grid-template-columns:repeat(4,minmax(120px,1fr)); gap:16px; }
+.stat-box{ background:#fff; border:1px solid #e5e5e5; border-radius:12px; padding:18px 12px; text-align:center; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:88px; box-shadow:0 1px 0 rgba(0,0,0,.02); }
+.stat-num{ font-size:1.4rem; font-weight:700; color:#111; line-height:1.1; margin-bottom:6px; }
+.stat-label{ font-size:.9rem; color:#666; }
+
+/* --- Comments table --- */
+.table-wrap{ overflow:auto; }
+.table{
+  width:100%;
+  border-collapse:collapse;
+  background:#fff;
+  border:1px solid #e5e5e5;
+  border-radius:10px;
+}
+.table th, .table td{
+  padding:10px 12px;
+  border-top:1px solid #eee;
+  vertical-align:top;
+  text-align:left;
+}
+.table thead th{
+  background:#fafafa;
+  border-top:none;
+  font-weight:600;
+}
+.table .user{
+  white-space:nowrap;
+  font-weight:600;
+  color:#222;
+}
+.table .comment{
+  color:#444;
+  line-height:1.5;
+}
+
 /* (Optional) search row on analytics page */
 .search-row{
   margin-bottom:12px;

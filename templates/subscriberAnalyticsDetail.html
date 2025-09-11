@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Analytics — EchoPress</title>
+  <title>Analytics — {{ article.title }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -27,14 +27,14 @@
       <div id="menuPanel" class="menu-panel">
         <a href="{{ url_for('bookmarks') }}">View Bookmarks</a>
         <a href="{{ url_for('my_articles') }}">View My Articles</a>
-        <a href="{{ url_for('analytics') }}" class="active">View Analytics</a>
+        <a href="{{ url_for('analytics') }}">View Analytics</a>
         <a href="/profile">Edit Profile</a>
         <a href="#" class="logout-link logout">Log Out</a>
       </div>
     </div>
   </header>
 
-  <!-- Tabs row (optional for consistency) -->
+  <!-- Tabs row (optional for visual consistency) -->
   <nav class="tabs">
     <div class="tabs-inner">
       <a href="#" class="tab">For you</a>
@@ -53,47 +53,55 @@
     <!-- LEFT -->
     <section class="feed">
 
-      <!-- Overall Analytics tiles -->
+      <!-- Title + Tiles -->
       <div class="article-card detail">
-        <div class="card-header">Overall Analytics</div>
-        <div class="stats-grid">
+        <div class="card-header">
+          Analytics of {{ article.title }}
+        </div>
+
+        <div class="stats-grid" style="margin-top:8px;">
           <div class="stat-box">
-            <div class="stat-num">{{ (stats.views if stats else 100) }}</div>
+            <div class="stat-num">{{ stats.views }}</div>
             <div class="stat-label">Views</div>
           </div>
           <div class="stat-box">
-            <div class="stat-num">{{ (stats.likes if stats else 20) }}</div>
+            <div class="stat-num">{{ stats.likes }}</div>
             <div class="stat-label">Likes</div>
           </div>
           <div class="stat-box">
-            <div class="stat-num">{{ (stats.dislikes if stats else 3) }}</div>
+            <div class="stat-num">{{ stats.dislikes }}</div>
             <div class="stat-label">Dislikes</div>
           </div>
           <div class="stat-box">
-            <div class="stat-num">{{ (stats.shares if stats else 9) }}</div>
+            <div class="stat-num">{{ stats.shares }}</div>
             <div class="stat-label">Share</div>
           </div>
         </div>
       </div>
 
-      <!-- Articles from this subscriber -->
+      <!-- Comments table -->
       <div class="article-card detail" style="margin-top:16px;">
-  <div class="card-header" style="margin-bottom:8px;">Articles</div>
-  {% if not articles %}
-    <p>No articles yet.</p>
-  {% else %}
-    <ul style="list-style:none;margin:0;padding:0;">
-      {% for a in articles %}
-        <li style="border-top:1px solid #eee;padding:10px 0;">
-          <a href="{{ url_for('analytics_detail', aid=a.id) }}" 
-             style="text-decoration:none;color:#111;font-weight:600;display:block;">
-            {{ a.title }}
-          </a>
-        </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-</div>
+        <div class="card-header" style="margin-bottom:8px;">Comments</div>
+        {% if not comments %}
+          <p>No comments yet.</p>
+        {% else %}
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr><th style="width:220px;">User</th><th>Comments</th></tr>
+              </thead>
+              <tbody>
+                {% for c in comments %}
+                  <tr>
+                    <td class="user">{{ c.user }}</td>
+                    <td class="comment">{{ c.text }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      </div>
 
     </section>
 
@@ -103,7 +111,7 @@
     </aside>
   </main>
 
-  <!-- Logout Confirmation Modal (shared across pages) -->
+  <!-- Logout Confirmation Modal -->
   <div id="logoutModal" class="modal-overlay">
     <div class="modal">
       <h2>Log Out?</h2>
@@ -114,39 +122,23 @@
     </div>
   </div>
 
-  <!-- JS (menu toggle, article search, logout modal) -->
+  <!-- JS: menu + logout modal -->
   <script>
     (function () {
-      // menu
       const btn = document.getElementById('menuBtn');
       const panel = document.getElementById('menuPanel');
-      function closePanel(){ panel.style.display='none'; }
-      function togglePanel(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
-      btn.addEventListener('click', e => { e.stopPropagation(); togglePanel(); });
-      document.addEventListener('click', e => { if(panel && !panel.contains(e.target) && e.target!==btn) closePanel(); });
-      document.addEventListener('keydown', e => { if(e.key==='Escape') closePanel(); });
+      function closeP(){ panel.style.display='none'; }
+      function toggleP(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
+      btn.addEventListener('click', e=>{ e.stopPropagation(); toggleP(); });
+      document.addEventListener('click', e=>{ if(panel && !panel.contains(e.target) && e.target!==btn) closeP(); });
+      document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeP(); });
 
-      // search filter
-      const search = document.getElementById('articleSearch');
-      if (search) {
-        search.addEventListener('input', () => {
-          const q = search.value.trim().toLowerCase();
-          document.querySelectorAll('.article-row').forEach(row => {
-            const t = row.getAttribute('data-title') || '';
-            row.style.display = t.includes(q) ? '' : 'none';
-          });
-        });
-      }
-
-      // logout modal
       const modal = document.getElementById("logoutModal");
-      const confirmBtn = document.getElementById("confirmLogout");
-      const cancelBtn = document.getElementById("cancelLogout");
       document.querySelectorAll(".logout-link").forEach(link=>{
         link.addEventListener("click", e => { e.preventDefault(); modal.style.display="flex"; });
       });
-      confirmBtn.addEventListener("click", () => { window.location.href = "{{ url_for('logout') }}"; });
-      cancelBtn.addEventListener("click", () => { modal.style.display="none"; });
+      document.getElementById("confirmLogout").addEventListener("click", ()=>{ window.location.href="{{ url_for('logout') }}"; });
+      document.getElementById("cancelLogout").addEventListener("click", ()=>{ modal.style.display="none"; });
       document.addEventListener("keydown", e => { if(e.key==="Escape") modal.style.display="none"; });
     })();
   </script>

@@ -5,6 +5,7 @@ from functools import wraps
 import webbrowser
 import threading
 import mysql.connector
+import random
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
@@ -446,6 +447,35 @@ def analytics():
 
     return render_template("subscriberAnalytics.html", stats=stats, articles=my_articles)
 
+def _get_article_by_id(aid: int):
+    articles = session.get("my_articles", [])
+    for a in articles:
+        if str(a.get("id")) == str(aid):
+            return a
+    return None
+
+@app.route("/analytics/article/<aid>")
+def analytics_detail(aid):
+    if not session.get("user"):
+        return redirect(url_for("login"))
+
+    article = _get_article_by_id(aid)
+    if not article:
+        flash("Article not found.")
+        return redirect(url_for("analytics"))
+
+    import random
+    stats = {
+        "views": random.randint(1, 20),
+        "likes": random.randint(1, 20),
+        "dislikes": random.randint(1, 20),
+        "shares": random.randint(1, 20),
+    }
+
+    comments_by_article = session.get("article_comments", {})
+    comments = comments_by_article.get(str(aid), [])
+    return render_template("subscriberAnalyticsDetail.html",
+                           article=article, stats=stats, comments=comments)
 
 
 # ---------- Author homepage ----------
