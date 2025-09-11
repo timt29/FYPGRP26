@@ -1,4 +1,3 @@
-@ -0,0 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,66 +5,56 @@
   <title>Create Your Story — EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
 </head>
-<body style="margin:0;font-family:Arial,Helvetica,sans-serif;background:#f7f7f7;color:#111;">
+<body>
 
   <!-- Top Bar -->
-  <header style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#222;">
-    <div style="display:flex;align-items:center;gap:16px;">
-      <a href="{{ url_for('subscriberHomepage') }}" style="display:inline-block;line-height:0;">
-        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress"
-             style="height:50px;width:50px;object-fit:contain;display:block;" />
+  <header class="topbar">
+    <div class="left">
+      <a href="{{ url_for('subscriberHomepage') }}" class="brand">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </a>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <input type="text" placeholder="Searching for… ?" aria-label="Search"
-               style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;" />
-        <button style="padding:6px 12px;border:none;border-radius:6px;background:#555;color:#fff;cursor:pointer;">Search</button>
+      <div class="search">
+        <input type="text" placeholder="Searching for… ?" aria-label="Search" />
+        <button>Search</button>
       </div>
     </div>
 
-    <div style="position:relative;display:flex;align-items:center;gap:12px;">
-      <span style="color:#fff;font-size:0.95rem;">Welcome, {{ session.get('user','Subscriber') }} !</span>
-      <button id="menuBtn" aria-label="Menu"
-              style="background:transparent;border:0;display:flex;flex-direction:column;gap:3px;cursor:pointer;">
-        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
-        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
-        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
+    <div class="right">
+      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      <button id="menuBtn" class="burger" aria-label="Menu">
+        <span></span><span></span><span></span>
       </button>
-      <div id="menuPanel"
-           style="position:absolute;top:42px;right:0;width:220px;background:#fff;border:1px solid #e5e5e5;border-radius:10px;
-                  box-shadow:0 8px 24px rgba(0,0,0,.12);overflow:hidden;display:none;z-index:1000;">
-        <a href="/bookmarks"   style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Bookmark</a>
-        <a href="/my-articles" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View My Articles</a>
-        <a href="/analytics"   style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Analytics</a>
-        <a href="/profile"     style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">Edit Profile</a>
-        <a href="{{ url_for('logout') }}" style="display:block;padding:12px 14px;text-decoration:none;color:#b00020;text-align:center;">Log Out</a>
+      <div id="menuPanel" class="menu-panel">
+        <a href="/bookmarks">View Bookmark</a>
+        <a href="/my-articles">View My Articles</a>
+        <a href="/analytics">View Analytics</a>
+        <a href="/profile">Edit Profile</a>
+        <a href="{{ url_for('logout') }}" class="logout">Log Out</a>
       </div>
     </div>
   </header>
 
   <!-- Content layout: form left, ads right -->
-  <main style="display:flex;gap:20px;align-items:flex-start;padding:18px;max-width:1200px;margin:0 auto;">
+  <main class="page">
 
     <!-- LEFT: Create form -->
-    <section style="flex:1;">
-      <div style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;">
-        <div style="padding:10px 16px;border-bottom:1px solid #eee;font-weight:700;">Create Your Story</div>
+    <section class="feed">
+      <div class="article-card detail">
+        <div class="card-header">Create Your Story</div>
 
-        <form method="POST" action="{{ url_for('create_article') }}" enctype="multipart/form-data"
-              style="padding:18px;display:flex;flex-direction:column;gap:16px;">
-
+        <form id="createForm" method="POST" action="{{ url_for('create_article') }}" enctype="multipart/form-data" class="create-form">
           <!-- Heading -->
           <div>
-            <label for="title" style="display:block;margin-bottom:6px;font-weight:600;">Add Heading:</label>
-            <input type="text" id="title" name="title" required
-                   style="width:100%;padding:10px;border:1px solid #cfcfcf;border-radius:8px;">
+            <label for="title">Add Heading:</label>
+            <input type="text" id="title" name="title" required>
           </div>
 
           <!-- Category -->
           <div>
-            <label for="category" style="display:block;margin-bottom:6px;font-weight:600;">Select Category:</label>
-            <select id="category" name="category" required
-                    style="width:260px;padding:10px;border:1px solid #cfcfcf;border-radius:8px;background:#fff;">
+            <label for="category">Select Category:</label>
+            <select id="category" name="category" required>
               <option value="" disabled selected>Choose one…</option>
               <option>Trending</option>
               <option>Politics</option>
@@ -79,49 +68,47 @@
 
           <!-- Cover image -->
           <div>
-            <label for="image" style="display:block;margin-bottom:6px;font-weight:600;">Upload Cover Image:</label>
-            <input type="file" id="image" name="image"
-                   style="width:260px;padding:8px;border:1px solid #cfcfcf;border-radius:8px;background:#fff;">
+            <label for="image">Upload Cover Image:</label>
+            <input type="file" id="image" name="image">
           </div>
 
           <!-- Body -->
           <div>
-            <label for="content" style="display:block;margin-bottom:6px;font-weight:600;">Tell Us Your Story:</label>
-            <textarea id="content" name="content" rows="12" required
-                      style="width:100%;padding:12px;border:1px solid #cfcfcf;border-radius:8px;resize:vertical;"></textarea>
+            <label for="content">Tell Us Your Story:</label>
+            <textarea id="content" name="content" rows="12" required></textarea>
           </div>
 
           <!-- Buttons -->
-          <div style="display:flex;gap:16px;justify-content:center;margin-top:8px;">
-            <button type="submit" name="action" value="draft"
-                    style="min-width:180px;padding:10px 16px;border:1px solid #ccc;border-radius:8px;background:#f5f5f5;cursor:pointer;">
-              Save As Draft
-            </button>
-            <button type="submit" name="action" value="publish"
-                    style="min-width:180px;padding:10px 16px;border:none;border-radius:8px;background:#0a66c2;color:#fff;cursor:pointer;">
-              Upload Article
-            </button>
+          <div class="form-buttons">
+            <input type="hidden" name="action" id="actionField" value="">
+            <button type="button" id="btnDraft"   class="btn btn-light">Save As Draft</button>
+            <button type="button" id="btnPublish" class="btn btn-primary">Upload Article</button>
           </div>
         </form>
       </div>
     </section>
 
     <!-- RIGHT: Ads column -->
-    <aside style="flex:0 0 320px;">
-      <div style="position:sticky;top:18px;">
-        <div style="height:420px;background:#f1f1f1;border:1px dashed #cfcfcf;border-radius:10px;
-                    display:flex;align-items:center;justify-content:center;color:#999;font-size:1.1rem;">
-          <span>Ads</span>
-        </div>
+    <aside class="sidebar">
+      <div class="ads">
+        <span>Ads</span>
       </div>
     </aside>
+
+    <div id="confirmOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-hidden="true" style="display:none;">
+      <div class="modal">
+        <h3 id="confirmTitle">Processing…</h3>
+        <p id="confirmText">Please wait while we save your story.</p>
+        <div class="spinner" aria-hidden="true"></div>
+      </div>
+    </div>
   </main>
 
-  <!-- Tiny JS for menu toggle -->
+  <!-- JS for menu toggle -->
   <script>
     (function(){
-      const btn = document.getElementById('menuBtn');
-      const panel = document.getElementById('menuPanel');
+      const btn=document.getElementById('menuBtn');
+      const panel=document.getElementById('menuPanel');
       function closeP(){ panel.style.display='none'; }
       function toggleP(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
       btn.addEventListener('click',e=>{ e.stopPropagation(); toggleP(); });
@@ -129,5 +116,70 @@
       document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeP(); });
     })();
   </script>
+
+  <script>
+      (function(){
+        const form      = document.getElementById('createForm');
+        const btnDraft  = document.getElementById('btnDraft');
+        const btnPub    = document.getElementById('btnPublish');
+        const actionFld = document.getElementById('actionField');
+
+        const overlay   = document.getElementById('confirmOverlay');
+        const titleEl   = document.getElementById('confirmTitle');
+        const textEl    = document.getElementById('confirmText');
+
+        function showOverlay(title, text, showSpinner=true){
+          titleEl.textContent = title;
+          textEl.textContent  = text;
+          const spinner = overlay.querySelector('.spinner');
+          if (spinner) spinner.style.display = showSpinner ? 'block' : 'none';
+          overlay.style.display = 'flex';
+          overlay.setAttribute('aria-hidden','false');
+        }
+        function hideOverlay(){
+          overlay.style.display = 'none';
+          overlay.setAttribute('aria-hidden','true');
+        }
+
+        async function postFormWithDelay(action){
+          // 1) show "Processing…" immediately
+          showOverlay("Processing…", action === "draft" ? "Saving draft…" : "Uploading article…", true);
+
+          // 2) wait exactly 4s before contacting server
+          await new Promise(r => setTimeout(r, 4000));
+
+          // 3) send AJAX to server
+          actionFld.value = action;
+          const url = form.getAttribute('action');
+          const fd  = new FormData(form);
+
+          try{
+            const res = await fetch(url, {
+              method: 'POST',
+              body: fd,
+              headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await res.json();
+
+            // 4) swap overlay to confirmation message (no spinner)
+            showOverlay(data.ok ? "Success" : "Error", data.message, false);
+
+            // 5) after 1.2s, redirect to homepage
+            setTimeout(() => {
+              window.location.href = data.redirect || "{{ url_for('subscriberHomepage') }}";
+            }, 1200);
+
+          }catch(err){
+            // Show error but don't redirect automatically
+            showOverlay("Error", "Unable to submit right now. Please try again.", false);
+            // Optional: hide after a few seconds
+            setTimeout(hideOverlay, 2500);
+          }
+        }
+
+        btnDraft.addEventListener('click',  () => postFormWithDelay('draft'));
+        btnPub  .addEventListener('click',  () => postFormWithDelay('publish'));
+      })();
+</script>
 </body>
 </html>

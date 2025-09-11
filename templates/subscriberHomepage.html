@@ -2,228 +2,130 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>EchoPress — Home</title>
+  <title>EchoPress — Subscriber Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
 </head>
-<body style="margin:0;font-family:Arial,Helvetica,sans-serif;background:#f7f7f7;color:#111;" >
+<body>
 
   <!-- Top Bar -->
-  <header class="topbar" style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#222;">
-    <!-- Left: logo + search -->
-    <div class="left" style="display:flex;align-items:center;gap:16px;">
-      <a href="/" class="brand" style="display:inline-block;line-height:0;">
-        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress"
-             style="height:50px;width:50px;object-fit:contain;display:block;" />
+  <header class="topbar">
+    <div class="left">
+      <a href="/" class="brand">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </a>
-      <div class="search" style="display:flex;align-items:center;gap:6px;">
-        <input type="text" placeholder="Searching for… ?" aria-label="Search"
-               style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;" />
-        <button aria-label="Search"
-                style="padding:6px 12px;border:none;border-radius:6px;background:#555;color:#fff;cursor:pointer;">
-          Search
-        </button>
-      </div>
+      <!-- Search sits to the RIGHT of the logo -->
+      <form class="search" action="#" method="get" role="search">
+        <input type="text" placeholder="Searching for… ?" aria-label="Search" />
+        <button type="submit" aria-label="Search">Search</button>
+      </form>
     </div>
 
-    <!-- Right: welcome + menu -->
-    <div class="right" style="position:relative;display:flex;align-items:center;gap:12px;">
-      <span class="welcome" style="color:#fff;font-size:0.95rem;">
-        Welcome, {{ session.get('user', 'Subscriber') }} !
-      </span>
-
-      <!-- Burger button -->
-      <button id="menuBtn" class="burger" aria-label="Menu"
-              style="background:transparent;border:0;display:flex;flex-direction:column;gap:3px;cursor:pointer;">
-        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
-        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
-        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
-      </button>
-
-      <!-- Dropdown panel -->
-      <div id="menuPanel"
-           style="position:absolute;top:42px;right:0;width:220px;background:#fff;border:1px solid #e5e5e5;border-radius:10px;
-                  box-shadow:0 8px 24px rgba(0,0,0,.12);overflow:hidden;display:none;z-index:1000;">
-        <a href="/bookmarks" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Bookmark</a>
-        <a href="/my-articles" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View My Articles</a>
-        <a href="/analytics" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Analytics</a>
-        <a href="/profile" style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">Edit Profile</a>
-        <a href="{{ url_for('logout') }}" style="display:block;padding:12px 14px;text-decoration:none;color:#b00020;text-align:center;">Log Out</a>
+    <!-- User name then menu button; panel anchored to the RIGHT -->
+    <div class="right">
+      <span class="welcome">Welcome, {{ session.get('user', 'Subscriber') }} !</span>
+      <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div id="menuPanel" class="menu-panel">
+        <a href="/bookmarks">View Bookmark</a>
+        <a href="/my-articles">View My Articles</a>
+        <a href="/analytics">View Analytics</a>
+        <a href="/profile">Edit Profile</a>
+        <a href="{{ url_for('logout') }}" class="logout">Log Out</a>
       </div>
     </div>
   </header>
 
-  <!-- FLASH MESSAGES AS MODAL -->
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div id="flashOverlay" style="
-           position:fixed;inset:0;background:rgba(0,0,0,.45);
-           display:flex;align-items:center;justify-content:center;z-index:2000;">
-        <div id="flashModal" role="dialog" aria-modal="true" aria-labelledby="flashTitle" style="
-             width:min(520px, 92vw);background:#fff;border-radius:12px;border:1px solid #e5e5e5;
-             box-shadow:0 18px 60px rgba(0,0,0,.25);">
-          <div style="padding:14px 18px;border-bottom:1px solid #eee;display:flex;justify-content:space-between;align-items:center;">
-            <h3 id="flashTitle" style="margin:0;font-size:1.05rem;">Notification</h3>
-            <button id="flashCloseX" aria-label="Close" style="border:0;background:transparent;font-size:20px;cursor:pointer;line-height:1;">×</button>
-          </div>
-          <div style="padding:16px 18px;">
-            {% for category, message in messages %}
-              <div style="
-                   margin-bottom:10px;padding:10px 12px;border-radius:8px;
-                   {% if category=='success' %}
-                     background:#e6ffed;color:#065f46;border:1px solid #34d399;
-                   {% elif category=='error' %}
-                     background:#fee2e2;color:#991b1b;border:1px solid #f87171;
-                   {% else %}
-                     background:#fef9c3;color:#854d0e;border:1px solid #facc15;
-                   {% endif %}">
-                {{ message }}
-              </div>
-            {% endfor %}
-          </div>
-          <div style="padding:12px 18px;border-top:1px solid #eee;display:flex;justify-content:flex-end;">
-            <button id="flashOk" style="padding:8px 14px;border:none;border-radius:8px;background:#0a66c2;color:#fff;cursor:pointer;">OK</button>
-          </div>
-        </div>
-      </div>
-      <script>
-        (function(){
-          const overlay = document.getElementById('flashOverlay');
-          const ok = document.getElementById('flashOk');
-          const closeX = document.getElementById('flashCloseX');
-          function close(){ if(overlay){ overlay.style.opacity='0'; overlay.style.transition='opacity .25s'; setTimeout(()=>overlay.remove(), 250); } }
-          ok.addEventListener('click', close);
-          closeX.addEventListener('click', close);
-          overlay.addEventListener('click', (e)=>{ if(e.target === overlay) close(); });
-          document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') close(); });
-          // Auto-hide after ~4 seconds
-          setTimeout(close, 4000);
-        })();
-      </script>
-    {% endif %}
-  {% endwith %}
-
-  <!-- Section Tabs (centered) -->
-  <nav class="tabs" style="width:100%;border-bottom:1px solid #e5e5e5;background:#fff;">
-    <div style="max-width:1200px;margin:0 auto;padding:10px 16px;
-                display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;">
-      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">For you</a>
-      <a href="#" class="tab" style="text-decoration:none;color:#0b4da2;background:#e8f2ff;border:1px solid #cfe4ff;padding:6px 10px;border-radius:18px;font-size:0.9rem">Trending</a>
-      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Politics</a>
-      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Sports</a>
-      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Technology</a>
-      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Economic</a>
-      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">AsiaNews</a>
-      <a href="#" class="tab" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">WorldNews</a>
+  <!-- Tabs -->
+  <nav class="tabs">
+    <div class="tabs-inner">
+      <a href="#" class="tab">For you</a>
+      <a href="#" class="tab active">Trending</a>
+      <a href="#" class="tab">Politics</a>
+      <a href="#" class="tab">Sports</a>
+      <a href="#" class="tab">Technology</a>
+      <a href="#" class="tab">Economic</a>
+      <a href="#" class="tab">AsiaNews</a>
+      <a href="#" class="tab">WorldNews</a>
     </div>
   </nav>
 
-  <!-- Page Layout -->
-  <main class="layout" style="display:flex;gap:20px;align-items:flex-start;padding:18px;max-width:1200px;margin:0 auto;">
-
-    <!-- LEFT: Articles -->
-    <section class="feed" style="flex:1;display:flex;flex-direction:column;gap:16px;">
-
+  <!-- Main two-column layout -->
+  <main class="page">
+    <!-- LEFT: Feed -->
+    <section class="feed">
       <!-- Article 1 -->
-      <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
-        <div style="flex:1;min-width:0;">
+      <article class="article-card">
+        <div class="text">
           <a href="{{ url_for('subscriberArticle1') }}" style="color:#000;text-decoration:none;">
             <h2>Circle Line disruption: Service between Marina Bay and Promenade stations has resumed</h2>
           </a>
-          <p>
-            A train fault on the Circle Line resulted in no train services between Marina Bay and Promenade for about 35 minutes on Monday
-            (Sept 1) morning. Rail operator SMRT announced the disruption on social media at 8.41am. ...
-          </p>
+          <p>A train fault on the Circle Line resulted in no train services between Marina Bay and Promenade for about 35 minutes on Monday (Sept 1) morning…</p>
         </div>
-        <a href="{{ url_for('subscriberArticle1') }}" style="flex:0 0 320px;display:block;">
-          <img src="{{ url_for('static', filename='img/SMRT.webp') }}" alt="Smrt thumbnail"
-              style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        <a href="{{ url_for('subscriberArticle1') }}" class="thumb-wrap">
+          <img src="{{ url_for('static', filename='img/SMRT.webp') }}" alt="Smrt thumbnail" class="thumb" />
         </a>
       </article>
 
       <!-- Article 2 -->
-      <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
-        <div style="flex:1;min-width:0;">
+      <article class="article-card">
+        <div class="text">
           <a href="{{ url_for('subscriberArticle2') }}" style="color:#000;text-decoration:none;">
             <h3>Woman charged over possessing almost 200 etomidate-laced vapes, buying another 50</h3>
           </a>
           <p>SAY NO TO VAPE/KPOD</p>
-          <p>SINGAPORE – A woman was charged over possessing 195
-            etomidate-laced vapes, or Kpods, and buying another 50 such pods
-            on separate occasions in 2024. On Sept 4...</p>
+          <p>SINGAPORE – A woman was charged over possessing 195 etomidate-laced vapes…</p>
         </div>
-        <a href="{{ url_for('subscriberArticle2') }}" style="flex:0 0 320px;display:block;">
-          <img src="{{ url_for('static', filename='img/kpods.png') }}" alt="Kpods thumbnail"
-              style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        <a href="{{ url_for('subscriberArticle2') }}" class="thumb-wrap">
+          <img src="{{ url_for('static', filename='img/kpods.png') }}" alt="Kpods thumbnail" class="thumb" />
         </a>
       </article>
 
       <!-- Article 3 -->
-      <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
-        <div style="flex:1;min-width:0;">
+      <article class="article-card">
+        <div class="text">
           <a href="{{ url_for('subscriberArticle3') }}" style="color:#000;text-decoration:none;">
             <h3>Jail for money mule who was promised $100 a day to withdraw cash for scammers</h3>
           </a>
-          <p>
-            SINGAPORE – A financially strapped man withdrew scam proceeds in cash from ATMs to earn $100 a day so that he could buy diapers and
-            milk powder for his newborn child....
-          </p>
+          <p>SINGAPORE – A financially strapped man withdrew scam proceeds in cash…</p>
         </div>
-        <a href="{{ url_for('subscriberArticle3') }}" style="flex:0 0 320px;display:block;">
-          <img src="{{ url_for('static', filename='img/scam.jpg') }}" alt="Scam case"
-              style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        <a href="{{ url_for('subscriberArticle3') }}" class="thumb-wrap">
+          <img src="{{ url_for('static', filename='img/scam.jpg') }}" alt="Scam case" class="thumb" />
         </a>
       </article>
 
       <!-- Article 4 -->
-      <article style="display:flex;gap:16px;align-items:stretch;border:1px solid #e5e5e5;border-radius:10px;background:#fff;padding:14px;">
-        <div style="flex:1;min-width:0;">
+      <article class="article-card">
+        <div class="text">
           <a href="{{ url_for('subscriberArticle4') }}" style="color:#000;text-decoration:none;">
             <h3>Fire breaks out at Tuas industrial building; no injuries reported</h3>
           </a>
-          <p>
-            SINGAPORE – A fire broke out at an HDB block in Chai Chee Avenue on Sept 5, resulting in four people being
-            taken to hospital ....
-          </p>
+          <p>SINGAPORE – A fire broke out at an HDB block in Chai Chee Avenue on Sept 5…</p>
         </div>
-        <a href="{{ url_for('subscriberArticle4') }}" style="flex:0 0 320px;display:block;">
-          <img src="{{ url_for('static', filename='img/fire.jpeg') }}" alt="Fire incident"
-              style="width:100%;height:200px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+        <a href="{{ url_for('subscriberArticle4') }}" class="thumb-wrap">
+          <img src="{{ url_for('static', filename='img/fire.jpeg') }}" alt="Fire incident" class="thumb" />
         </a>
       </article>
     </section>
 
     <!-- RIGHT: Sidebar -->
-    <aside class="sidebar" style="flex:0 0 320px;display:flex;flex-direction:column;gap:16px;">
-      <a href="{{ url_for('create_article') }}"
-          style="display:block;text-align:center;padding:12px 14px;border-radius:10px;background:#0a66c2;color:#fff;text-decoration:none;font-weight:600;">
-        Create Your Story
-      </a>
-      <div class="ads"
-           style="height:380px;background:#f1f1f1;border:1px dashed #cfcfcf;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#999;font-size:1.1rem;">
-        <span>Ads</span>
-      </div>
+    <aside class="sidebar">
+      <a href="{{ url_for('create_article') }}" class="btn btn-primary">Create Your Story</a>
+      <div class="ads">Ads</div>
     </aside>
   </main>
 
-  <!-- JS for menu toggle -->
+  <!-- Tiny JS for menu toggle (kept inline for simplicity) -->
   <script>
-    (function() {
+    (function(){
       const btn = document.getElementById('menuBtn');
       const panel = document.getElementById('menuPanel');
-      function closePanel() { panel.style.display = 'none'; }
-      function togglePanel() {
-        panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
-      }
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation(); togglePanel();
-      });
-      document.addEventListener('click', function(e) {
-        if (!panel.contains(e.target) && e.target !== btn) { closePanel(); }
-      });
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') closePanel();
-      });
+      if(!btn || !panel) return;
+      function closeP(){ panel.style.display='none'; }
+      function toggleP(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
+      btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
     })();
   </script>
 </body>

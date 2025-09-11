@@ -211,24 +211,33 @@ def create_article():
         return redirect(url_for("login"))
 
     if request.method == "POST":
-        title = request.form.get("title", "").strip()
-        category = request.form.get("category", "").strip()
-        content = request.form.get("content", "").strip()
+        title = request.form.get("title","").strip()
+        category = request.form.get("category","").strip()
+        content = request.form.get("content","").strip()
         image = request.files.get("image")
         action = request.form.get("action")  # "draft" or "publish"
 
-        # TODO: persist to DB if needed
+        # pick the message
         if action == "draft":
-            flash("✅ Your story has been saved as a draft.", "success")
+            msg = "✅ Your story has been saved as a draft."
+            cat = "success"
         elif action == "publish":
-            flash("🚀 Your story has been uploaded successfully!", "success")
+            msg = "🚀 Your story has been uploaded successfully!"
+            cat = "success"
         else:
-            flash("⚠️ Something went wrong. Please try again.", "error")
+            msg = "⚠️ Something went wrong. Please try again."
+            cat = "error"
 
+        # If it's an AJAX (fetch) request, return JSON so the page can control timing.
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": (cat == "success"), "message": msg, "redirect": url_for("subscriberHomepage")})
+
+        # Fallback: normal post/redirect/flash
+        flash(msg, cat)
         return redirect(url_for("subscriberHomepage"))
 
-    # GET
-    return render_template("create_article.html")
+    return render_template("subscriberCreateArticle.html")
+
 
 # ---------- Pin API ----------
 @app.route("/pin-article", methods=["POST"])

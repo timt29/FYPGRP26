@@ -5,104 +5,111 @@
   <title>{{ article.title }} — EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
 </head>
-<body style="margin:0;font-family:Arial,Helvetica,sans-serif;background:#f7f7f7;color:#111;">
+<body>
 
   <!-- Top Bar -->
-  <header style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:#222;">
-    <div style="display:flex;align-items:center;gap:16px;">
-      <a href="{{ url_for('subscriberHomepage') }}" style="display:inline-block;line-height:0;">
-        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress"
-             style="height:50px;width:50px;object-fit:contain;display:block;" />
+  <header class="topbar">
+    <div class="left">
+      <a href="{{ url_for('subscriberHomepage') }}" class="brand">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </a>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <input type="text" placeholder="Searching for… ?" aria-label="Search"
-               style="padding:6px 10px;border:1px solid #ccc;border-radius:6px;" />
-        <button style="padding:6px 12px;border:none;border-radius:6px;background:#555;color:#fff;cursor:pointer;">Search</button>
-      </div>
+      <form class="search" action="#" method="get" role="search">
+        <input type="text" placeholder="Searching for… ?" aria-label="Search" />
+        <button type="submit" aria-label="Search">Search</button>
+      </form>
     </div>
 
-    <div style="position:relative;display:flex;align-items:center;gap:12px;">
-      <span style="color:#fff;font-size:0.95rem;">Welcome, {{ session.get('user','Subscriber') }} !</span>
-      <button id="menuBtn" aria-label="Menu"
-              style="background:transparent;border:0;display:flex;flex-direction:column;gap:3px;cursor:pointer;">
-        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
-        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
-        <span style="width:20px;height:2px;background:#fff;display:block;"></span>
-      </button>
-      <div id="menuPanel"
-           style="position:absolute;top:42px;right:0;width:220px;background:#fff;border:1px solid #e5e5e5;border-radius:10px;
-                  box-shadow:0 8px 24px rgba(0,0,0,.12);overflow:hidden;display:none;z-index:1000;">
-        <a href="/bookmarks"    style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Bookmark</a>
-        <a href="/my-articles"  style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View My Articles</a>
-        <a href="/analytics"    style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">View Analytics</a>
-        <a href="/profile"      style="display:block;padding:12px 14px;text-decoration:none;color:#222;border-bottom:1px solid #eee;text-align:center;">Edit Profile</a>
-        <a href="{{ url_for('logout') }}" style="display:block;padding:12px 14px;text-decoration:none;color:#b00020;text-align:center;">Log Out</a>
+    <div class="right">
+      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div id="menuPanel" class="menu-panel">
+        <a href="/bookmarks">View Bookmark</a>
+        <a href="/my-articles">View My Articles</a>
+        <a href="/analytics">View Analytics</a>
+        <a href="/profile">Edit Profile</a>
+        <a href="{{ url_for('logout') }}" class="logout">Log Out</a>
       </div>
     </div>
   </header>
 
-  <!-- Centered Tabs -->
-  <nav style="width:100%;border-bottom:1px solid #e5e5e5;background:#fff;">
-    <div style="max-width:1200px;margin:0 auto;padding:10px 16px;display:flex;justify-content:center;gap:10px;flex-wrap:wrap;">
-      <a href="#" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">For you</a>
-      <a href="#" style="text-decoration:none;color:#0b4da2;background:#e8f2ff;border:1px solid #cfe4ff;padding:6px 10px;border-radius:18px;font-size:0.9rem">Trending</a>
-      <a href="#" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Politics</a>
-      <a href="#" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Sports</a>
-      <a href="#" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Technology</a>
-      <a href="#" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">Economic</a>
-      <a href="#" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">AsiaNews</a>
-      <a href="#" style="text-decoration:none;color:#333;background:#f1f1f1;border:1px solid #e5e5e5;padding:6px 10px;border-radius:18px;font-size:0.9rem">WorldNews</a>
+  <!-- Tabs -->
+  <nav class="tabs">
+    <div class="tabs-inner">
+      <a href="#" class="tab">For you</a>
+      <a href="#" class="tab active">Trending</a>
+      <a href="#" class="tab">Politics</a>
+      <a href="#" class="tab">Sports</a>
+      <a href="#" class="tab">Technology</a>
+      <a href="#" class="tab">Economic</a>
+      <a href="#" class="tab">AsiaNews</a>
+      <a href="#" class="tab">WorldNews</a>
     </div>
   </nav>
 
-  <!-- Layout: Article left, Sidebar right -->
-  <main style="display:flex;gap:20px;align-items:flex-start;padding:18px;max-width:1200px;margin:0 auto;">
-
+  <!-- Two-column layout -->
+  <main class="page">
     <!-- LEFT: Article -->
-    <section style="flex:1;">
-      <article style="background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:22px;">
-        <h1 style="text-align:center;margin:6px 0 18px 0;">{{ article.title }}</h1>
+    <section class="feed">
 
-        <div style="display:flex;gap:18px;align-items:flex-start;">
-          <div style="flex:1;min-width:0;">
+      <article class="article-card detail" style="padding:22px;">
+        <!-- Title + kebab -->
+        <div class="article-header">
+          <h1 style="margin:6px 0 8px 0; text-align:center;">{{ article.title }}</h1>
+
+          {% if is_pinned %}
+            <span id="pinnedBadge" class="badge-pinned">Pinned</span>
+          {% else %}
+            <span id="pinnedBadge" class="badge-pinned" style="display:none;">Pinned</span>
+          {% endif %}
+
+          <div class="kebab-wrap">
+            <button class="kebab-btn" id="kebabBtn" aria-haspopup="true" aria-expanded="false">
+              <span class="kebab-dot" aria-hidden="true"></span>
+            </button>
+            <div class="kebab-menu" id="kebabMenu" role="menu" aria-label="Article actions">
+              <button id="pinItem" role="menuitem">
+                {% if is_pinned %}Unpin This Article{% else %}Pin This Article{% endif %}
+              </button>
+              <a role="menuitem" href="{{ url_for('create_article') }}?edit={{ article.slug }}">Edit Article</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Content row BELOW the header -->
+        <div class="article-body">
+          <div class="text">
             {% for para in article.paragraphs %}
-              <p style="line-height:1.6;margin:0 0 12px 0;color:#333;">{{ para }}</p>
+              <p style="line-height:1.6; margin:0 0 12px 0; color:#333;">{{ para }}</p>
             {% endfor %}
+
+            <div style="margin-top:18px; color:#666; font-size:.92rem;">
+              <div><strong>{{ article.author }}</strong></div>
+              <div>
+                <span>Published on {{ article.published_at }}</span>
+                {% if article.updated_at %} <span> • Updated on {{ article.updated_at }}</span>{% endif %}
+              </div>
+            </div>
           </div>
 
           {% if article.image_url %}
-          <figure style="flex:0 0 360px;margin:0;">
-            <img src="{{ article.image_url }}" alt=""
-                 style="width:100%;height:240px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
-          </figure>
+          <a class="thumb-wrap" aria-label="Article image">
+            <img src="{{ article.image_url }}" alt="" class="thumb" />
+          </a>
           {% endif %}
-        </div>
-
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;color:#666;font-size:0.92rem;">
-          <div>
-            <span style="margin-right:8px;">✉</span>
-            <strong>{{ article.author }}</strong><br>
-            <span>Published on {{ article.published_at }}</span>
-            {% if article.updated_at %}
-              <span> • Updated on {{ article.updated_at }}</span>
-            {% endif %}
-          </div>
         </div>
       </article>
 
-      <!-- Comments under article only -->
-      <section style="margin-top:20px;background:#fff;border:1px solid #e5e5e5;border-radius:10px;padding:18px;">
+      <!-- Comments -->
+      <section class="card" style="padding:18px; margin-top:16px;">
         <h3 style="margin:0 0 12px 0;">Comments</h3>
 
         <form id="commentForm" style="margin-bottom:18px;">
           <textarea id="commentInput" rows="3" placeholder="Insert comments"
                     style="width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;resize:vertical;"></textarea>
           <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-            <button type="submit"
-                    style="padding:8px 14px;border:none;border-radius:8px;background:#0a66c2;color:#fff;cursor:pointer;">
-              Send
-            </button>
+            <button type="submit" class="btn btn-primary">Send</button>
           </div>
         </form>
 
@@ -111,54 +118,93 @@
     </section>
 
     <!-- RIGHT: Sidebar -->
-    <aside style="flex:0 0 320px;display:flex;flex-direction:column;gap:16px;">
-      <a href="/article3"
-         style="display:block;text-align:center;padding:12px 14px;border-radius:10px;background:#0a66c2;color:#fff;text-decoration:none;font-weight:600;">
-        Create Your Story
-      </a>
-      <div style="height:380px;background:#f1f1f1;border:1px dashed #cfcfcf;border-radius:10px;
-                  display:flex;align-items:center;justify-content:center;color:#999;font-size:1.1rem;">
-        <span>Ads</span>
-      </div>
+    <aside class="sidebar">
+      <a href="{{ url_for('create_article') }}" class="btn btn-primary">Create Your Story</a>
+      <div class="ads">Ads</div>
     </aside>
   </main>
 
-  <!-- JS: comment handling -->
+  <!-- JS: comments (no persistence) -->
   <script>
-    const form = document.getElementById('commentForm');
-    const input = document.getElementById('commentInput');
-    const list = document.getElementById('commentList');
+    (function(){
+      const form = document.getElementById('commentForm');
+      const input = document.getElementById('commentInput');
+      const list = document.getElementById('commentList');
+      if(!form) return;
 
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
 
-      const div = document.createElement('div');
-      div.style.cssText = "border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:12px;background:#fafafa;";
-      div.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <strong>{{ session.get('user','Anonymous') }}</strong>
-          <span style="color:#888;font-size:.9rem;">just now</span>
-        </div>
-        <p style="margin:8px 0 0 0;color:#333;white-space:pre-wrap;">${text}</p>
-      `;
-      list.prepend(div);
-
-      input.value = '';
-    });
+        const div = document.createElement('div');
+        div.style.cssText = "border:1px solid #eee;border-radius:8px;padding:12px;margin-bottom:12px;background:#fafafa;";
+        div.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong>{{ session.get('user','Anonymous') }}</strong>
+            <span style="color:#888;font-size:.9rem;">just now</span>
+          </div>
+          <p style="margin:8px 0 0 0;color:#333;white-space:pre-wrap;">${text}</p>
+        `;
+        list.prepend(div);
+        input.value = '';
+      });
+    })();
   </script>
 
-  <!-- JS: menu toggle -->
+  <!-- JS: topbar menu -->
   <script>
     (function(){
       const btn = document.getElementById('menuBtn');
       const panel = document.getElementById('menuPanel');
+      if(!btn || !panel) return;
       function closeP(){ panel.style.display='none'; }
       function toggleP(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
-      btn.addEventListener('click',e=>{ e.stopPropagation(); toggleP(); });
-      document.addEventListener('click',e=>{ if(panel && !panel.contains(e.target) && e.target!==btn) closeP(); });
-      document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeP(); });
+      btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
+    })();
+  </script>
+
+  <!-- JS: kebab + pin/unpin -->
+  <script>
+    (function(){
+      const kebabBtn  = document.getElementById('kebabBtn');
+      const kebabMenu = document.getElementById('kebabMenu');
+      const pinItem   = document.getElementById('pinItem');
+      const pinnedBadge = document.getElementById('pinnedBadge');
+      const endpoint  = "{{ url_for('pin_article') }}";
+      const slug      = "{{ article.slug }}";   /* should be 'article3' */
+
+      if(!kebabBtn) return;
+
+      function openMenu(){ kebabMenu.style.display='block'; kebabBtn.setAttribute('aria-expanded','true'); }
+      function closeMenu(){ kebabMenu.style.display='none'; kebabBtn.setAttribute('aria-expanded','false'); }
+
+      kebabBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        (kebabMenu.style.display === 'block') ? closeMenu() : openMenu();
+      });
+      document.addEventListener('click', e => { if(!kebabMenu.contains(e.target)) closeMenu(); });
+      document.addEventListener('keydown', e => { if(e.key==='Escape') closeMenu(); });
+
+      pinItem.addEventListener('click', async () => {
+        try{
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: {"Content-Type":"application/json"},
+            body: JSON.stringify({ slug })
+          });
+          const data = await res.json();
+          if(!data.ok) throw new Error(data.error || "Failed");
+          const nowPinned = (data.state === "pin");
+          pinItem.textContent = nowPinned ? "Unpin This Article" : "Pin This Article";
+          pinnedBadge.style.display = nowPinned ? "inline-block" : "none";
+          closeMenu();
+        }catch(err){
+          alert("Unable to update pin state. Please try again.");
+        }
+      });
     })();
   </script>
 </body>
