@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>EchoPress — Subscriber Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="left">
+      <a href="/" class="brand">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
+      </a>
+      <!-- Search sits to the RIGHT of the logo -->
+      <form class="search" action="#" method="get" role="search">
+        <input type="text" placeholder="Searching for… ?" aria-label="Search" />
+        <button type="submit" aria-label="Search">Search</button>
+      </form>
+    </div>
+
+    <!-- User name then menu button; panel anchored to the RIGHT -->
+    <div class="right">
+      <span class="welcome">Welcome, {{ session.get('user', 'Subscriber') }} !</span>
+      <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div id="menuPanel" class="menu-panel">
+        <a href="{{ url_for('my_articles') }}">View My Articles</a>
+        <a href="/bookmarks">View Bookmark</a>
+        <a href="/analytics">View Analytics</a>
+        <a href="/profile">Edit Profile</a>
+        <a href="#" class="logout-link">Log Out</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <div class="tabs-inner">
+      <a href="#" class="tab">For you</a>
+      <a href="#" class="tab active">Trending</a>
+      <a href="#" class="tab">Politics</a>
+      <a href="#" class="tab">Sports</a>
+      <a href="#" class="tab">Technology</a>
+      <a href="#" class="tab">Economic</a>
+      <a href="#" class="tab">AsiaNews</a>
+      <a href="#" class="tab">WorldNews</a>
+    </div>
+  </nav>
+
+  <!-- Page Layout -->
+  <main class="page">
+    <!-- LEFT column -->
+    <section class="feed">
+
+      <!-- ABOUT card -->
+      <div class="article-card detail">
+        <div class="card-header">About {{ profile.display_name }}</div>
+
+        <div class="article-body">
+          <div class="text" style="display:flex; gap:16px; align-items:flex-start;">
+            <div class="avatar" style="width:96px;height:96px;border-radius:50%;background:#eee;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;color:#666;">
+              {% if profile.avatar_url %}
+                <img src="{{ profile.avatar_url }}" alt="{{ profile.display_name }}" style="width:100%;height:100%;object-fit:cover;display:block;">
+              {% else %}
+                {{ profile.display_name[:1] or 'U' }}
+              {% endif %}
+            </div>
+
+            <div>
+              <h2 style="margin:0 0 6px 0;">{{ profile.display_name }}</h2>
+
+              <!-- Short bio -->
+              <p style="margin:0 0 8px 0;color:#555;">
+                {% if profile.bio and profile.bio.strip() %}
+                  {{ profile.bio }}
+                {% else %}
+                  No bio yet. Tell people about yourself!
+                {% endif %}
+              </p>
+
+              <!-- Longer “About you” -->
+              <p style="margin:0;color:#444;white-space:pre-wrap;">
+                {% if profile.about and profile.about.strip() %}
+                  {{ profile.about }}
+                {% endif %}
+              </p>
+
+              <a href="{{ url_for('profile_edit') }}" class="btn btn-primary" style="margin-top:12px;">Edit Profile</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PINNED -->
+      <div class="article-card detail">
+        <div class="card-header">Pinned by {{ profile.display_name }}</div>
+
+        {% if not pinned %}
+          <div style="padding:12px;color:#666;">No pinned articles yet.</div>
+        {% else %}
+          <div style="display:flex; flex-direction:column; gap:14px; padding:10px;">
+            {% for p in pinned %}
+              {% set link = None %}
+              {% if p.id == 'article1' %}{% set link = url_for('subscriberArticle1') %}
+              {% elif p.id == 'article2' %}{% set link = url_for('subscriberArticle2') %}
+              {% elif p.id == 'article3' %}{% set link = url_for('subscriberArticle3') %}
+              {% elif p.id == 'article4' %}{% set link = url_for('subscriberArticle4') %}
+              {% endif %}
+
+              <a href="{{ link if link else '#' }}"
+                 class="list-item" style="text-decoration:none;color:inherit;">
+                {% if p.thumb %}
+                  <img class="thumb" src="{{ p.thumb }}" alt="">
+                {% else %}
+                  <div class="no-thumb">No Image</div>
+                {% endif %}
+                <div class="item-info">
+                  <div class="item-title">{{ p.title }}</div>
+                  {% if p.summary %}
+                    <div class="item-desc">{{ p.summary }}</div>
+                  {% endif %}
+                </div>
+              </a>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- MY ARTICLES -->
+      <div class="article-card detail">
+        <div class="row-between card-header">
+          <span>{{ profile.display_name }}’s articles</span>
+          <div class="sort-wrap">
+            <select aria-label="Sort">
+              <option selected>sort by</option>
+              <option>newest</option>
+              <option>oldest</option>
+            </select>
+          </div>
+        </div>
+
+        {% if not articles %}
+          <div style="padding:12px;color:#666;">No articles yet.</div>
+        {% else %}
+          <div style="padding:10px;">
+            {% for a in articles %}
+              <div class="list-item">
+                {% if a.image_url %}
+                  <img class="thumb" src="{{ a.image_url }}" alt="">
+                {% else %}
+                  <div class="no-thumb">No Image</div>
+                {% endif %}
+                <div class="item-info">
+                  <div class="item-title">{{ a.title }}</div>
+                  <div class="item-desc">{{ (a.content or '')[:200] }}{% if a.content and a.content|length > 200 %}…{% endif %}</div>
+                  <div class="item-meta">
+                    <span class="pill">{{ a.category or 'Uncategorised' }}</span>
+                    <span class="pill">{{ a.status|default('draft') }}</span>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- RIGHT column -->
+    <aside class="sidebar">
+      <a href="{{ url_for('create_article') }}" class="btn btn-primary">+ Create Your Story</a>
+      <div class="ads">Ads</div>
+    </aside>
+  </main>
+
+  <!-- Menu & logout JS -->
+  <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const $ = (s) => document.querySelector(s);
+
+    // menu
+    const menuBtn = $('#menuBtn');
+    const menuPanel = $('#menuPanel');
+    if (menuBtn && menuPanel) {
+      const toggle = () => menuPanel.style.display = (menuPanel.style.display === 'block') ? 'none' : 'block';
+      const close  = () => menuPanel.style.display = 'none';
+      menuBtn.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+      document.addEventListener('click', (e) => { if (!menuPanel.contains(e.target) && e.target !== menuBtn) close(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    }
+
+    // logout modal
+    const logoutLink  = $('#logoutLink');
+    const logoutModal = $('#logoutModal');
+    const logoutYes   = $('#logoutYes');
+    const logoutNo    = $('#logoutNo');
+    const show = () => logoutModal.classList.add('show');
+    const hide = () => logoutModal.classList.remove('show');
+
+    if (logoutLink && logoutModal) {
+      logoutLink.addEventListener('click', (e) => { e.preventDefault(); show(); });
+      logoutNo && logoutNo.addEventListener('click', hide);
+      logoutModal.addEventListener('click', (e) => { if (e.target === logoutModal) hide(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+      logoutYes && logoutYes.addEventListener('click', () => {
+        const href = logoutLink.getAttribute('data-href') || "{{ url_for('logout') }}";
+        window.location.href = href;
+      });
+    }
+  });
+  </script>
+</body>
+</html>

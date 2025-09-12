@@ -477,6 +477,123 @@ def analytics_detail(aid):
     return render_template("subscriberAnalyticsDetail.html",
                            article=article, stats=stats, comments=comments)
 
+# ---------- Profile / articles / pinned helpers ----------
+
+@app.route("/profile")
+def profile():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+    profile = _get_profile()
+    pinned = _resolve_pinned_items()
+    articles = _get_articles_any()
+    return render_template("subscriberProfile.html",
+                           profile=profile, pinned=pinned, articles=articles)
+
+@app.route("/profile/edit")
+def profile_edit():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+    return render_template(
+        "subscriberProfileEdit.html",
+        profile=_get_profile(),
+        email=session.get("user_email", "")
+    )
+
+def _get_profile():
+    """Fetch (or init) the subscriber profile from session."""
+    profile = session.get("subscriber_profile")
+    if not profile:
+        profile = {
+            "display_name": session.get("user", "Subscriber"),
+            "bio": "",
+            "about": "",
+            "avatar_url": None
+        }
+        session["subscriber_profile"] = profile
+    return profile
+
+def _get_articles_any():
+    """Return all articles saved in session, regardless of the key used earlier."""
+    return session.get("articles") or session.get("my_articles") or []
+
+def _builtin_article_by_slug(slug):
+    """Return one of the 4 built-in demo articles by slug."""
+    mapping = {
+        "article1": {
+            "id": "article1",
+            "title": "Circle Line disruption: Service between Marina Bay and Promenade stations has resumed",
+            "thumb": url_for("static", filename="img/SMRT.webp"),
+            "summary": "Service resumed after 35 minutes; SMRT apologises for morning peak disruption."
+        },
+        "article2": {
+            "id": "article2",
+            "title": "Woman charged over possessing almost 200 etomidate-laced vapes",
+            "thumb": url_for("static", filename="img/kpods.png"),
+            "summary": "23-year-old faces five charges related to Kpods and weapons possession."
+        },
+        "article3": {
+            "id": "article3",
+            "title": "Jail for money mule who withdrew $150,000 for scammers",
+            "thumb": url_for("static", filename="img/scam.jpg"),
+            "summary": "24-year-old jailed eight months for laundering scam proceeds."
+        },
+        "article4": {
+            "id": "article4",
+            "title": "Fire breaks out at Tuas industrial building; no injuries",
+            "thumb": url_for("static", filename="img/fire.jpeg"),
+            "summary": "Six water jets deployed; blaze contained within two hours."
+        },
+    }
+    return mapping.get(slug)
+
+def _resolve_pinned_items():
+    """Turn items in session['pinned_articles'] into displayable dicts."""
+    out = []
+    for key in session.get("pinned_articles", []):
+        # Built-in demo articles
+        built = _builtin_article_by_slug(key)
+        if built:
+            out.append(built)
+            continue
+        # User-created articles
+        for a in _get_articles_any():
+            if str(a.get("id")) == str(key):
+                out.append({
+                    "id": a["id"],
+                    "title": a.get("title", "Untitled"),
+                    "thumb": a.get("image_url") or None,
+                    "summary": (a.get("content") or "")[:160] + ("…" if a.get("content") and len(a["content"]) > 160 else "")
+                })
+                break
+    return out
+
+@app.route("/profile/update", methods=["POST"])
+def profile_update():
+    if not session.get("user"):
+        return redirect(url_for("login"))
+
+    # Ensure profile exists
+    profile = session.get("subscriber_profile") or {
+        "display_name": session.get("user", "Subscriber"),
+        "bio": "",
+        "about": "",
+        "avatar_url": None
+    }
+
+    profile["display_name"] = (request.form.get("display_name") or profile["display_name"]).strip()
+    profile["bio"] = (request.form.get("bio") or "").strip()
+    avatar_url = (request.form.get("avatar_url") or "").strip()
+    profile["avatar_url"] = avatar_url or None
+
+    # Optional: store email in session so it can show on the form next time
+    form_email = (request.form.get("email") or "").strip()
+    if form_email:
+        session["user_email"] = form_email
+
+    session["subscriber_profile"] = profile
+    flash("Profile updated.", "success")
+    return redirect(url_for("profile"))
+
 
 # ---------- Author homepage ----------
 @app.route("/authorHomepage")
