@@ -1358,7 +1358,7 @@ def toggle_suspend():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
+    cursor.execute("SELECT name, usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
     user = cursor.fetchone()
 
     if user:
@@ -1369,20 +1369,21 @@ def toggle_suspend():
                 SET usertype = %s, previous_usertype = NULL
                 WHERE userID = %s
             """, (restored_type, user_id))
-            flash(f"User {user_id} has been unsuspended.")
+            flash(f"{user['name']} has been unsuspended.")
         else:
             cursor.execute("""
                 UPDATE users
                 SET previous_usertype = usertype, usertype = 'Suspended'
                 WHERE userID = %s
             """, (user_id,))
-            flash(f"User {user_id} has been suspended.")
+            flash(f"{user['name']} has been suspended.")
 
     conn.commit()
     cursor.close()
     conn.close()
 
     return redirect(url_for("manage_users"))
+
 
 # ---------- Forgot password ----------
 @app.route("/forgot-password", methods=["GET", "POST"])

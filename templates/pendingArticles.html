@@ -48,22 +48,6 @@
                 {% endif %}
             {% endwith %}
 
-            <!-- Cards Section -->
-            <div class="cards">
-                <div class="card">
-                    <h3>{{ flagged_articles_count }}</h3>
-                    <p>Flagged Articles</p>
-                </div>
-                <div class="card">
-                    <h3>{{ flagged_comments_count }}</h3>
-                    <p>Flagged Comments</p>
-                </div>
-                <div class="card">
-                    <h3>{{ pending_articles_count }}</h3>
-                    <p>Pending Articles</p>
-                </div>
-            </div>
-
             <!-- Pending Articles Table -->
             {% if articles %}
                 <table class="users-table">

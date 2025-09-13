@@ -230,6 +230,8 @@
 
 
 .form-table input[type="text"],
+input[type=email],
+input[type=password],
 .form-table textarea,
 .form-table select {
     width: 100%;

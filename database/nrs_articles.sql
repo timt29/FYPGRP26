@@ -23,8 +23,15 @@ DROP TABLE IF EXISTS `articles`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `articles` (
-  `articleId` int NOT NULL,
-  PRIMARY KEY (`articleId`)
+  `articleID` int NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `author` varchar(100) NOT NULL,
+  `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+  `is_flagged` tinyint(1) DEFAULT '0',
+  `flagged_reason` varchar(255) DEFAULT NULL,
+  `flagged_at` timestamp NULL DEFAULT NULL,
+  `status` enum('Pending','Approved','Rejected') DEFAULT 'Pending',
+  PRIMARY KEY (`articleID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -46,4 +53,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-09-11  0:47:16
+-- Dump completed on 2025-09-13 19:44:23

@@ -16,25 +16,31 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `report`
+-- Table structure for table `login_activity`
 --
 
-DROP TABLE IF EXISTS `report`;
+DROP TABLE IF EXISTS `login_activity`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `report` (
-  `idreport` int NOT NULL,
-  PRIMARY KEY (`idreport`)
+CREATE TABLE `login_activity` (
+  `activityID` int NOT NULL AUTO_INCREMENT,
+  `userID` int NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `login_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `ip_address` varchar(45) DEFAULT NULL,
+  PRIMARY KEY (`activityID`),
+  KEY `userID` (`userID`),
+  CONSTRAINT `login_activity_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `report`
+-- Dumping data for table `login_activity`
 --
 
-LOCK TABLES `report` WRITE;
-/*!40000 ALTER TABLE `report` DISABLE KEYS */;
-/*!40000 ALTER TABLE `report` ENABLE KEYS */;
+LOCK TABLES `login_activity` WRITE;
+/*!40000 ALTER TABLE `login_activity` DISABLE KEYS */;
+/*!40000 ALTER TABLE `login_activity` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
