@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Categories - EchoPress</title>
+    <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+    <style>
+        .action-buttons {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .action-buttons form {
+            flex: 1;
+        }
+
+        .action-buttons button {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            transition: background-color 0.3s;
+        }
+
+        .action-buttons button:hover {
+            background-color: #0056b3;
+        }
+
+        .categories-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .categories-table th,
+        .categories-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .categories-table th {
+            background-color: #f4f4f4;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>EchoPress</h2>
+        <a href="/modHomepage">Dashboard</a>
+        <a href="/flaggedArticles">Flagged Articles</a>
+        <a href="/flaggedComments">Flagged Comments</a>
+        <a href="/pendingArticles">Pending Articles</a>
+        <a href="/manageCategories" class="active">Manage Categories</a>
+        <a href="/manageUsers">Manage Users</a>
+        <a href="#">Setting</a>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <div class="topbar">
+            <h1>Manage Categories</h1>
+            <div class="admin-menu">
+                <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
+                <div class="dropdown" id="admin-dropdown">
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <h2>Manage Categories</h2>
+
+            <div class="action-buttons">
+                <form method="GET" action="/manageCategories/create">
+                    <button type="submit">Create New Category</button>
+                </form>
+                <form method="GET" action="/manageCategories/update">
+                    <button type="submit">Update Category</button>
+                </form>
+                <form method="GET" action="/manageCategories/delete">
+                    <button type="submit">Delete Category</button>
+                </form>
+            </div>
+
+            <h2>Existing Categories</h2>
+            {% if categories %}
+            <table class="categories-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for category in categories %}
+                    <tr>
+                        <td>{{ category.name }}</td>
+                        <td>{{ category.description }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No categories found.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function toggleDropdown() {
+            document.getElementById("admin-dropdown").style.display =
+                document.getElementById("admin-dropdown").style.display === "block" ? "none" : "block";
+        }
+
+        window.onclick = function (event) {
+            if (!event.target.matches('.admin-btn')) {
+                document.getElementById("admin-dropdown").style.display = "none";
+            }
+        }
+    </script>
+</body>
+
+</html>
+

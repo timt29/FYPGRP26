@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Category - EchoPress</title>
+    <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>EchoPress</h2>
+        <a href="/modHomepage">Dashboard</a>
+        <a href="/flaggedArticles">Flagged Articles</a>
+        <a href="/flaggedComments">Flagged Comments</a>
+        <a href="/pendingArticles">Pending Articles</a>
+        <a href="/manageCategories" class="active">Manage Categories</a>
+        <a href="/manageUsers">Manage Users</a>
+        <a href="#">Setting</a>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <div class="topbar">
+            <h1>Update Category</h1>
+            <div class="admin-menu">
+                <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
+                <div class="dropdown" id="admin-dropdown">
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <h2>Edit Existing Category</h2>
+
+            <form method="POST" action="/manageCategories/update">
+                <table class="form-table">
+                    <tr>
+                        <td><label for="categorySelect">Select Category</label></td>
+                        <td>
+                            <select id="categorySelect" name="categoryID" required>
+                                <option value="">-- Select Category --</option>
+                                {% for category in categories %}
+                                <option value="{{ category.categoryID }}" 
+                                        data-name="{{ category.name }}" 
+                                        data-description="{{ category.description }}">
+                                    {{ category.name }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><label for="categoryName">Category Name</label></td>
+                        <td><input type="text" id="categoryName" name="categoryName" required></td>
+                    </tr>
+                    <tr>
+                        <td><label for="categoryDescription">Category Description</label></td>
+                        <td><textarea id="categoryDescription" name="categoryDescription" required></textarea></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2" style="text-align: center; padding-top: 15px;">
+                            <button type="submit">Update Category</button>
+                        </td>
+                    </tr>
+                </table>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function toggleDropdown() {
+            document.getElementById("admin-dropdown").style.display =
+                document.getElementById("admin-dropdown").style.display === "block" ? "none" : "block";
+        }
+
+        window.onclick = function(event) {
+            if (!event.target.matches('.admin-btn')) {
+                document.getElementById("admin-dropdown").style.display = "none";
+            }
+        }
+
+        // Populate name and description when a category is selected
+        const categorySelect = document.getElementById("categorySelect");
+        categorySelect.addEventListener("change", function() {
+            const option = this.options[this.selectedIndex];
+            document.getElementById("categoryName").value = option.dataset.name || "";
+            document.getElementById("categoryDescription").value = option.dataset.description || "";
+        });
+    </script>
+</body>
+</html>

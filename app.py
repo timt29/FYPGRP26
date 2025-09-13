@@ -1649,6 +1649,185 @@ def login_activity():
 
     return render_template("loginActivity.html", activities=activities)
 
+@app.route("/flaggedArticles")
+def flagged_articles():
+    if "userID" not in session or session.get("usertype") != "Moderator":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Fetch all flagged articles
+    cursor.execute("""
+        SELECT articleID, title, author, created_at, flagged_reason, flagged_at
+        FROM articles
+        WHERE is_flagged = TRUE
+        ORDER BY flagged_at DESC
+    """)
+    articles = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template("flaggedArticles.html", articles=articles)
+
+@app.route("/flaggedComments")
+def flagged_comments():
+    if "userID" not in session or session.get("usertype") != "Moderator":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Fetch all flagged comments
+    cursor.execute("""
+        SELECT commentID, content, author, articleID, created_at, flagged_reason, flagged_at
+        FROM comments
+        WHERE is_flagged = TRUE
+        ORDER BY flagged_at DESC
+    """)
+    comments = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template("flaggedComments.html", comments=comments)
+
+@app.route("/pendingArticles", methods=["GET", "POST"])
+def pending_articles():
+    if "userID" not in session or session.get("usertype") != "Moderator":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == "POST":
+        article_id = request.form.get("articleID")
+        action = request.form.get("action")
+        if action == "approve":
+            cursor.execute("UPDATE articles SET status='Approved' WHERE articleID=%s", (article_id,))
+            flash("Article approved successfully.")
+        elif action == "reject":
+            cursor.execute("UPDATE articles SET status='Rejected' WHERE articleID=%s", (article_id,))
+            flash("Article rejected successfully.")
+        conn.commit()
+
+    cursor.execute("SELECT articleID, title, author, created_at FROM articles WHERE status='Pending'")
+    articles = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    return render_template("pendingArticles.html", articles=articles)
+
+@app.route("/manageCategories", methods=["GET"])
+def manage_categories():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM categories")
+    categories = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return render_template("manageCategories.html", categories=categories)
+
+@app.route("/manageCategories/create", methods=["GET", "POST"])
+def add_category():
+    if request.method == "POST":
+        name = request.form.get("categoryName").strip()
+        description = request.form.get("categoryDescription").strip()
+
+        if not name:
+            flash("Category name cannot be empty.", "error")
+            return redirect(url_for("add_category"))
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Check if category already exists
+        cursor.execute("SELECT * FROM categories WHERE name = %s", (name,))
+        existing = cursor.fetchone()
+        if existing:
+            flash("Category already exists.", "error")
+            cursor.close()
+            conn.close()
+            return redirect(url_for("add_category"))
+
+        # Insert new category with description
+        cursor.execute(
+            "INSERT INTO categories (name, description) VALUES (%s, %s)",
+            (name, description)
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash("Category added successfully.", "success")
+        return redirect(url_for("manage_categories"))
+
+    # GET request
+    return render_template("createCategory.html")
+
+@app.route("/manageCategories/update", methods=["GET", "POST"])
+def update_category():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == "POST":
+        categoryID = request.form.get("categoryID")
+        name = request.form.get("categoryName").strip()
+        description = request.form.get("categoryDescription").strip()
+
+        if not name:
+            flash("Category name cannot be empty.", "error")
+            return redirect(url_for("update_category"))
+
+        cursor.execute(
+            "UPDATE categories SET name=%s, description=%s WHERE categoryID=%s",
+            (name, description, categoryID)
+        )
+        conn.commit()
+        flash("Category updated successfully.", "success")
+        return redirect(url_for("manage_categories"))
+
+    # GET request: load all categories to select which to update
+    cursor.execute("SELECT * FROM categories")
+    categories = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template("updateCategory.html", categories=categories)
+
+@app.route("/manageCategories/delete", methods=["GET"])
+def delete_category_page():
+    search = request.args.get("search", "")
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if search:
+        cursor.execute("SELECT * FROM categories WHERE name LIKE %s ORDER BY name ASC", ('%' + search + '%',))
+    else:
+        cursor.execute("SELECT * FROM categories ORDER BY name ASC")
+
+    categories = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template("deleteCategory.html", categories=categories)
+
+# Handle actual deletion
+@app.route("/manageCategories/delete/<int:categoryID>", methods=["POST"])
+def delete_category(categoryID):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM categories WHERE categoryID=%s", (categoryID,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+    flash("Category deleted successfully.", "success")
+    return redirect(url_for("delete_category_page"))
+
 # ---------- Dev helper ----------
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")

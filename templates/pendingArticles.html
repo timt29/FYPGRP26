@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pending Articles - EchoPress</title>
+    <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+</head>
+
+<body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <h2>EchoPress</h2>
+        <a href="/modHomepage">Dashboard</a>
+        <a href="/flaggedArticles">Flagged Articles</a>
+        <a href="/flaggedComments">Flagged Comments</a>
+        <a href="/pendingArticles" class="active">Pending Articles</a>
+        <a href="/manageCategories">Manage Categories</a>
+        <a href="/manageUsers">Manage Users</a>
+        <a href="#">Setting</a>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+        <!-- Top bar -->
+        <div class="topbar">
+            <h1>Moderator's Dashboard</h1>
+            <div class="admin-menu">
+                <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
+                <div class="dropdown" id="admin-dropdown">
+                    <a href="/logout">Logout</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <h2>Pending Articles</h2>
+
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for msg in messages %}
+                            <p style="color:red;">{{ msg }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Cards Section -->
+            <div class="cards">
+                <div class="card">
+                    <h3>{{ flagged_articles_count }}</h3>
+                    <p>Flagged Articles</p>
+                </div>
+                <div class="card">
+                    <h3>{{ flagged_comments_count }}</h3>
+                    <p>Flagged Comments</p>
+                </div>
+                <div class="card">
+                    <h3>{{ pending_articles_count }}</h3>
+                    <p>Pending Articles</p>
+                </div>
+            </div>
+
+            <!-- Pending Articles Table -->
+            {% if articles %}
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th>Article ID</th>
+                            <th>Title</th>
+                            <th>Author</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for article in articles %}
+                        <tr>
+                            <td>{{ article.articleID }}</td>
+                            <td>{{ article.title }}</td>
+                            <td>{{ article.author }}</td>
+                            <td>{{ article.created_at }}</td>
+                            <td>
+                                <form method="POST" action="/pendingArticles">
+                                    <input type="hidden" name="articleID" value="{{ article.articleID }}">
+                                    <button type="submit" name="action" value="approve">Approve</button>
+                                    <button type="submit" name="action" value="reject">Reject</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No pending articles at the moment.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function toggleDropdown() {
+            const dropdown = document.getElementById("admin-dropdown");
+            dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+        }
+
+        window.onclick = function (event) {
+            if (!event.target.matches('.admin-btn')) {
+                document.getElementById("admin-dropdown").style.display = "none";
+            }
+        }
+    </script>
+</body>
+
+</html>

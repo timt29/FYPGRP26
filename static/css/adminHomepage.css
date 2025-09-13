@@ -215,14 +215,6 @@
   font-weight: bold;
 }
 
-.form-table input,
-.form-table select {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
 .form-table button {
   padding: 10px 20px;
   border: none;
@@ -234,4 +226,80 @@
 
 .form-table button:hover {
   background: #555;
+}
+
+
+.form-table input[type="text"],
+.form-table textarea,
+.form-table select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+.form-table textarea {
+    height: 100px;
+    resize: vertical;
+}
+.search-bar {
+  margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
+  max-width: 500px;
+}
+
+.search-bar input[type="text"] {
+  flex: 1;
+  padding: 10px;
+  font-size: 16px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+}
+
+.search-bar button {
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.search-bar button:hover {
+  background-color: #c82333;
+}
+
+.categories-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.categories-table th,
+.categories-table td {
+  border: 1px solid #ddd;
+  padding: 10px;
+  text-align: left;
+}
+
+.categories-table th {
+  background-color: #f4f4f4;
+}
+
+.categories-table button {
+  padding: 8px 15px;
+  font-size: 14px;
+  font-weight: bold;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.categories-table button:hover {
+  background-color: #c82333;
 }
