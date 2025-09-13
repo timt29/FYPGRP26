@@ -1469,36 +1469,88 @@ def update_user():
     cursor = conn.cursor(dictionary=True)
 
     if request.method == "POST":
+        email = request.form["email"]
+
+        # Check if user exists and is a Subscriber
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        user = cursor.fetchone()
+
+        if not user:
+            flash("User not found.")
+        elif user["usertype"] != "Subscriber":
+            flash("Only Subscribers can be updated to Author.")
+        else:
+            # Change Subscriber → Author
+            cursor.execute(
+                "UPDATE users SET usertype = 'Author' WHERE email = %s",
+                (email,),
+            )
+            conn.commit()
+            flash("User successfully updated to Author.")
+
+    cursor.close()
+    conn.close()
+
+    return render_template("updateUser.html")
+
+
+@app.route("/manageUserStatus", methods=["GET", "POST"])
+def manage_user_status():
+    if "userID" not in session or session.get("usertype") != "Admin":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if request.method == "POST":
         user_id = request.form.get("userID")
-        name = request.form.get("name")
-        email = request.form.get("email")
-        password = request.form.get("password")
-        confirm_password = request.form.get("confirm_password")
-        usertype = request.form.get("usertype")
+        action = request.form.get("action")
 
-        if password != confirm_password:
-            flash("Passwords do not match.")
-            return redirect(url_for("update_user"))
+        # Get current user info
+        cursor.execute("SELECT usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
+        user = cursor.fetchone()
 
-        cursor.execute("""
-            UPDATE users
-            SET name = %s, email = %s, password = %s, usertype = %s
-            WHERE userID = %s
-        """, (name, email, password, usertype, user_id))
+        if not user:
+            flash("User not found.")
+        else:
+            if action == "suspend":
+                if user["usertype"] == "Admin":
+                    flash("You cannot suspend an Admin account.")
+                elif user["usertype"] != "Suspended":
+                    cursor.execute(
+                        "UPDATE users SET previous_usertype = usertype, usertype = 'Suspended' WHERE userID = %s",
+                        (user_id,)
+                    )
+                    flash("User suspended successfully.")
+
+            elif action == "reactivate":
+                if user["usertype"] == "Suspended" and user["previous_usertype"]:
+                    cursor.execute(
+                        "UPDATE users SET usertype = previous_usertype, previous_usertype = NULL WHERE userID = %s",
+                        (user_id,)
+                    )
+                    flash("User reactivated successfully.")
+                else:
+                    flash("No previous role found. Cannot reactivate.")
+
+            elif action == "delete":
+                if user["usertype"] == "Admin":
+                    flash("You cannot delete an Admin account.")
+                else:
+                    cursor.execute("DELETE FROM users WHERE userID = %s", (user_id,))
+                    flash("User deleted successfully.")
 
         conn.commit()
-        cursor.close()
-        conn.close()
 
-        flash("User updated successfully!")
-        return redirect(url_for("view_all_users"))
-
-    cursor.execute("SELECT userID, name, email, usertype FROM users")
+    # Fetch all users
+    cursor.execute("SELECT userID, name, email, usertype, previous_usertype FROM users")
     users = cursor.fetchall()
     cursor.close()
     conn.close()
 
-    return render_template("updateUser.html", users=users)
+    return render_template("manageUserStatus.html", users=users)
+
 
 # ---------- Dev helper ----------
 def open_browser():

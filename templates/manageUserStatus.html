@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Update User Account - EchoPress</title>
+  <title>Suspend / Reactivate / Delete - EchoPress</title>
   <link rel="stylesheet" href="../static/css/adminHomepage.css" />
 </head>
 
@@ -28,9 +28,8 @@
 
   <!-- Main -->
   <div class="main">
-    <!-- Top bar -->
     <div class="topbar">
-      <h1>Update User Account</h1>
+      <h1>Suspend / Reactivate / Delete Users</h1>
       <div class="admin-menu">
         <button class="admin-btn" onclick="toggleDropdown()">Admin ▼</button>
         <div class="dropdown" id="admin-dropdown">
@@ -39,48 +38,52 @@
       </div>
     </div>
 
-    <!-- Content -->
     <div class="content">
-      <h2>Update Existing User</h2>
+      <h2>Manage User Accounts</h2>
 
       {% with messages = get_flashed_messages() %}
         {% if messages %}
           <div class="flash-messages">
             {% for msg in messages %}
-              <p style="color:red;">{{ msg }}</p>
+              <p style="color: red;">{{ msg }}</p>
             {% endfor %}
           </div>
         {% endif %}
       {% endwith %}
 
-      <form method="POST" action="/updateUser">
-        <table class="form-table">
-          <tr>
-            <td><label for="name">Name</label></td>
-            <td><input type="text" id="name" name="name" required /></td>
-          </tr>
-
-          <tr>
-            <td><label for="email">Email</label></td>
-            <td><input type="email" id="email" name="email" required /></td>
-          </tr>
-
-          <tr>
-            <td><label for="usertype">Role</label></td>
+      <table class="users-table">
+        <thead>
+            <tr>
+            <th>User ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>User Type</th>
+            <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+            <td>{{ user.userID }}</td>
+            <td>{{ user.name }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.usertype }}</td>
             <td>
-              <select id="usertype" name="usertype" required>
-                <option value="Author">Author</option>
-              </select>
+                {% if user.usertype == "Admin" %}
+                <em>Admin accounts cannot be modified</em>
+                {% else %}
+                <form method="POST" action="/manageUserStatus" style="display:inline;">
+                    <input type="hidden" name="userID" value="{{ user.userID }}">
+                    <button type="submit" name="action" value="suspend">Suspend</button>
+                    <button type="submit" name="action" value="reactivate">Reactivate</button>
+                    <button type="submit" name="action" value="delete" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>
+                </form>
+                {% endif %}
             </td>
-          </tr>
-
-          <tr>
-            <td colspan="2" style="text-align: center; padding-top: 15px;">
-              <button type="submit">Update User</button>
-            </td>
-          </tr>
+            </tr>
+            {% endfor %}
+        </tbody>
         </table>
-      </form>
     </div>
   </div>
 
@@ -105,3 +108,4 @@
   </script>
 </body>
 </html>
+

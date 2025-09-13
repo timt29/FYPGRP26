@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Create User Account - EchoPress</title>
+  <title>Create Moderators/Admins - EchoPress</title>
   <link rel="stylesheet" href="../static/css/adminHomepage.css" />
 </head>
 
@@ -13,11 +13,10 @@
     <h2>EchoPress</h2>
     <a href="/adminHomepage">Dashboard</a>
     <a href="/searchAccount">Search Account</a>
-    <a href="/createUser" class="active">Create User Account</a>
+    <a href="/createUser">Create Moderators / Admins</a>
     <a href="/updateUser">Update User Account</a>
     <a href="/viewAllUsers">View All User</a>
-    <a href="#">Suspend / Reactivate</a>
-    <a href="#">Delete User Account</a>
+    <a href="/manageUserStatus">Suspend / Reactivate / Delete</a>
     <button onclick="toggleReports()">Reports ▸</button>
     <div class="submenu" id="reports-submenu">
       <a href="#">New Users</a>
@@ -31,7 +30,7 @@
   <div class="main">
     <!-- Top bar -->
     <div class="topbar">
-      <h1>Create User Account</h1>
+      <h1>Create Moderators / Admins</h1>
       <div class="admin-menu">
         <button class="admin-btn" onclick="toggleDropdown()">Admin ▼</button>
         <div class="dropdown" id="admin-dropdown">
@@ -42,7 +41,7 @@
 
     <!-- Content -->
     <div class="content">
-      <h2>Create a New User</h2>
+      <h2>Create a New Moderator / Admin</h2>
 
       {% with messages = get_flashed_messages() %}
         {% if messages %}
@@ -81,7 +80,6 @@
             <td>
                 <select id="usertype" name="usertype" required>
                 <option value="">-- Select Role --</option>
-                <option value="Author">Author</option>
                 <option value="Moderator">Moderator</option>
                 <option value="Admin">Admin</option>
                 </select>
@@ -90,7 +88,7 @@
 
             <tr>
             <td colspan="2" style="text-align: center; padding-top: 15px;">
-                <button type="submit">Create User</button>
+                <button type="submit">Create</button>
             </td>
             </tr>
         </table>
