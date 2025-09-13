@@ -1,11 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 from flask import jsonify
+import os
 import uuid
 from functools import wraps
 import webbrowser
 import threading
 import mysql.connector
 import random
+from datetime import datetime
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
@@ -595,11 +598,220 @@ def profile_update():
     return redirect(url_for("profile"))
 
 
-# ---------- Author homepage ----------
+# -------- Author Homepage (first tile mirrors article 1 and shows pinned badge) --------
 @app.route("/authorHomepage")
-@login_required("Author")
 def authorHomepage():
-    return render_template("authorHomepage.html")
+    a1 = _get_author_article1()
+    pinnedset = set(session.get("pinned_articles", []))
+    is_pinned = "article1" in pinnedset
+
+    items = [
+        {
+            "title": a1["title"],
+            "excerpt": (a1["content"] or "")[:260],
+            "image_url": url_for("static", filename=a1["image_path"]),
+            "link": url_for("author_article1"),
+            "pinned": is_pinned,  # show badge on tile
+        },
+        {
+            "title": "Woman charged over possessing almost 200 etomidate-laced vapes, buying another 50",
+            "excerpt": "SAY NO TO VAPE/KPOD. SINGAPORE – A woman was charged over possessing 195 etomidate-laced vapes…",
+            "image_url": url_for("static", filename="img/kpods.png"),
+            "link": "#",
+            "pinned": False,
+        },
+        {
+            "title": "Jail for money mule who was promised $100 a day to withdraw cash for scammers",
+            "excerpt": "SINGAPORE – A financially strapped man withdrew scam proceeds in cash…",
+            "image_url": url_for("static", filename="img/scam.jpg"),
+            "link": "#",
+            "pinned": False,
+        },
+        {
+            "title": "Fire breaks out at Tuas industrial building; no injuries reported",
+            "excerpt": "SINGAPORE – A fire broke out at an HDB block in Chai Chee Avenue on Sept 5…",
+            "image_url": url_for("static", filename="img/fire.jpeg"),
+            "link": "#",
+            "pinned": False,
+        },
+    ]
+    return render_template("authorHomepage.html", default_articles=items)
+
+
+# ----------------- Author Article 1: view / edit / update -----------------
+# ======== Author helpers (session-backed) ========
+
+def _get_author_article1():
+    """Return Article 1 from session, seeding defaults the first time."""
+    art = session.get("author_article_1")
+    if not art:
+        art = {
+            "title": "Circle Line disruption: Service between Marina Bay and Promenade stations has resumed",
+            "category": "Trending",
+            "image_path": "img/SMRT.webp",   # under /static
+            "content": (
+                "Commuters faced major disruptions during the evening peak hour on Tuesday (17 Sep), "
+                "when a power fault briefly halted train services on Singapore’s Circle Line. The fault, "
+                "which occurred just before 6pm, led to train stoppages in both directions, affecting "
+                "passengers across multiple stations.\n\n"
+                "SMRT reported that the fault was resolved within 15 minutes, stating in a 7.30pm update, "
+                "“Fault cleared, train services are progressively returning to normal. Free regular buses are "
+                "still available for all Circle Line stations.” However, passengers took to social media, "
+                "criticizing the handling of the situation and the accuracy of updates provided by the "
+                "transport operator.\n\n"
+                "Many commuters who were stranded during the disruption shared their frustration on SMRT’s "
+                "Facebook page. Some accused the operator of providing inaccurate information regarding the "
+                "resumption of train services, while others questioned the availability of free bus services.\n\n"
+                "Further comments highlighted ongoing delays and lack of communication. Another passenger "
+                "reported a second stoppage and noted that no one was communicating what was happening or how "
+                "long the delay might be, raising safety concerns for families with young children on crowded trains.\n\n"
+                "In the midst of this disruption, SMRT also faced public backlash over recent fare increases. "
+                "Some users linked the breakdown to dissatisfaction with the hikes, while others argued the "
+                "increases were still insufficient to sustain maintenance.\n\n"
+                "Announcements advised commuters to alight and seek alternative routes, but reports from stations "
+                "like Pasir Panjang and Buona Vista described confusion and long waits. Despite reassurances, many "
+                "experienced delays far longer than expected as platforms became crowded and information scarce."
+            ),
+            "published_at": "1st August 2025, 10:10am",
+            "updated_at":   "3rd August 2025, 1:39pm",
+            "pinned": False,
+        }
+        session["author_article_1"] = art
+    return art
+
+def _get_article1_comments():
+    """Return seeded subscriber comments for Article 1, stored in session."""
+    comments = session.get("author_article_1_comments")
+    if not comments:
+        comments = [
+            {
+                "id": "c1",
+                "user": "subscriber_one",
+                "initial": "S",
+                "time": "2h ago",
+                "text": "I was stuck near Tai Seng. Took almost 40 mins—hope comms improve next time.",
+                "replies": [],
+            },
+            {
+                "id": "c2",
+                "user": "jane_doe",
+                "initial": "J",
+                "time": "5h ago",
+                "text": "Fare hikes aside, the platform guidance was confusing. Clearer signs would help.",
+                "replies": [],
+            },
+        ]
+        session["author_article_1_comments"] = comments
+    return comments
+
+@app.route("/author/article/1")
+def author_article1():
+    article   = _get_author_article1()
+    comments  = _get_article1_comments()
+    is_pinned = "article1" in set(session.get("pinned_articles", []))
+    profile   = session.get("subscriber_profile") or {
+        "display_name": session.get("user", "Author"),
+        "avatar_url": None,
+    }
+    return render_template(
+        "authorArticle1.html",
+        article=article, profile=profile,
+        comments=comments, is_pinned=is_pinned
+    )
+
+
+@app.route("/author/article/1/edit")
+def author_article1_edit():
+    return render_template("authorArticle1Edit.html", article=_get_author_article1())
+
+
+@app.route("/author/article/1/update", methods=["POST"])
+def author_article1_update():
+    art = _get_author_article1()
+
+    # Text fields
+    art["title"]    = (request.form.get("title") or art["title"]).strip()
+    art["category"] = (request.form.get("category") or art.get("category","Trending")).strip()
+    art["content"]  = (request.form.get("content") or art["content"]).strip()
+
+    # Either keep current image, use a typed path, or accept an uploaded file
+    typed_path = (request.form.get("image_path") or "").strip()
+    file = request.files.get("cover")
+    if file and file.filename:
+        uploads_dir = os.path.join(app.root_path, "static", "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(uploads_dir, filename))
+        art["image_path"] = f"uploads/{filename}"  # served from /static/uploads/...
+    elif typed_path:
+        art["image_path"] = typed_path            # e.g. img/SMRT.webp
+
+    art["updated_at"] = datetime.now().strftime("%d %B %Y, %I:%M%p")
+    session["author_article_1"] = art
+    flash("Article saved.", "success")
+    return redirect(url_for("author_article1"))
+
+
+@app.route("/author/article/1/manage")
+def author_article1_manage():
+    return render_template("authorDeleteArticle.html", article=_get_author_article1())
+
+@app.route("/author/article/1/delete", methods=["POST"])
+def author_article1_delete():
+    # Remove article & comments from session
+    session.pop("author_article_1", None)
+    session.pop("author_article_1_comments", None)
+
+    # If it was pinned, unpin it
+    cur = set(session.get("pinned_articles", []))
+    if "article1" in cur:
+        cur.remove("article1")
+        session["pinned_articles"] = list(cur)
+
+    flash("Article deleted from session.", "success")
+    return redirect(url_for("authorHomepage"))
+
+# ----------------- Pin/Unpin + Replies -----------------
+@app.route("/author/article/1/toggle-pin", methods=["POST"])
+def author_article1_toggle_pin():
+    current = set(session.get("pinned_articles", []))
+    slug = "article1"
+    if slug in current:
+        current.remove(slug)
+        pinned_state = False
+        flash("Article unpinned.", "success")
+    else:
+        current.add(slug)
+        pinned_state = True
+        flash("Article pinned.", "success")
+    session["pinned_articles"] = list(current)
+    art = _get_author_article1()
+    art["pinned"] = pinned_state
+    session["author_article_1"] = art
+    return redirect(url_for("author_article1"))
+
+
+@app.route("/author/article/1/reply", methods=["POST"])
+def author_article1_reply():
+    comment_id = request.form.get("comment_id")
+    reply_text = (request.form.get("reply") or "").strip()
+    if not comment_id or not reply_text:
+        flash("Reply cannot be empty.", "error")
+        return redirect(url_for("author_article1"))
+
+    comments = _get_article1_comments()
+    for c in comments:
+        if c["id"] == comment_id:
+            c.setdefault("replies", []).append({
+                "by": session.get("user", "Author"),
+                "time": datetime.now().strftime("%d %b %Y, %I:%M%p"),
+                "text": reply_text,
+            })
+            break
+    session["author_article_1_comments"] = comments
+    flash("Reply posted.", "success")
+    return redirect(url_for("author_article1") + f"#c-{comment_id}")
+
 
 # ---------- Auth ----------
 @app.route("/login", methods=["GET", "POST"])
