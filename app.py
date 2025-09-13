@@ -602,44 +602,45 @@ def profile_update():
 @app.route("/authorHomepage")
 def authorHomepage():
     a1 = _get_author_article1()
-    pinnedset = set(session.get("pinned_articles", []))
-    is_pinned = "article1" in pinnedset
+    a2 = _get_author_article2()
+    a3 = _get_author_article3()
+    a4 = _get_author_article4()
 
+    pins = set(session.get("pinned_articles", []))
     items = [
         {
             "title": a1["title"],
             "excerpt": (a1["content"] or "")[:260],
             "image_url": url_for("static", filename=a1["image_path"]),
             "link": url_for("author_article1"),
-            "pinned": is_pinned,  # show badge on tile
+            "pinned": "article1" in pins,
         },
         {
-            "title": "Woman charged over possessing almost 200 etomidate-laced vapes, buying another 50",
-            "excerpt": "SAY NO TO VAPE/KPOD. SINGAPORE – A woman was charged over possessing 195 etomidate-laced vapes…",
-            "image_url": url_for("static", filename="img/kpods.png"),
-            "link": "#",
-            "pinned": False,
+            "title": a2["title"],
+            "excerpt": (a2["content"] or "")[:220],
+            "image_url": url_for("static", filename=a2["image_path"]),
+            "link": url_for("author_article2"),
+            "pinned": "article2" in pins,
         },
         {
-            "title": "Jail for money mule who was promised $100 a day to withdraw cash for scammers",
-            "excerpt": "SINGAPORE – A financially strapped man withdrew scam proceeds in cash…",
-            "image_url": url_for("static", filename="img/scam.jpg"),
-            "link": "#",
-            "pinned": False,
+            "title": a3["title"],
+            "excerpt": (a3["content"] or "")[:220],
+            "image_url": url_for("static", filename=a3["image_path"]),
+            "link": url_for("author_article3"),
+            "pinned": "article3" in pins,
         },
         {
-            "title": "Fire breaks out at Tuas industrial building; no injuries reported",
-            "excerpt": "SINGAPORE – A fire broke out at an HDB block in Chai Chee Avenue on Sept 5…",
-            "image_url": url_for("static", filename="img/fire.jpeg"),
-            "link": "#",
-            "pinned": False,
+            "title": a4["title"],
+            "excerpt": (a4["content"] or "")[:200],
+            "image_url": url_for("static", filename=a4["image_path"]),
+            "link": url_for("author_article4"),
+            "pinned": "article4" in pins,
         },
     ]
     return render_template("authorHomepage.html", default_articles=items)
 
 
 # ----------------- Author Article 1: view / edit / update -----------------
-# ======== Author helpers (session-backed) ========
 
 def _get_author_article1():
     """Return Article 1 from session, seeding defaults the first time."""
@@ -771,6 +772,147 @@ def author_article1_delete():
     flash("Article deleted from session.", "success")
     return redirect(url_for("authorHomepage"))
 
+# ================== Author Article 2 (session-backed) ==================
+
+def _get_author_article2():
+    """Return Article 2 from session, seeding defaults on first use."""
+    art = session.get("author_article_2")
+    if not art:
+        art = {
+            "title": "Woman charged over possessing almost 200 etomidate-laced vapes, buying another 50",
+            "category": "Trending",
+            "image_path": "img/sel-kpod.jpeg",  # located under /static
+            "content": (
+                "SINGAPORE – A 23-year-old woman was charged over possessing 195 etomidate-laced vapes (Kpods) "
+                "and buying another 50 such pods in separate incidents in 2024.\n\n"
+                "On Sept 4 she faced five vape-related charges. Separately, she was also charged for possessing "
+                "a knife, a card knife and a screwdriver in Yishun without lawful purpose in Aug 2024.\n\n"
+                "Allegations include: 55 Kpods and four vapes found at Yishun Ave 5 on Aug 9; purchase of 50 Kpods "
+                "in Geylang the same month; 49 pods later analysed to contain etomidate; and 98 pods plus two vapes "
+                "in Sentosa, alongside 91 Kpods at the same location. A pre-trial conference is set for Sept 11.\n\n"
+                "A 17-year-old boy was also charged on Sept 3 for possessing a vape device containing a cannabis-"
+                "related substance. In his National Day Rally, PM Lawrence Wong said vaping will be treated as a drug "
+                "issue with stiffer penalties.\n\n"
+                "From Sept 1, first-time etomidate abusers below 18 face a $500 fine; adults $700, and mandatory "
+                "rehabilitation up to six months. Sellers and importers of Kpods face heavier penalties under the "
+                "Misuse of Drugs Act, including jail and caning.\n\n"
+                "Members of the public can report vaping offences to the Tobacco Regulation Branch (9am–9pm) or online. "
+                "Those seeking help to quit can access QuitVape and the gov.sg/stopvaping resources."
+            ),
+            "published_at": "4th September 2025, 5:45pm",
+            "updated_at":   "5th September 2025, 12:16am",
+            "pinned": False,
+        }
+        session["author_article_2"] = art
+    return art
+
+
+def _get_article2_comments():
+    comments = session.get("author_article_2_comments")
+    if not comments:
+        comments = [
+            {"id":"c1","user":"sg_reader","initial":"S","time":"1h ago",
+             "text":"Serious penalties now. Hope this reduces vaping among teens.","replies":[]},
+            {"id":"c2","user":"healthwatch","initial":"H","time":"3h ago",
+             "text":"Useful to have a single microsite for resources.","replies":[]},
+        ]
+        session["author_article_2_comments"] = comments
+    return comments
+
+# -------- View --------
+@app.route("/author/article/2")
+def author_article2():
+    article   = _get_author_article2()
+    comments  = _get_article2_comments()
+    is_pinned = "article2" in set(session.get("pinned_articles", []))
+    profile   = session.get("subscriber_profile") or {
+        "display_name": session.get("user", "Author"),
+        "avatar_url": None,
+    }
+    return render_template(
+        "authorArticle2.html",
+        article=article, profile=profile,
+        comments=comments, is_pinned=is_pinned
+    )
+
+# -------- Edit screen --------
+@app.route("/author/article/2/edit")
+def author_article2_edit():
+    return render_template("authorArticle2Edit.html", article=_get_author_article2())
+
+# -------- Save updates --------
+@app.route("/author/article/2/update", methods=["POST"])
+def author_article2_update():
+    art = _get_author_article2()
+    art["title"]    = (request.form.get("title") or art["title"]).strip()
+    art["category"] = (request.form.get("category") or art.get("category","Trending")).strip()
+    art["content"]  = (request.form.get("content") or art["content"]).strip()
+
+    typed_path = (request.form.get("image_path") or "").strip()
+    file = request.files.get("cover")
+    if file and file.filename:
+        uploads_dir = os.path.join(app.root_path, "static", "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(uploads_dir, filename))
+        art["image_path"] = f"uploads/{filename}"
+    elif typed_path:
+        art["image_path"] = typed_path
+
+    art["updated_at"] = datetime.now().strftime("%d %B %Y, %I:%M%p")
+    session["author_article_2"] = art
+    flash("Article 2 saved.", "success")
+    return redirect(url_for("author_article2"))
+
+# -------- Pin/Unpin --------
+@app.route("/author/article/2/toggle-pin", methods=["POST"])
+def author_article2_toggle_pin():
+    current = set(session.get("pinned_articles", []))
+    slug = "article2"
+    if slug in current:
+        current.remove(slug); pinned_state = False; flash("Article 2 unpinned.", "success")
+    else:
+        current.add(slug);    pinned_state = True;  flash("Article 2 pinned.", "success")
+    session["pinned_articles"] = list(current)
+    art = _get_author_article2(); art["pinned"] = pinned_state
+    session["author_article_2"] = art
+    return redirect(url_for("author_article2"))
+
+# -------- Reply to comments --------
+@app.route("/author/article/2/reply", methods=["POST"])
+def author_article2_reply():
+    comment_id = request.form.get("comment_id")
+    reply_text = (request.form.get("reply") or "").strip()
+    if not comment_id or not reply_text:
+        flash("Reply cannot be empty.", "error")
+        return redirect(url_for("author_article2"))
+
+    comments = _get_article2_comments()
+    for c in comments:
+        if c["id"] == comment_id:
+            c.setdefault("replies", []).append({
+                "by": session.get("user", "Author"),
+                "time": datetime.now().strftime("%d %b %Y, %I:%M%p"),
+                "text": reply_text,
+            })
+            break
+    session["author_article_2_comments"] = comments
+    flash("Reply posted.", "success")
+    return redirect(url_for("author_article2") + f"#c-{comment_id}")
+
+# -------- Delete (session only) --------
+@app.route("/author/article/2/delete", methods=["POST"])
+def author_article2_delete():
+    session.pop("author_article_2", None)
+    session.pop("author_article_2_comments", None)
+    cur = set(session.get("pinned_articles", []))
+    if "article2" in cur:
+        cur.remove("article2")
+        session["pinned_articles"] = list(cur)
+    flash("Article 2 deleted from session.", "success")
+    return redirect(url_for("authorHomepage"))
+
+
 # ----------------- Pin/Unpin + Replies -----------------
 @app.route("/author/article/1/toggle-pin", methods=["POST"])
 def author_article1_toggle_pin():
@@ -811,6 +953,250 @@ def author_article1_reply():
     session["author_article_1_comments"] = comments
     flash("Reply posted.", "success")
     return redirect(url_for("author_article1") + f"#c-{comment_id}")
+
+# ================== Author Article 3 (session-backed) ==================
+
+def _get_author_article3():
+    art = session.get("author_article_3")
+    if not art:
+        art = {
+            "title": "Jail for money mule who was promised $100 a day to withdraw cash for scammers",
+            "category": "Trending",
+            "image_path": "img/scam.jpg",
+            "content": (
+                "SINGAPORE – A financially strapped man withdrew scam proceeds in cash from ATMs to earn $100 a day "
+                "so that he could buy diapers and milk powder for his newborn child. Yves Quah Jun Boon, 24, was "
+                "sentenced to eight months’ jail on Sept 5 after withdrawing more than $150,000 from various ATMs in "
+                "one day in June 2023. He pleaded guilty to money laundering and a charge under the Computer Misuse Act.\n\n"
+                "Quah often confided in his friend Wei Jian about financial struggles. In June 2023, Wei Jian and Quah "
+                "met another man, Ryan, to collect seven ATM cards, SIM cards and a phone. Despite suspecting they were "
+                "criminal proceeds, Quah went ahead, making at least 20 unauthorised withdrawals totalling $151,280. "
+                "He later handed the cash to a syndicate member at Ngee Ann City and was arrested shortly after, along "
+                "with others. The prosecutor sought eight months’ jail, noting Quah’s role in laundering criminal proceeds."
+            ),
+            "published_at": "5th September 2025, 02:05 PM",
+            "updated_at":   "5th September 2025, 03:20 PM",
+            "pinned": False,
+        }
+        session["author_article_3"] = art
+    return art
+
+
+def _get_article3_comments():
+    comments = session.get("author_article_3_comments")
+    if not comments:
+        comments = [
+            {"id":"c1","user":"civicwatch","initial":"C","time":"1h ago",
+             "text":"Good to highlight how these syndicates operate.", "replies":[]},
+            {"id":"c2","user":"parent123","initial":"P","time":"4h ago",
+             "text":"Tough situation, but crime shouldn’t be an option.", "replies":[]},
+        ]
+        session["author_article_3_comments"] = comments
+    return comments
+
+# -------- View --------
+@app.route("/author/article/3")
+def author_article3():
+    article   = _get_author_article3()
+    comments  = _get_article3_comments()
+    is_pinned = "article3" in set(session.get("pinned_articles", []))
+    profile   = session.get("subscriber_profile") or {"display_name": session.get("user","Author"), "avatar_url": None}
+    return render_template("authorArticle3.html", article=article, profile=profile, comments=comments, is_pinned=is_pinned)
+
+# -------- Edit --------
+@app.route("/author/article/3/edit")
+def author_article3_edit():
+    return render_template("authorArticle3Edit.html", article=_get_author_article3())
+
+# -------- Save updates --------
+@app.route("/author/article/3/update", methods=["POST"])
+def author_article3_update():
+    art = _get_author_article3()
+    art["title"]    = (request.form.get("title") or art["title"]).strip()
+    art["category"] = (request.form.get("category") or art.get("category","Trending")).strip()
+    art["content"]  = (request.form.get("content") or art["content"]).strip()
+
+    typed_path = (request.form.get("image_path") or "").strip()
+    file = request.files.get("cover")
+    if file and file.filename:
+        uploads_dir = os.path.join(app.root_path, "static", "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(uploads_dir, filename))
+        art["image_path"] = f"uploads/{filename}"
+    elif typed_path:
+        art["image_path"] = typed_path
+
+    art["updated_at"] = datetime.now().strftime("%d %B %Y, %I:%M%p")
+    session["author_article_3"] = art
+    flash("Article 3 saved.", "success")
+    return redirect(url_for("author_article3"))
+
+# -------- Pin/Unpin --------
+@app.route("/author/article/3/toggle-pin", methods=["POST"])
+def author_article3_toggle_pin():
+    cur = set(session.get("pinned_articles", []))
+    slug = "article3"
+    if slug in cur:
+        cur.remove(slug); pinned = False; flash("Article 3 unpinned.", "success")
+    else:
+        cur.add(slug);    pinned = True;  flash("Article 3 pinned.", "success")
+    session["pinned_articles"] = list(cur)
+    art = _get_author_article3(); art["pinned"] = pinned; session["author_article_3"] = art
+    return redirect(url_for("author_article3"))
+
+# -------- Reply --------
+@app.route("/author/article/3/reply", methods=["POST"])
+def author_article3_reply():
+    comment_id = request.form.get("comment_id")
+    reply_text = (request.form.get("reply") or "").strip()
+    if not comment_id or not reply_text:
+        flash("Reply cannot be empty.", "error"); return redirect(url_for("author_article3"))
+    comments = _get_article3_comments()
+    for c in comments:
+        if c["id"] == comment_id:
+            c.setdefault("replies", []).append({
+                "by": session.get("user","Author"),
+                "time": datetime.now().strftime("%d %b %Y, %I:%M%p"),
+                "text": reply_text,
+            })
+            break
+    session["author_article_3_comments"] = comments
+    flash("Reply posted.", "success")
+    return redirect(url_for("author_article3") + f"#c-{comment_id}")
+
+# -------- Delete --------
+@app.route("/author/article/3/delete", methods=["POST"])
+def author_article3_delete():
+    session.pop("author_article_3", None)
+    session.pop("author_article_3_comments", None)
+    cur = set(session.get("pinned_articles", []))
+    if "article3" in cur:
+        cur.remove("article3"); session["pinned_articles"] = list(cur)
+    flash("Article 3 deleted from session.", "success")
+    return redirect(url_for("authorHomepage"))
+
+
+
+# ================== Author Article 4 (session-backed) ==================
+
+def _get_author_article4():
+    art = session.get("author_article_4")
+    if not art:
+        art = {
+            "title": "Fire breaks out at Chai Chee Avenue HDB block; 4 taken to hospital, 50 residents evacuated",
+            "category": "Trending",
+            "image_path": "img/fire.jpeg",
+            "content": (
+                "SINGAPORE – A fire broke out at an HDB block in Chai Chee Avenue on Sept 5, with four people taken "
+                "to hospital and around 50 residents evacuated. SCDF was alerted at about 11.05pm and extinguished the "
+                "eighth-floor unit’s living-room fire with a water jet. Three neighbours were assessed for smoke "
+                "inhalation; two were conveyed to Changi General Hospital and one to SGH. A firefighter was also sent "
+                "to SGH for assessment. The cause is under investigation. Local leaders thanked responders and volunteers, "
+                "and temporary accommodation was arranged for badly affected residents."
+            ),
+            "published_at": "6th September 2025, 01:25 PM",
+            "updated_at":   "6th September 2025, 03:00 PM",
+            "pinned": False,
+        }
+        session["author_article_4"] = art
+    return art
+
+
+def _get_article4_comments():
+    comments = session.get("author_article_4_comments")
+    if not comments:
+        comments = [
+            {"id":"c1","user":"eastcoast_res","initial":"E","time":"2h ago",
+             "text":"Hope everyone is safe. Kudos to SCDF.", "replies":[]},
+            {"id":"c2","user":"block31","initial":"B","time":"6h ago",
+             "text":"Appreciate the quick evacuation and support.", "replies":[]},
+        ]
+        session["author_article_4_comments"] = comments
+    return comments
+
+# -------- View --------
+@app.route("/author/article/4")
+def author_article4():
+    article   = _get_author_article4()
+    comments  = _get_article4_comments()
+    is_pinned = "article4" in set(session.get("pinned_articles", []))
+    profile   = session.get("subscriber_profile") or {"display_name": session.get("user","Author"), "avatar_url": None}
+    return render_template("authorArticle4.html", article=article, profile=profile, comments=comments, is_pinned=is_pinned)
+
+# -------- Edit --------
+@app.route("/author/article/4/edit")
+def author_article4_edit():
+    return render_template("authorArticle4Edit.html", article=_get_author_article4())
+
+# -------- Save updates --------
+@app.route("/author/article/4/update", methods=["POST"])
+def author_article4_update():
+    art = _get_author_article4()
+    art["title"]    = (request.form.get("title") or art["title"]).strip()
+    art["category"] = (request.form.get("category") or art.get("category","Trending")).strip()
+    art["content"]  = (request.form.get("content") or art["content"]).strip()
+
+    typed_path = (request.form.get("image_path") or "").strip()
+    file = request.files.get("cover")
+    if file and file.filename:
+        uploads_dir = os.path.join(app.root_path, "static", "uploads")
+        os.makedirs(uploads_dir, exist_ok=True)
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(uploads_dir, filename))
+        art["image_path"] = f"uploads/{filename}"
+    elif typed_path:
+        art["image_path"] = typed_path
+
+    art["updated_at"] = datetime.now().strftime("%d %B %Y, %I:%M%p")
+    session["author_article_4"] = art
+    flash("Article 4 saved.", "success")
+    return redirect(url_for("author_article4"))
+
+# -------- Pin/Unpin --------
+@app.route("/author/article/4/toggle-pin", methods=["POST"])
+def author_article4_toggle_pin():
+    cur = set(session.get("pinned_articles", []))
+    slug = "article4"
+    if slug in cur:
+        cur.remove(slug); pinned = False; flash("Article 4 unpinned.", "success")
+    else:
+        cur.add(slug);    pinned = True;  flash("Article 4 pinned.", "success")
+    session["pinned_articles"] = list(cur)
+    art = _get_author_article4(); art["pinned"] = pinned; session["author_article_4"] = art
+    return redirect(url_for("author_article4"))
+
+# -------- Reply --------
+@app.route("/author/article/4/reply", methods=["POST"])
+def author_article4_reply():
+    comment_id = request.form.get("comment_id")
+    reply_text = (request.form.get("reply") or "").strip()
+    if not comment_id or not reply_text:
+        flash("Reply cannot be empty.", "error"); return redirect(url_for("author_article4"))
+    comments = _get_article4_comments()
+    for c in comments:
+        if c["id"] == comment_id:
+            c.setdefault("replies", []).append({
+                "by": session.get("user","Author"),
+                "time": datetime.now().strftime("%d %b %Y, %I:%M%p"),
+                "text": reply_text,
+            })
+            break
+    session["author_article_4_comments"] = comments
+    flash("Reply posted.", "success")
+    return redirect(url_for("author_article4") + f"#c-{comment_id}")
+
+# -------- Delete --------
+@app.route("/author/article/4/delete", methods=["POST"])
+def author_article4_delete():
+    session.pop("author_article_4", None)
+    session.pop("author_article_4_comments", None)
+    cur = set(session.get("pinned_articles", []))
+    if "article4" in cur:
+        cur.remove("article4"); session["pinned_articles"] = list(cur)
+    flash("Article 4 deleted from session.", "success")
+    return redirect(url_for("authorHomepage"))
+
 
 
 # ---------- Auth ----------

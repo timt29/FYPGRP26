@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Edit Article — EchoPress</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/author.css') }}">
+</head>
+<body>
+
+  <!-- Top Bar with menu -->
+  <header class="topbar">
+    <div class="left">
+      <a class="brand" href="{{ url_for('authorHomepage') }}">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
+        <span class="brand-text">EchoPress</span>
+      </a>
+      <form class="search" role="search"><input type="text" placeholder="Searching for… ?"></form>
+    </div>
+    <div class="right">
+      <span class="welcome">Welcome, {{ session.get('user','Author') }} !</span>
+      <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div id="menuPanel" class="menu-panel">
+        <a href="{{ url_for('authorHomepage') }}">Author Home</a>
+        <a href="{{ url_for('author_article2') }}">View Article</a>
+        <a href="{{ url_for('my_articles') }}">My Articles</a>
+        <a href="{{ url_for('analytics') }}">View Analytics</a>
+        <a href="{{ url_for('profile') }}">Profile</a>
+        <a href="#" class="logout-link">Log Out</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <section class="feed">
+      <article class="card">
+        <div class="row-between" style="align-items:center;margin-bottom:8px">
+          <h2 style="margin:0">Edit Article</h2>
+          <a class="btn btn-light" href="{{ url_for('author_article2') }}">Back</a>
+        </div>
+
+        <form class="a-form neat" method="post" action="{{ url_for('author_article2_update') }}" enctype="multipart/form-data">
+          <label for="title">Title</label>
+          <input id="title" type="text" name="title" value="{{ article.title }}" required>
+
+          <label for="category">Category</label>
+          {% set cat = article.get('category','Trending') %}
+          <select id="category" name="category">
+            {% for opt in ['Trending','Politics','Sports','Technology','Economic','AsiaNews','WorldNews'] %}
+              <option value="{{ opt }}" {% if opt==cat %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+
+          <label for="cover">Upload Cover Image</label>
+          <input id="cover" type="file" name="cover" accept="image/*">
+
+          <label for="image_path" class="thin">Or type a path under <code>/static</code> (e.g. <code>img/sel-kpod.jpeg</code>):</label>
+          <input id="image_path" type="text" name="image_path" value="{{ article.image_path }}" placeholder="img/sel-kpod.jpeg">
+
+          <label for="content">Content</label>
+          <textarea id="content" name="content" rows="16" placeholder="Write your article...">{{ article.content }}</textarea>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-light" id="deleteBtn">Delete Article</button>
+            <button class="btn btn-primary" type="submit">Save Edit</button>
+          </div>
+        </form>
+
+        <form id="deleteForm" method="post" action="{{ url_for('author_article2_delete') }}"></form>
+      </article>
+    </section>
+
+    <aside class="sidebar"><div class="ads">Ads</div></aside>
+  </main>
+
+  <!-- Confirm Delete + Logout modals -->
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal">
+      <h2>Delete this article?</h2>
+      <p style="color:#444;margin-top:-6px;">This removes the article and its comments from this session.</p>
+      <div class="buttons">
+        <button class="yes" id="confirmYes">Yes, delete</button>
+        <button class="no" id="confirmNo">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="logoutModal" class="modal-overlay">
+    <div class="modal">
+      <h2>Log Out?</h2>
+      <div class="buttons">
+        <button class="yes" id="confirmLogout">Yes</button>
+        <button class="no" id="cancelLogout">No</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const btn=document.getElementById('menuBtn'), panel=document.getElementById('menuPanel');
+      if(btn&&panel){const close=()=>panel.style.display='none', toggle=()=>panel.style.display=panel.style.display==='block'?'none':'block';
+        btn.addEventListener('click',e=>{e.stopPropagation();toggle()});
+        document.addEventListener('click',e=>{if(!panel.contains(e.target)&&e.target!==btn)close()});
+        document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+      }
+
+      const delBtn=document.getElementById('deleteBtn');
+      const modal=document.getElementById('confirmModal');
+      const yes=document.getElementById('confirmYes');
+      const no=document.getElementById('confirmNo');
+      const form=document.getElementById('deleteForm');
+      delBtn.addEventListener('click', ()=> modal.style.display='flex');
+      yes.addEventListener('click', ()=> form.submit());
+      no.addEventListener('click', ()=> modal.style.display='none');
+      document.addEventListener('keydown', e=>{ if(e.key==='Escape') modal.style.display='none'; });
+
+      const logoutModal=document.getElementById("logoutModal");
+      const ok=document.getElementById("confirmLogout");
+      const cancel=document.getElementById("cancelLogout");
+      document.querySelectorAll(".logout-link").forEach(l=>{
+        l.addEventListener("click",e=>{e.preventDefault();logoutModal.style.display="flex";});
+      });
+      ok && ok.addEventListener("click", ()=>{ window.location.href="{{ url_for('logout') }}"; });
+      cancel && cancel.addEventListener("click", ()=>{ logoutModal.style.display="none"; });
+      document.addEventListener("keydown", e=>{ if(e.key==="Escape") logoutModal.style.display="none"; });
+    })();
+  </script>
+</body>
+</html>
