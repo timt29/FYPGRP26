@@ -1,13 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EchoPress Dashboard</title>
-    <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+    <title>New Users</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/adminHomepage.css') }}">
 </head>
-
 <body>
     <!-- Sidebar -->
     <div class="sidebar">
@@ -31,7 +28,7 @@
     <div class="main">
         <!-- Top bar -->
         <div class="topbar">
-            <h1>Dashboard</h1>
+            <h1>New Users Report</h1>
             <div class="admin-menu">
                 <button class="admin-btn" onclick="toggleDropdown()">Admin ▼</button>
                 <div class="dropdown" id="admin-dropdown">
@@ -42,25 +39,33 @@
 
         <!-- Content -->
         <div class="content">
-            <h2>Total Users</h2>
-            <div class="cards">
-                <div class="card">
-                    <h3>30</h3>
-                    <p>Total Users</p>
-                </div>
-                <div class="card">
-                    <h3>1</h3>
-                    <p>New Users Today</p>
-                </div>
-                <div class="card">
-                    <h3>7</h3>
-                    <p>Suspended Users</p>
-                </div>
-                <div class="card">
-                    <h3>22</h3>
-                    <p>Active Users</p>
-                </div>
-            </div>
+            <h2>New Users (Last 7 Days)</h2>
+            {% if users %}
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>User Type</th>
+                        <th>Created At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.userID }}</td>
+                        <td>{{ user.name }}</td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.usertype }}</td>
+                        <td>{{ user.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No new users in the past 7 days.</p>
+            {% endif %}
         </div>
     </div>
 
@@ -85,5 +90,5 @@
         }
     </script>
 </body>
-
 </html>
+

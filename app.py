@@ -1551,6 +1551,72 @@ def manage_user_status():
 
     return render_template("manageUserStatus.html", users=users)
 
+@app.route("/newUsers")
+def report_new_users():
+    if "userID" not in session or session.get("usertype") != "Admin":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Example: users created in the last 7 days
+    cursor.execute("""
+        SELECT userID, name, email, usertype, created_at
+        FROM users
+        WHERE created_at >= NOW() - INTERVAL 7 DAY
+        ORDER BY created_at DESC
+    """)
+    new_users = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template("newUsers.html", users=new_users)
+
+@app.route("/articleSubmissions")
+def report_article_submissions():
+    if "userID" not in session or session.get("usertype") != "Admin":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Example: fetch articles submitted in the last 7 days
+    cursor.execute("""
+        SELECT articleID, title, author, created_at
+        FROM articles
+        WHERE created_at >= NOW() - INTERVAL 7 DAY
+        ORDER BY created_at DESC
+    """)
+    articles = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template("articleSubmissions.html", articles=articles)
+
+@app.route("/loginActivity")
+def login_activity():
+    if "userID" not in session or session.get("usertype") != "Admin":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Fetch last 100 login activities (most recent first)
+    cursor.execute("""
+        SELECT activityID, userID, email, login_time, ip_address
+        FROM login_activity
+        ORDER BY login_time DESC
+        LIMIT 100
+    """)
+    activities = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return render_template("loginActivity.html", activities=activities)
 
 # ---------- Dev helper ----------
 def open_browser():

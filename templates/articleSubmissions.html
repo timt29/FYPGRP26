@@ -1,13 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EchoPress Dashboard</title>
-    <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+    <title>Article Submissions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/adminHomepage.css') }}">
 </head>
-
 <body>
     <!-- Sidebar -->
     <div class="sidebar">
@@ -29,9 +26,8 @@
 
     <!-- Main -->
     <div class="main">
-        <!-- Top bar -->
         <div class="topbar">
-            <h1>Dashboard</h1>
+            <h1>Article Submissions Report</h1>
             <div class="admin-menu">
                 <button class="admin-btn" onclick="toggleDropdown()">Admin ▼</button>
                 <div class="dropdown" id="admin-dropdown">
@@ -40,27 +36,32 @@
             </div>
         </div>
 
-        <!-- Content -->
         <div class="content">
-            <h2>Total Users</h2>
-            <div class="cards">
-                <div class="card">
-                    <h3>30</h3>
-                    <p>Total Users</p>
-                </div>
-                <div class="card">
-                    <h3>1</h3>
-                    <p>New Users Today</p>
-                </div>
-                <div class="card">
-                    <h3>7</h3>
-                    <p>Suspended Users</p>
-                </div>
-                <div class="card">
-                    <h3>22</h3>
-                    <p>Active Users</p>
-                </div>
-            </div>
+            <h2>Articles Submitted in the Last 7 Days</h2>
+            {% if articles %}
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>Article ID</th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Submitted At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for article in articles %}
+                    <tr>
+                        <td>{{ article.articleID }}</td>
+                        <td>{{ article.title }}</td>
+                        <td>{{ article.author }}</td>
+                        <td>{{ article.created_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No articles submitted in the past 7 days.</p>
+            {% endif %}
         </div>
     </div>
 
@@ -77,13 +78,11 @@
             submenu.style.display = submenu.style.display === "flex" ? "none" : "flex";
         }
 
-        // Close dropdown if clicked outside
-        window.onclick = function (event) {
+        window.onclick = function(event) {
             if (!event.target.matches('.admin-btn')) {
                 document.getElementById("admin-dropdown").style.display = "none";
             }
         }
     </script>
 </body>
-
 </html>
