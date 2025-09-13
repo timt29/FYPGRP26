@@ -65,7 +65,38 @@ def article4():
 @app.route("/adminHomepage")
 @login_required("Admin")
 def adminHomepage():
-    return render_template("adminHomepage.html")
+    if "userID" not in session or session.get("usertype") != "Admin":
+        flash("Access denied.")
+        return redirect(url_for("login"))
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # Total users
+    cursor.execute("SELECT COUNT(*) AS total FROM users")
+    total_users = cursor.fetchone()['total']
+
+    # New users today
+    cursor.execute("SELECT COUNT(*) AS new_today FROM users WHERE DATE(created_at) = CURDATE()")
+    new_users_today = cursor.fetchone()['new_today']
+
+    # Suspended users (usertype = 'Suspended')
+    cursor.execute("SELECT COUNT(*) AS suspended FROM users WHERE usertype='Suspended'")
+    suspended_users = cursor.fetchone()['suspended']
+
+    # Active users (everyone except Suspended)
+    cursor.execute("SELECT COUNT(*) AS active FROM users WHERE usertype!='Suspended'")
+    active_users = cursor.fetchone()['active']
+
+    cursor.close()
+    conn.close()
+
+    return render_template("adminHomepage.html",
+                           total_users=total_users,
+                           new_users_today=new_users_today,
+                           suspended_users=suspended_users,
+                           active_users=active_users)
+
 
 @app.route("/modHomepage")
 @login_required("Moderator")

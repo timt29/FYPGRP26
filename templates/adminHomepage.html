@@ -41,27 +41,25 @@
         </div>
 
         <!-- Content -->
-        <div class="content">
-            <h2>Total Users</h2>
-            <div class="cards">
-                <div class="card">
-                    <h3>30</h3>
-                    <p>Total Users</p>
-                </div>
-                <div class="card">
-                    <h3>1</h3>
-                    <p>New Users Today</p>
-                </div>
-                <div class="card">
-                    <h3>7</h3>
-                    <p>Suspended Users</p>
-                </div>
-                <div class="card">
-                    <h3>22</h3>
-                    <p>Active Users</p>
-                </div>
+        <div class="cards">
+            <div class="card">
+                <h3>{{ total_users }}</h3>
+                <p>Total Users</p>
+            </div>
+            <div class="card">
+                <h3>{{ new_users_today }}</h3>
+                <p>New Users Today</p>
+            </div>
+            <div class="card">
+                <h3>{{ suspended_users }}</h3>
+                <p>Suspended Users</p>
+            </div>
+            <div class="card">
+                <h3>{{ active_users }}</h3>
+                <p>Active Users</p>
             </div>
         </div>
+
     </div>
 
     <script>
