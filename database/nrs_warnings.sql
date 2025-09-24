@@ -28,7 +28,7 @@ CREATE TABLE `warnings` (
   `message` varchar(255) NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`warningID`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -37,7 +37,7 @@ CREATE TABLE `warnings` (
 
 LOCK TABLES `warnings` WRITE;
 /*!40000 ALTER TABLE `warnings` DISABLE KEYS */;
-INSERT INTO `warnings` VALUES (1,5,'You have received a warning from the moderator.','2025-09-10 16:22:39'),(2,5,'You have received a warning from the moderator.','2025-09-10 16:22:41'),(3,5,'You have received a warning from the moderator.','2025-09-10 16:39:10'),(4,4,'You have received a warning from the moderator.','2025-09-10 16:39:11'),(5,5,'You have received a warning from the moderator.','2025-09-10 16:39:12'),(6,4,'You have received a warning from the moderator.','2025-09-10 16:39:13'),(7,4,'You have received a warning from the moderator.','2025-09-10 16:39:13'),(8,5,'You have received a warning from the moderator.','2025-09-10 16:39:14'),(9,4,'You have received a warning from the moderator.','2025-09-10 16:39:14'),(10,5,'You have received a warning from the moderator.','2025-09-10 16:39:15'),(11,5,'You have received a warning from the moderator.','2025-09-10 16:39:15'),(12,5,'You have received a warning from the moderator.','2025-09-10 16:39:16');
+INSERT INTO `warnings` VALUES (1,5,'You have received a warning from the moderator.','2025-09-10 16:22:39'),(2,5,'You have received a warning from the moderator.','2025-09-10 16:22:41'),(3,5,'You have received a warning from the moderator.','2025-09-10 16:39:10'),(4,4,'You have received a warning from the moderator.','2025-09-10 16:39:11'),(5,5,'You have received a warning from the moderator.','2025-09-10 16:39:12'),(6,4,'You have received a warning from the moderator.','2025-09-10 16:39:13'),(7,4,'You have received a warning from the moderator.','2025-09-10 16:39:13'),(8,5,'You have received a warning from the moderator.','2025-09-10 16:39:14'),(9,4,'You have received a warning from the moderator.','2025-09-10 16:39:14'),(10,5,'You have received a warning from the moderator.','2025-09-10 16:39:15'),(11,5,'You have received a warning from the moderator.','2025-09-10 16:39:15'),(12,5,'You have received a warning from the moderator.','2025-09-10 16:39:16'),(13,5,'You have received a warning from the moderator.','2025-09-13 11:50:58');
 /*!40000 ALTER TABLE `warnings` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -50,4 +50,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-09-13 19:44:23
+-- Dump completed on 2025-09-24 18:08:08
