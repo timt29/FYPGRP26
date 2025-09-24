@@ -22,7 +22,7 @@ def get_db_connection():
         database="nrs"
     )
 
-# ---------- Auth wrapper ----------
+# ---------- Auth wrapper ---------- # (YY)
 def login_required(user_type):
     """
     Decorator to protect routes based on login and user type.
@@ -40,28 +40,35 @@ def login_required(user_type):
         return decorated_function
     return decorator
 
-# ---------- Public pages ----------
+# ---------- Public pages ----------# (TIM)
 @app.route("/")
-def home():
-    return render_template("index.html")
+def index():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT articleID, title, content, author, published_at, updated_at, image
+        FROM articles
+        ORDER BY published_at DESC
+        LIMIT 4
+    """)
+    articles = cursor.fetchall()
+    cursor.close()
+    conn.close()
 
-@app.route("/article1")
-def article1():
-    return render_template("article1.html")
+    return render_template("index.html", articles=articles)
 
-@app.route("/article2")
-def article2():
-    return render_template("article2.html")
+@app.route("/article/<int:article_id>")
+def article(article_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM articles WHERE articleID = %s", (article_id,))
+    article = cursor.fetchone()
+    cursor.close()
+    conn.close()
 
-@app.route("/article3")
-def article3():
-    return render_template("article3.html")
+    return render_template("article.html", article=article)
 
-@app.route("/article4")
-def article4():
-    return render_template("article4.html")
-
-# ---------- Role homepages ----------
+# ---------- Role homepages ---------- # (YY)
 @app.route("/adminHomepage")
 @login_required("Admin")
 def adminHomepage():
@@ -97,12 +104,12 @@ def adminHomepage():
                            suspended_users=suspended_users,
                            active_users=active_users)
 
-
-@app.route("/modHomepage")
+# (YY)
+@app.route("/modHomepage") 
 @login_required("Moderator")
 def modHomepage():
     return render_template("modHomepage.html")
-
+# (YY)
 @app.route("/subscriberHomepage")
 @login_required("Subscriber")
 def subscriberHomepage():
@@ -115,6 +122,7 @@ def subscriberHomepage():
     conn.close()
     return render_template("subscriberHomepage.html", warnings=warnings)
 
+# (MINGWEE)
 # ---------- Subscriber article pages (with pin support) ----------
 @app.route("/subscriberArticle1")
 def subscriberArticle1():
@@ -1229,7 +1237,7 @@ def author_article4_delete():
     return redirect(url_for("authorHomepage"))
 
 
-
+# (YY)
 # ---------- Auth ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -1672,7 +1680,7 @@ def flagged_articles():
     conn.close()
 
     return render_template("flaggedArticles.html", articles=articles)
-
+# (YY)
 @app.route("/flaggedComments")
 def flagged_comments():
     if "userID" not in session or session.get("usertype") != "Moderator":
@@ -1695,7 +1703,7 @@ def flagged_comments():
     conn.close()
 
     return render_template("flaggedComments.html", comments=comments)
-
+# (YY)
 @app.route("/pendingArticles", methods=["GET", "POST"])
 def pending_articles():
     if "userID" not in session or session.get("usertype") != "Moderator":
@@ -1722,7 +1730,7 @@ def pending_articles():
     cursor.close()
     conn.close()
     return render_template("pendingArticles.html", articles=articles)
-
+# (YY)
 @app.route("/manageCategories", methods=["GET"])
 def manage_categories():
     conn = get_db_connection()
@@ -1732,7 +1740,7 @@ def manage_categories():
     cursor.close()
     conn.close()
     return render_template("manageCategories.html", categories=categories)
-
+# (YY)
 @app.route("/manageCategories/create", methods=["GET", "POST"])
 def add_category():
     if request.method == "POST":
@@ -1769,7 +1777,7 @@ def add_category():
 
     # GET request
     return render_template("createCategory.html")
-
+# (YY)
 @app.route("/manageCategories/update", methods=["GET", "POST"])
 def update_category():
     conn = get_db_connection()
@@ -1800,6 +1808,7 @@ def update_category():
 
     return render_template("updateCategory.html", categories=categories)
 
+# (YY)
 @app.route("/manageCategories/delete", methods=["GET"])
 def delete_category_page():
     search = request.args.get("search", "")
@@ -1817,7 +1826,7 @@ def delete_category_page():
 
     return render_template("deleteCategory.html", categories=categories)
 
-# Handle actual deletion
+# Handle actual deletion (YY)
 @app.route("/manageCategories/delete/<int:categoryID>", methods=["POST"])
 def delete_category(categoryID):
     conn = get_db_connection()

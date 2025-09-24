@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>EchoPress - Homepage</title>
+  <title>EchoPress</title>
   <link rel="stylesheet" href="../static/css/style.css" />
   <link rel="icon" href="../static/img/favicon.png" type="image/png" />
 </head>
@@ -38,23 +38,21 @@
   <main class="main-content">
     <!-- Articles -->
     <section class="articles">
-      {% for article in articles %}
-      <article
-        class="article {% if loop.index == 1 %}big-article{% elif loop.index == 2 %}medium-article{% else %}small-article{% endif %}">
+      <article class="article sel-article">
         <div class="text">
-          <a href="{{ url_for('article', article_id=article['articleID']) }}"
-            style="color: #000000; text-decoration: none;">
-            <h2>{{ article['title'] }}</h2>
-          </a>
-          <p>{{ article['content'][:250] }}...</p>
+          <h1 class="main-title">{{ article['title'] }}</h1>
+          {% if article['image'] %}
+          <img src="{{ article['image'] }}" alt="thumbnail" class="image" />
+          {% endif %}
+          <p class="small-text">{{ article['content'] }}</p>
+          <p>
+            Author: {{ article['author'] }} <br>
+            Published: {{ article['published_at'] }} <br>
+            Updated: {{ article['updated_at'] }}
+          </p>
         </div>
-        {% if article['image'] %}
-        <img src="{{ article['image'] }}" alt="thumbnail" class="thumbnail">
-        {% endif %}
       </article>
-      {% endfor %}
     </section>
-
 
     <!-- Sidebar -->
     <aside class="sidebar">
@@ -63,7 +61,7 @@
           Join us now as a registered member and be part of our discussion
           community!
         </p>
-        <a href="/register" class="register">Register for Free</a>
+        <button class="register">Register for Free</button>
       </div>
       <div class="ads">
         <h3>Ads</h3>
