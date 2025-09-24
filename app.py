@@ -68,6 +68,41 @@ def article(article_id):
 
     return render_template("article.html", article=article)
 
+@app.route("/search")
+def search():
+    query = request.args.get("q", "")
+    articles = []
+    no_results = False
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    if query:
+        cursor.execute("""
+            SELECT articleID, title, content, author, published_at, updated_at, image
+            FROM articles
+            WHERE title LIKE %s
+            ORDER BY published_at DESC
+        """, ("%" + query + "%",))
+        articles = cursor.fetchall()
+
+    # If no results, load homepage articles instead
+    if not articles:
+        no_results = True
+        cursor.execute("""
+            SELECT articleID, title, content, author, published_at, updated_at, image
+            FROM articles
+            ORDER BY published_at DESC
+            LIMIT 4
+        """)
+        articles = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return render_template("index.html", articles=articles, no_results=no_results, search_query=query)
+
+
 # ---------- Role homepages ---------- # (YY)
 @app.route("/adminHomepage")
 @login_required("Admin")
