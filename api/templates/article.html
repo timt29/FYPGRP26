@@ -19,15 +19,14 @@
 
     <!-- Navigation -->
     <nav class="navbar">
-      <a href="#">For You</a>
-      <a href="#">Trending</a>
-      <a href="#">Politics</a>
-      <a href="#">Sports</a>
-      <a href="#">Technology</a>
-      <a href="#">Economic</a>
-      <a href="#">AsiaNews</a>
-      <a href="#">WorldNews</a>
+      <a href="{{ url_for('index') }}">For You</a>
+      {% for cat in nav_categories %}
+      <a href="{{ url_for('category', category_name=cat['name']) }}"
+        >{{ cat['name'] }}</a
+      >
+      {% endfor %}
     </nav>
+
 
     <!-- Main Content -->
     <main class="main-content">
