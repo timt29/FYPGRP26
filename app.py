@@ -25,6 +25,7 @@ def get_db_connection():
 '''
 def get_db_connection():
     return mysql.connector.connect(
+
         host="shortline.proxy.rlwy.net",
         user="root",
         password="ZavXqAKfvdBvKRUKrjhQZoMYypyHLQes",
@@ -1389,7 +1390,7 @@ def register():
 def logout():
     session.clear()
     flash("You have been logged out.")
-    return redirect(url_for("home"))
+    return redirect(url_for("index"))
 
 # ---------- Moderator: manage users ----------
 @app.route("/manageUsers")
