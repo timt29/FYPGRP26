@@ -22,6 +22,7 @@ def get_db_connection():
         password=os.environ["DB_PASSWORD"],
         database=os.environ["DB_NAME"]
     )
+print("Connected to MySQL")
 # ---------- Auth wrapper ---------- # (YY)
 def login_required(user_type):
     """
