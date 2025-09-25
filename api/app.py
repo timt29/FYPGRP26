@@ -57,6 +57,10 @@ def index():
 
     return render_template("index.html", articles=articles)
 
+def handler(req, res):
+    with app.test_request_context(req.path):
+        return app.full_dispatch_request()
+
 @app.route("/article/<int:article_id>")
 def article(article_id):
     conn = get_db_connection()
