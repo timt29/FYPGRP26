@@ -233,8 +233,8 @@ p {
 .share-button button {
   background: transparent;   /* no blue background */
   border: none;
-  padding: 6px;              /* tighter padding since no circle */
-  border-radius: 6px;        /* slight rounding for hover */
+  padding: 12px;              /* tighter padding since no circle */
+  border-radius: 8px;        /* slight rounding for hover */
   cursor: pointer;
   transition: background 0.2s ease;
   display: flex;
@@ -247,7 +247,7 @@ p {
 }
 
 .share-button img.share-icon {
-  width: 20px;   /* adjust size */
-  height: 20px;
+  width: 32px;   /* adjust size */
+  height: 32px;
   object-fit: contain;
 }
