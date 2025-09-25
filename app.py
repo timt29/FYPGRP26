@@ -14,7 +14,15 @@ app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
 
 # ---------- DB ----------
-
+'''
+def get_db_connection():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="password",
+        database="nrs"
+    )
+'''
 def get_db_connection():
     return mysql.connector.connect(
         host="shortline.proxy.rlwy.net",
