@@ -231,10 +231,10 @@ p {
 }
 
 .share-button button {
-  background: #0077ff;
+  background: transparent;   /* no blue background */
   border: none;
-  padding: 10px;
-  border-radius: 50%;
+  padding: 6px;              /* tighter padding since no circle */
+  border-radius: 6px;        /* slight rounding for hover */
   cursor: pointer;
   transition: background 0.2s ease;
   display: flex;
@@ -243,9 +243,11 @@ p {
 }
 
 .share-button button:hover {
-  background: #005fcc;
+  background: #f0f0f0;       /* light gray hover effect */
 }
 
 .share-button svg {
-  pointer-events: none;
+  stroke: #000;              /* black icon */
+  width: 20px;
+  height: 20px;
 }

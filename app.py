@@ -1335,11 +1335,13 @@ def register():
             conn.commit()
             return redirect(url_for("login"))
         except mysql.connector.IntegrityError:
-            return "Email already exists!"
+            # Instead of returning text, render template with error
+            return render_template("register.html", error="Email already exists!")
         finally:
             cursor.close()
             conn.close()
     return render_template("register.html")
+
 
 @app.route("/logout")
 def logout():
