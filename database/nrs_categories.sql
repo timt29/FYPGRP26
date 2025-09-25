@@ -27,7 +27,7 @@ CREATE TABLE `categories` (
   `name` varchar(255) NOT NULL,
   `description` text,
   PRIMARY KEY (`categoryID`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -36,7 +36,7 @@ CREATE TABLE `categories` (
 
 LOCK TABLES `categories` WRITE;
 /*!40000 ALTER TABLE `categories` DISABLE KEYS */;
-INSERT INTO `categories` VALUES (2,'Food','Testing');
+INSERT INTO `categories` VALUES (2,'Trending',NULL),(3,'Politics',NULL),(4,'Sports',NULL),(5,'Technology',NULL),(6,'Economic',NULL),(7,'AsiaNews',NULL),(8,'WorldNews',NULL);
 /*!40000 ALTER TABLE `categories` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -49,4 +49,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-09-24 19:04:25
+-- Dump completed on 2025-09-25 20:48:14

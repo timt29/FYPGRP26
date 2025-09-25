@@ -1,106 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>EchoPress - Homepage</title>
+    <link rel="stylesheet" href="../static/css/style.css" />
+    <link rel="icon" href="../static/img/favicon.png" type="image/png" />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <title>EchoPress - Homepage</title>
-  <link rel="stylesheet" href="../static/css/style.css" />
-  <link rel="icon" href="../static/img/favicon.png" type="image/png" />
-</head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <a href="/" class="logo">EchoPress</a>
+      <div class="search-container">
+        <form action="{{ url_for('search') }}" method="get">
+          <input
+            type="text"
+            name="q"
+            placeholder="Search for news..."
+            required
+          />
+          <button type="submit">Search</button>
+        </form>
+      </div>
+      <div class="auth-buttons">
+        <a href="/login" class="signin">Sign In</a>
+        <a href="/register" class="register">Register</a>
+      </div>
+    </header>
 
-<body>
-  <!-- Header -->
-  <header class="header">
-    <a href="/" class="logo">EchoPress</a>
-    <div class="search-container">
-      <form action="{{ url_for('search') }}" method="get">
-        <input type="text" name="q" placeholder="Search for news..." required />
-        <button type="submit">Search</button>
-      </form>
-    </div>
-    <div class="auth-buttons">
-      <a href="/login" class="signin">Sign In</a>
-      <a href="/register" class="register">Register</a>
-    </div>
-  </header>
-
-  <!-- Navigation -->
-  <nav class="navbar">
-    <a href="#">For You</a>
-    <a href="#">Trending</a>
-    <a href="#">Politics</a>
-    <a href="#">Sports</a>
-    <a href="#">Technology</a>
-    <a href="#">Economic</a>
-    <a href="#">AsiaNews</a>
-    <a href="#">WorldNews</a>
-  </nav>
-
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- Articles -->
-    <section class="articles">
-      {% for article in articles %}
-      <article
-        class="article {% if loop.index == 1 %}big-article{% elif loop.index == 2 %}medium-article{% else %}small-article{% endif %}">
-        <div class="text">
-          <a href="{{ url_for('article', article_id=article['articleID']) }}"
-            style="color: #000000; text-decoration: none;">
-            <h2>{{ article['title'] }}</h2>
-          </a>
-          <p>{{ article['content'][:250] }}...</p>
-        </div>
-        {% if article['image'] %}
-        <img src="{{ article['image'] }}" alt="thumbnail" class="thumbnail">
-        {% endif %}
-      </article>
+    <!-- Navigation -->
+    <nav class="navbar">
+      <a href="{{ url_for('index') }}">For You</a>
+      {% for cat in nav_categories %}
+      <a href="{{ url_for('category', category_name=cat['name']) }}"
+        >{{ cat['name'] }}</a
+      >
       {% endfor %}
-    </section>
+    </nav>
 
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="register-box">
-        <p>
-          Join us now as a registered member and be part of our discussion
-          community!
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Articles -->
+      <section class="articles">
+        {% if no_articles %}
+        <p
+          style="font-size: 18px; font-weight: bold; margin: 20px; color: black"
+        >
+          No articles found in {{ category_name }}.
         </p>
-        <a href="/register" class="register">Register for Free</a>
-      </div>
-      <div class="ads">
-        <h3>Ads</h3>
-      </div>
-    </aside>
-  </main>
+        {% else %} {% for article in articles %}
+        <article
+          class="article {% if loop.index == 1 %}big-article{% elif loop.index == 2 %}medium-article{% else %}small-article{% endif %}"
+        >
+          <div class="text">
+            <a
+              href="{{ url_for('article', article_id=article['articleID']) }}"
+              style="color: #000000; text-decoration: none"
+            >
+              <h2>{{ article['title'] }}</h2>
+            </a>
+            <p>{{ article['content'][:250] }}...</p>
+          </div>
+          {% if article['image'] %}
+          <img src="{{ article['image'] }}" alt="thumbnail" class="thumbnail" />
+          {% endif %}
+        </article>
+        {% endfor %} {% endif %}
+      </section>
 
-  <!-- Modal -->
-  <div id="noResultsModal" class="modal">
-    <div class="modal-content">
-      <span class="close">&times;</span>
-      <h2>No results found</h2>
-      <p>We couldn’t find any articles matching "{{ search_query }}".</p>
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="register-box">
+          <p>
+            Join us now as a registered member and be part of our discussion
+            community!
+          </p>
+          <a href="/register" class="register">Register for Free</a>
+        </div>
+        <div class="ads">
+          <h3>Ads</h3>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Modal -->
+    <div id="noResultsModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>No results found</h2>
+        <p>We couldn’t find any articles matching "{{ search_query }}".</p>
+      </div>
     </div>
-  </div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      {% if no_results %}
-      let modal = document.getElementById("noResultsModal");
-      let span = document.querySelector(".close");
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        {% if no_results %}
+        let modal = document.getElementById("noResultsModal");
+        let span = document.querySelector(".close");
 
-      modal.style.display = "block";
+        modal.style.display = "block";
 
-      span.onclick = function () {
-        modal.style.display = "none";
-      }
-
-      window.onclick = function (event) {
-        if (event.target == modal) {
+        span.onclick = function () {
           modal.style.display = "none";
         }
-      }
-      {% endif %}
-    });
-  </script>
-</body>
 
+        window.onclick = function (event) {
+          if (event.target == modal) {
+            modal.style.display = "none";
+          }
+        }
+        {% endif %}
+      });
+    </script>
+  </body>
 </html>

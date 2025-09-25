@@ -1,98 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>EchoPress</title>
+    <link rel="stylesheet" href="../static/css/style.css" />
+    <link rel="icon" href="../static/img/favicon.png" type="image/png" />
+  </head>
 
-<head>
-  <meta charset="UTF-8" />
-  <title>EchoPress</title>
-  <link rel="stylesheet" href="../static/css/style.css" />
-  <link rel="icon" href="../static/img/favicon.png" type="image/png" />
-</head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <a href="/" class="logo">EchoPress</a>
+      <div class="auth-buttons">
+        <a href="/login" class="signin">Sign In</a>
+        <a href="/register" class="register">Register</a>
+      </div>
+    </header>
 
-<body>
-  <!-- Header -->
-  <header class="header">
-    <a href="/" class="logo">EchoPress</a>
-    <div class="search-container">
-      <input type="text" placeholder="Search for news..." />
-      <button>Search</button>
-    </div>
-    <div class="auth-buttons">
-      <a href="/login" class="signin">Sign In</a>
-      <a href="/register" class="register">Register</a>
-    </div>
-  </header>
+    <!-- Navigation -->
+    <nav class="navbar">
+      <a href="#">For You</a>
+      <a href="#">Trending</a>
+      <a href="#">Politics</a>
+      <a href="#">Sports</a>
+      <a href="#">Technology</a>
+      <a href="#">Economic</a>
+      <a href="#">AsiaNews</a>
+      <a href="#">WorldNews</a>
+    </nav>
 
-  <!-- Navigation -->
-  <nav class="navbar">
-    <a href="#">For You</a>
-    <a href="#">Trending</a>
-    <a href="#">Politics</a>
-    <a href="#">Sports</a>
-    <a href="#">Technology</a>
-    <a href="#">Economic</a>
-    <a href="#">AsiaNews</a>
-    <a href="#">WorldNews</a>
-  </nav>
-
-  <!-- Main Content -->
-  <main class="main-content">
-    <!-- Articles -->
-    <section class="articles">
-      <article class="article sel-article">
-        <div class="text">
-          <h1 class="main-title">{{ article['title'] }}</h1>
-          {% if article['image'] %}
-          <img src="{{ article['image'] }}" alt="thumbnail" class="image" />
-          {% endif %}
-          <p class="small-text">{{ article['content'] }}</p>
-          <p>
-            Author: {{ article['author'] }} <br>
-            Published: {{ article['published_at'] }} <br>
-            Updated: {{ article['updated_at'] }}
-          </p>
-          <div class="share-button">
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Articles -->
+      <section class="articles">
+        <article class="article sel-article">
+          <div class="text">
+            <h1 class="main-title">{{ article['title'] }}</h1>
+            {% if article['image'] %}
+            <img src="{{ article['image'] }}" alt="thumbnail" class="image" />
+            {% endif %}
+            <p class="small-text">{{ article['content'] }}</p>
+            <p>
+              Author: {{ article['author'] }} <br />
+              Published: {{ article['published_at'] }} <br />
+              Updated: {{ article['updated_at'] }}
+            </p>
+            <div class="share-button">
               <button onclick="shareArticle()" title="Share">
-                <img src="{{ url_for('static', filename='img/share.png') }}" alt="Share" class="share-icon">
+                <img
+                  src="{{ url_for('static', filename='img/share.png') }}"
+                  alt="Share"
+                  class="share-icon"
+                />
               </button>
+            </div>
           </div>
+        </article>
+      </section>
+
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <div class="register-box">
+          <p>
+            Join us now as a registered member and be part of our discussion
+            community!
+          </p>
+          <a href="/register" class="register">Register for Free</a>
         </div>
-      </article>
-    </section>
+        <div class="ads">
+          <h3>Ads</h3>
+        </div>
+      </aside>
+    </main>
 
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="register-box">
-        <p>
-          Join us now as a registered member and be part of our discussion
-          community!
-        </p>
-        <a href="/register" class="register">Register for Free</a>
-      </div>
-      <div class="ads">
-        <h3>Ads</h3>
-      </div>
-    </aside>
-  </main>
+    <script>
+      function shareArticle() {
+        const url = window.location.href;
+        const title = document.querySelector(".main-title").innerText;
 
-  <script>
-  function shareArticle() {
-    const url = window.location.href;
-    const title = document.querySelector(".main-title").innerText;
-
-    if (navigator.share) {
-      // Native share on mobile
-      navigator.share({
-        title: title,
-        url: url
-      }).catch(err => console.log("Share failed:", err));
-    } else {
-      // Fallback for desktop
-      navigator.clipboard.writeText(url).then(() => {
-        alert("Link copied to clipboard!");
-      });
-    }
-  }
-</script>
-</body>
-
+        if (navigator.share) {
+          // Native share on mobile
+          navigator
+            .share({
+              title: title,
+              url: url,
+            })
+            .catch((err) => console.log("Share failed:", err));
+        } else {
+          // Fallback for desktop
+          navigator.clipboard.writeText(url).then(() => {
+            alert("Link copied to clipboard!");
+          });
+        }
+      }
+    </script>
+  </body>
 </html>

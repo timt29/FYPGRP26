@@ -90,17 +90,49 @@ def search():
     if not articles:
         no_results = True
         cursor.execute("""
-            SELECT articleID, title, content, author, published_at, updated_at, image
-            FROM articles
-            ORDER BY published_at DESC
-            LIMIT 4
-        """)
+        SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
+        FROM articles a
+        JOIN categories c ON a.catID = c.categoryID
+        ORDER BY a.published_at DESC
+        LIMIT 4
+    """)
         articles = cursor.fetchall()
 
     cursor.close()
     conn.close()
 
     return render_template("index.html", articles=articles, no_results=no_results, search_query=query)
+
+def get_categories():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT name FROM categories")
+    categories = cursor.fetchall()
+    conn.close()
+    return categories
+
+@app.context_processor
+def inject_categories():
+    return dict(nav_categories=get_categories())
+
+@app.route("/category/<category_name>")
+def category(category_name):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
+        FROM articles a
+        JOIN categories c ON a.catID = c.categoryID
+        WHERE c.name = %s
+        ORDER BY a.published_at DESC
+    """, (category_name,))
+    articles = cursor.fetchall()
+
+    conn.close()
+
+    # Pass a flag if no articles found
+    return render_template("index.html", articles=articles, category_name=category_name, no_articles=(len(articles) == 0))
 
 
 # ---------- Role homepages ---------- # (YY)
