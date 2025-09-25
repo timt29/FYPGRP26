@@ -246,8 +246,8 @@ p {
   background: #f0f0f0;       /* light gray hover effect */
 }
 
-.share-button svg {
-  stroke: #000;              /* black icon */
-  width: 20px;
+.share-button img.share-icon {
+  width: 20px;   /* adjust size */
   height: 20px;
+  object-fit: contain;
 }

@@ -1336,7 +1336,7 @@ def register():
             return redirect(url_for("login"))
         except mysql.connector.IntegrityError:
             # Instead of returning text, render template with error
-            return render_template("register.html", error="Email already exists!")
+            return render_template("register.html", error="This email is already registered. Please use a different email.")
         finally:
             cursor.close()
             conn.close()
