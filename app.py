@@ -16,10 +16,11 @@ app.secret_key = "your_secret_key"  # Replace with a secure key
 # ---------- DB ----------
 def get_db_connection():
     return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="password",
-        database="nrs"
+        host=os.environ["DB_HOST"],
+        port=int(os.environ["DB_PORT"]),  # port must be int
+        user=os.environ["DB_USER"],
+        password=os.environ["DB_PASSWORD"],
+        database=os.environ["DB_NAME"]
     )
 
 # ---------- Auth wrapper ---------- # (YY)
