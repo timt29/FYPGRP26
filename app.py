@@ -22,7 +22,6 @@ def get_db_connection():
         password=os.environ["DB_PASSWORD"],
         database=os.environ["DB_NAME"]
     )
-
 # ---------- Auth wrapper ---------- # (YY)
 def login_required(user_type):
     """
