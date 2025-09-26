@@ -16,7 +16,7 @@ app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
 
 # ---------- DB ----------
-
+'''
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -34,7 +34,7 @@ def get_db_connection():
         database="railway",
         port=52559
     )
-    '''
+
 print("Connected to MySQL")
 # ---------- Auth wrapper ---------- # (YY)
 def login_required(user_type):
@@ -864,7 +864,7 @@ def summarize():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
     
-    
+
 # ---------- Dev helper ----------
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
