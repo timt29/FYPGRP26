@@ -38,6 +38,19 @@
             {% if article['image'] %}
             <img src="{{ article['image'] }}" alt="thumbnail" class="image" />
             {% endif %}
+
+            <!-- AI summarizer section -->
+            {% if summary_points %} 
+            <div style="margin:20px auto; padding: 15px; border: 1px solid #ccc; background: #f9f9f9; width: 80%;">
+              <h3>Summary</h3>
+              <ul style="margin-left: 30px;">
+                {% for point in summary_points %}
+                <li>{{ point }}</li>
+                 {% endfor %}
+              </ul>
+            </div>
+             {% endif %}  
+
             <p class="small-text">{{ article['content'] }}</p>
             <p>
               Author: {{ article['author'] }} <br />
