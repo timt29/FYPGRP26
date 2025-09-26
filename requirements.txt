@@ -1,3 +1,4 @@
 mysql-connector-python
 flask==3.1.0
 requests==2.31.0
+transformers==4.56.2
