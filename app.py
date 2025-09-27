@@ -13,10 +13,8 @@ from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 import nltk
-nltk.download('punkt', download_dir='nltk_data')
 nltk.data.path.append('./nltk_data')  # point to the bundled data
-nltk.download('punkt_tab')
-
+from nltk.tokenize import sent_tokenize
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
