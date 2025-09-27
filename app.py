@@ -15,8 +15,8 @@ from sumy.summarizers.lsa import LsaSummarizer
 
 import nltk
 nltk.download('punkt', download_dir='nltk_data')
-nltk.data.path.append('./nltk_data')  # point to the bundled data
-nltk.download('punkt_tab')
+# Add path so NLTK knows where to look
+nltk.data.path.append('./nltk_data')
 
 
 app = Flask(__name__)
