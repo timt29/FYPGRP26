@@ -12,6 +12,7 @@ from werkzeug.utils import secure_filename
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
+
 import nltk
 nltk.data.path.append('./nltk_data')  # point to the bundled data
 from nltk.tokenize import sent_tokenize
