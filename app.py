@@ -16,8 +16,8 @@ from sumy.summarizers.lsa import LsaSummarizer
 import nltk
 nltk.download('punkt', download_dir='nltk_data')
 # Add path so NLTK knows where to look
-nltk.data.path.append('./nltk_data')
-
+nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
+nltk.data.path.append(nltk_data_dir)
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
