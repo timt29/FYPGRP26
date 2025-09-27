@@ -9,8 +9,13 @@ import mysql.connector
 import random
 from datetime import datetime
 from werkzeug.utils import secure_filename
-import requests 
-from transformers import pipeline
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lsa import LsaSummarizer
+import nltk
+nltk.download('punkt')
+nltk.download('punkt_tab')
+
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
@@ -821,36 +826,17 @@ def delete_category(categoryID):
 
 
 # ---------- AI Summarizer -------
-# load the sumarrizer model
-summarizer = pipeline("summarization", model="sshleifer/distilbart-cnn-12-6", device=-1)
-
-# helper: to split long text into chunks
-def chunk_text(text, max_tokens=500):
-    sentences = text.split(". ")
-    chunks, current = [], ""
-    for s in sentences:
-        if len(current.split()) + len(s.split()) < max_tokens:
-            current += s + ". "
-        else:
-            chunks.append(current.strip())
-            current = s + ". "
-    if current:
-        chunks.append(current.strip())
-    return chunks
-
-# helper: to summarize text and convert to bullet points
-def summarize_to_points(text):
+# to summarize text and convert to bullet points
+def summarize_to_points(text, sentences_count=5):
     if not text.strip():
-        return "- No summary available"
+        return ["No summary available"]
 
-    chunks = chunk_text(text)
-    summaries = [
-        summarizer(chunk, max_length=250, min_length=80, do_sample=False)[0]['summary_text']
-        for chunk in chunks
-    ]
-    combined = " ".join(summaries)
-    points = combined.split(". ")
-    return [p.strip() for p in points if p.strip()]
+    parser = PlaintextParser.from_string(text, Tokenizer("english"))
+    summarizer = LsaSummarizer()
+    summary = summarizer(parser.document, sentences_count)
+    return [str(s) for s in summary]
+
+
 
 # endpoint: to receive article text and return bullet-point summary
 @app.route("/summarize", methods=["POST"])
@@ -863,7 +849,6 @@ def summarize():
         return jsonify({"summary": bullet_points})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    
 
 # ---------- Dev helper ----------
 def open_browser():
