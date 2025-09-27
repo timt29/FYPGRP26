@@ -13,7 +13,8 @@ from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 import nltk
-nltk.download('punkt')
+nltk.download('punkt', download_dir='nltk_data')
+nltk.data.path.append('./nltk_data')  # point to the bundled data
 nltk.download('punkt_tab')
 
 
