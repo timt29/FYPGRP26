@@ -1,12 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
-from flask import jsonify
-import os
+from flask import jsonify, request
+import os, time
 import uuid
 from functools import wraps
 import webbrowser
 import threading
 import mysql.connector
-import random
 from datetime import datetime
 from werkzeug.utils import secure_filename
 from sumy.parsers.plaintext import PlaintextParser
@@ -27,7 +26,7 @@ app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
 
 # ---------- DB ----------
-'''
+
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -45,7 +44,7 @@ def get_db_connection():
         database="railway",
         port=52559
     )
-
+'''
 print("Connected to MySQL")
 # ---------- Auth wrapper ---------- # (YY)
 def login_required(user_type):
@@ -212,20 +211,119 @@ def adminHomepage():
 @login_required("Moderator")
 def modHomepage():
     return render_template("modHomepage.html")
+
 # (YY)
 @app.route("/subscriberHomepage")
 @login_required("Subscriber")
 def subscriberHomepage():
-    # fetch warnings for this subscriber
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT message, created_at FROM warnings WHERE userID = %s", (session["userID"],))
-    warnings = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return render_template("subscriberHomepage.html", warnings=warnings)
+    cur = conn.cursor(dictionary=True)
+    # (existing warnings query)
+    cur.execute("SELECT message, created_at FROM warnings WHERE userID=%s", (session["userID"],))
+    warnings = cur.fetchall()
+    # Pull categories dynamically
+    cur.execute("SELECT categoryID, name FROM categories ORDER BY categoryID ASC")
+    categories = cur.fetchall()
+    cur.close(); conn.close()
+    # active tab via query param (?cat=Technology), default 'Trending'
+    active_category = request.args.get("cat", "Trending")
+    return render_template(
+        "subscriberHomepage.html",
+        warnings=warnings,
+        categories=categories,
+        active_category=active_category
+    )
 
+# (MW)
+# API: articles feed for subscriberHomepage
+@app.route("/api/articles")
+@login_required("Subscriber")
+def api_articles():
+    cat = request.args.get("cat") 
+    limit = int(request.args.get("limit", 10))
+    offset = int(request.args.get("offset", 0))
 
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    if cat:
+        cur.execute("""
+            SELECT a.articleID, a.title, a.content, a.author,
+                   a.published_at, a.updated_at, a.image, c.name AS category
+            FROM articles a
+            JOIN categories c ON a.catID = c.categoryID
+            WHERE c.name = %s
+            ORDER BY a.published_at DESC
+            LIMIT %s OFFSET %s
+        """, (cat, limit, offset))
+    else:
+        cur.execute("""
+            SELECT a.articleID, a.title, a.content, a.author,
+                   a.published_at, a.updated_at, a.image, c.name AS category
+            FROM articles a
+            LEFT JOIN categories c ON a.catID = c.categoryID
+            ORDER BY a.published_at DESC
+            LIMIT %s OFFSET %s
+        """, (limit, offset))
+
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return jsonify(rows)
+
+@app.route("/subscriber/create-article")
+@login_required("Subscriber")
+def subscriberCreateArticle():
+    return render_template("subscriberCreateArticle.html")
+
+@app.route("/api/categories")
+@login_required("Subscriber")
+def api_categories():
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT categoryID, name FROM categories ORDER BY categoryID ASC")
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return jsonify(rows)
+
+@app.route("/api/articles", methods=["POST"])
+@login_required("Subscriber")
+def api_articles_create():
+    # form fields
+    title   = request.form.get("title", "").strip()
+    content = request.form.get("content", "").strip()
+    cat_id  = request.form.get("category_id")  
+    author  = session.get("user") or "Subscriber"
+
+    if not title or not content or not cat_id:
+        return jsonify({"ok": False, "message": "Missing title/content/category."}), 400
+
+    image_rel = None
+    file = request.files.get("image")
+    if file and file.filename:
+        img_dir = os.path.join(app.root_path, "static", "img")
+        os.makedirs(img_dir, exist_ok=True)
+        base = secure_filename(file.filename)
+        name, ext = os.path.splitext(base)
+        unique = f"{name}_{int(time.time())}{ext}"
+        save_path = os.path.join(img_dir, unique)
+        file.save(save_path)
+        image_rel = f"/static/img/{unique}"
+
+    # insert into DB
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO articles (title, content, author, published_at, updated_at, image, catID)
+        VALUES (%s, %s, %s, NOW(), NOW(), %s, %s)
+    """, (title, content, author, image_rel, cat_id))
+    conn.commit()
+    cur.close(); conn.close()
+
+    return jsonify({
+        "ok": True,
+        "message": "Article uploaded.",
+        "redirect": url_for("subscriberHomepage")  
+    })
 
 # (YY)
 # ---------- Auth ----------

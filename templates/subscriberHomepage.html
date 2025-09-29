@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>EchoPress — Subscriber Home</title>
+  <title>EchoPress — Subscriber Home (No Links)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -12,9 +12,9 @@
   <!-- Top Bar -->
   <header class="topbar">
     <div class="left">
-      <a href="/" class="brand">
+      <div class="brand">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
-      </a>
+      </div>
       <!-- Search sits to the RIGHT of the logo -->
       <form class="search" action="#" method="get" role="search">
         <input type="text" placeholder="Searching for… ?" aria-label="Search" />
@@ -27,90 +27,40 @@
       <span class="welcome">Welcome, {{ session.get('user', 'Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
-        <a href="{{ url_for('my_articles') }}">View My Articles</a>
-        <a href="/bookmarks">View Bookmark</a>
-        <a href="/analytics">View Analytics</a>
-        <a href="/profile">Edit Profile</a>
-        <a href="#" class="logout-link">Log Out</a>
+        <span class="menu-item">View My Articles</span>
+        <span class="menu-item">View Bookmark</span>
+        <span class="menu-item">View Analytics</span>
+        <span class="menu-item">Edit Profile</span>
+        <span class="menu-item">Log Out</span>
       </div>
     </div>
   </header>
 
-  <!-- Tabs -->
+  <!-- Tabs (dynamic) -->
   <nav class="tabs">
     <div class="tabs-inner">
-      <a href="#" class="tab">For you</a>
-      <a href="#" class="tab active">Trending</a>
-      <a href="#" class="tab">Politics</a>
-      <a href="#" class="tab">Sports</a>
-      <a href="#" class="tab">Technology</a>
-      <a href="#" class="tab">Economic</a>
-      <a href="#" class="tab">AsiaNews</a>
-      <a href="#" class="tab">WorldNews</a>
+      {% for cat in categories %}
+        <button type="button"
+                class="tab {% if cat.name == active_category %}active{% endif %}"
+                data-cat="{{ cat.name|e }}">{{ cat.name }}</button>
+      {% endfor %}
     </div>
   </nav>
 
+
   <!-- Main two-column layout -->
   <main class="page">
-    <!-- LEFT: Feed -->
-    <section class="feed">
-      <!-- Article 1 -->
-      <article class="article-card">
-        <div class="text">
-          <a href="{{ url_for('subscriberArticle1') }}" style="color:#000;text-decoration:none;">
-            <h2>Circle Line disruption: Service between Marina Bay and Promenade stations has resumed</h2>
-          </a>
-          <p>A train fault on the Circle Line resulted in no train services between Marina Bay and Promenade for about 35 minutes on Monday (Sept 1) morning…</p>
-        </div>
-        <a href="{{ url_for('subscriberArticle1') }}" class="thumb-wrap">
-          <img src="{{ url_for('static', filename='img/SMRT.webp') }}" alt="Smrt thumbnail" class="thumb" />
-        </a>
-      </article>
+    <!-- LEFT: Feed (dynamic) -->
+<section class="feed" id="feed"></section>
 
-      <!-- Article 2 -->
-      <article class="article-card">
-        <div class="text">
-          <a href="{{ url_for('subscriberArticle2') }}" style="color:#000;text-decoration:none;">
-            <h3>Woman charged over possessing almost 200 etomidate-laced vapes, buying another 50</h3>
-          </a>
-          <p>SAY NO TO VAPE/KPOD</p>
-          <p>SINGAPORE – A woman was charged over possessing 195 etomidate-laced vapes…</p>
-        </div>
-        <a href="{{ url_for('subscriberArticle2') }}" class="thumb-wrap">
-          <img src="{{ url_for('static', filename='img/kpods.png') }}" alt="Kpods thumbnail" class="thumb" />
-        </a>
-      </article>
-
-      <!-- Article 3 -->
-      <article class="article-card">
-        <div class="text">
-          <a href="{{ url_for('subscriberArticle3') }}" style="color:#000;text-decoration:none;">
-            <h3>Jail for money mule who was promised $100 a day to withdraw cash for scammers</h3>
-          </a>
-          <p>SINGAPORE – A financially strapped man withdrew scam proceeds in cash…</p>
-        </div>
-        <a href="{{ url_for('subscriberArticle3') }}" class="thumb-wrap">
-          <img src="{{ url_for('static', filename='img/scam.jpg') }}" alt="Scam case" class="thumb" />
-        </a>
-      </article>
-
-      <!-- Article 4 -->
-      <article class="article-card">
-        <div class="text">
-          <a href="{{ url_for('subscriberArticle4') }}" style="color:#000;text-decoration:none;">
-            <h3>Fire breaks out at Tuas industrial building; no injuries reported</h3>
-          </a>
-          <p>SINGAPORE – A fire broke out at an HDB block in Chai Chee Avenue on Sept 5…</p>
-        </div>
-        <a href="{{ url_for('subscriberArticle4') }}" class="thumb-wrap">
-          <img src="{{ url_for('static', filename='img/fire.jpeg') }}" alt="Fire incident" class="thumb" />
-        </a>
-      </article>
-    </section>
 
     <!-- RIGHT: Sidebar -->
     <aside class="sidebar">
-      <a href="{{ url_for('create_edit_delete_article') }}" class="btn btn-primary">Create Your Story</a>
+      <button type="button"
+              class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">
+        Create Your Story
+      </button>
       <div class="ads">Ads</div>
     </aside>
   </main>
@@ -129,45 +79,68 @@
     })();
   </script>
 
-  <!-- Logout Confirmation Modal -->
-<div id="logoutModal" class="modal-overlay">
-  <div class="modal">
-    <h2>Log Out?</h2>
-    <div class="buttons">
-      <button class="yes" id="confirmLogout">Yes</button>
-      <button class="no" id="cancelLogout">No</button>
-    </div>
-  </div>
-</div>
-
-<script>
-  (function() {
-    const modal = document.getElementById("logoutModal");
-    const confirmBtn = document.getElementById("confirmLogout");
-    const cancelBtn = document.getElementById("cancelLogout");
-
-    // intercept logout links
-    document.querySelectorAll(".logout-link").forEach(link => {
-      link.addEventListener("click", e => {
-        e.preventDefault();
-        modal.style.display = "flex";
-      });
-    });
-
-    confirmBtn.addEventListener("click", () => {
-      window.location.href = "{{ url_for('logout') }}";
-    });
-
-    cancelBtn.addEventListener("click", () => {
-      modal.style.display = "none";
-    });
-
-    // close modal on Escape key
-    document.addEventListener("keydown", e => {
-      if (e.key === "Escape") modal.style.display = "none";
-    });
-  })();
+  <script>
+  document.addEventListener('click', e => {
+    const b = e.target.closest('.tab[data-cat]');
+    if (!b) return;
+    const cat = b.getAttribute('data-cat');
+    const url = new URL(window.location.href);
+    url.searchParams.set('cat', cat);
+    window.location.href = url.toString();
+  });
 </script>
+
+ <script>
+(async function () {
+  const feedEl = document.getElementById("feed");
+  const API_URL = "{{ url_for('api_articles') }}";   // <— use endpoint name
+
+  const ACTIVE_CAT = "{{ active_category|default('Trending') }}";
+
+  function truncate(text, n = 220) {
+    if (!text) return "";
+    const t = text.trim();
+    return t.length > n ? t.slice(0, n - 1) + "…" : t;
+  }
+  function esc(s){ return (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function articleCardHTML(a) {
+    const imgSrc = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
+    return `
+      <article class="article-card" data-id="${a.articleID}">
+        <div class="text">
+          <h3>${esc(a.title)}</h3>
+          <p class="desc">${esc(truncate(a.content))}</p>
+        </div>
+        <div class="thumb-wrap"><img src="${imgSrc}" alt=""></div>
+      </article>`;
+  }
+  async function loadArticles(cat) {
+    feedEl.innerHTML = "";
+    const p = new URLSearchParams();
+    if (cat) p.set("cat", cat);
+    p.set("limit", "10");
+    const res = await fetch(`${API_URL}?${p.toString()}`);
+    if (!res.ok) { feedEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`; return; }
+    const rows = await res.json();
+    feedEl.innerHTML = rows.length ? rows.map(articleCardHTML).join("") : "<p>No articles found.</p>";
+  }
+  loadArticles(ACTIVE_CAT);
+
+  // keep your tab click handler if you want instant switching without navigation
+  document.addEventListener("click", e => {
+    const btn = e.target.closest(".tab[data-cat]");
+    if (!btn) return;
+    const cat = btn.getAttribute("data-cat");
+    loadArticles(cat);
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+  });
+})();
+</script>
+
+
+
+  <!-- Removed logout modal and link handlers to ensure there are no navigational actions for now -->
 
 </body>
 </html>

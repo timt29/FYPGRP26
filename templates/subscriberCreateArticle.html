@@ -7,18 +7,10 @@
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
   <style>
-    /* Minimal helpers in case any class is missing in subscriber.css */
-    .toast {
-      position: fixed; top: 50%; left: 50%;
-      transform: translate(-50%,-50%);
-      background: #fff; border: 1px solid #ccc;
-      padding: 18px 24px; border-radius: 10px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.18);
-      z-index: 3000; display: none; text-align: center;
-      max-width: 90vw;
-    }
+    /* Minimal helpers to keep this page usable without navigation */
+    .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; border: 1px solid #ccc; padding: 18px 24px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 3000; display: none; text-align: center; max-width: 90vw; }
     .toast.show { display: flex; align-items: center; justify-content: center; }
-    .modal-overlay { display: none; }
+    .note { font-size: .9rem; color: #666; margin-top: .5rem; }
   </style>
 </head>
 <body>
@@ -26,41 +18,40 @@
   <!-- Top Bar -->
   <header class="topbar">
     <div class="left">
-      <a href="{{ url_for('subscriberHomepage') }}" class="brand">
+      <!-- brand with no link -->
+      <div class="brand">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
-      </a>
+      </div>
       <div class="search">
         <input type="text" placeholder="Searching for… ?" aria-label="Search" />
-        <button>Search</button>
+        <button type="button">Search</button>
       </div>
     </div>
 
     <div class="right">
       <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+      <!-- menu items converted to non-navigable spans -->
       <div id="menuPanel" class="menu-panel">
-        <a href="{{ url_for('my_articles') }}">View My Articles</a>
-        <a href="/bookmarks">View Bookmark</a>
-        <a href="/analytics">View Analytics</a>
-        <a href="/profile">Edit Profile</a>
-        <a href="#" class="logout-link">Log Out</a>
+        <span class="menu-item">View My Articles</span>
+        <span class="menu-item">View Bookmark</span>
+        <span class="menu-item">View Analytics</span>
+        <span class="menu-item">Edit Profile</span>
+        <span class="menu-item">Log Out</span>
       </div>
     </div>
   </header>
 
-  <!-- Tabs (optional, can remove if not used on this page) -->
-  <nav class="tabs">
-    <div class="tabs-inner">
-      <a href="#" class="tab">For you</a>
-      <a href="#" class="tab active">Trending</a>
-      <a href="#" class="tab">Politics</a>
-      <a href="#" class="tab">Sports</a>
-      <a href="#" class="tab">Technology</a>
-      <a href="#" class="tab">Economic</a>
-      <a href="#" class="tab">AsiaNews</a>
-      <a href="#" class="tab">WorldNews</a>
-    </div>
-  </nav>
+<!-- Tabs (dynamic) -->
+<nav class="tabs">
+  <div class="tabs-inner">
+    {% for cat in categories %}
+      <button type="button"
+              class="tab {% if cat.name == active_category %}active{% endif %}"
+              data-cat="{{ cat.name|e }}">{{ cat.name }}</button>
+    {% endfor %}
+  </div>
+</nav>
 
   <!-- Layout -->
   <main class="page">
@@ -69,9 +60,8 @@
       <div class="article-card detail">
         <div class="card-header">{{ 'Edit Article' if article else 'Create Your Story' }}</div>
 
-        <!-- IMPORTANT: id=editorForm and action points to the correct route -->
-        <form id="editorForm" method="POST" action="{{ url_for('create_edit_delete_article') }}"
-              enctype="multipart/form-data" class="create-form">
+        <!-- IMPORTANT: form is inert; no action while page is being rebuilt -->
+        <form id="editorForm" method="POST" action="#" enctype="multipart/form-data" class="create-form">
           <input type="hidden" name="id" value="{{ article.id if article else '' }}">
 
           <div>
@@ -81,11 +71,8 @@
 
           <div>
             <label for="category">Select Category:</label>
-            <select id="category" name="category" required>
-              <option value="" disabled {{ 'selected' if not article }}>Choose one…</option>
-              {% for opt in ['Trending','Politics','Sports','Technology','Economic','AsiaNews','WorldNews'] %}
-                <option value="{{ opt }}" {{ 'selected' if article and article.category==opt else '' }}>{{ opt }}</option>
-              {% endfor %}
+            <select id="category" name="category_id" required>
+              <option value="" disabled selected>Choose one…</option>
             </select>
           </div>
 
@@ -93,7 +80,7 @@
             <label for="image">Upload Cover Image:</label>
             <input type="file" id="image" name="image">
             {% if article and article.image_name %}
-              <div style="margin-top:6px;font-size:.9rem;color:#666;">Current file: <em>{{ article.image_name }}</em></div>
+              <div class="note">Current file: <em>{{ article.image_name }}</em></div>
             {% endif %}
           </div>
 
@@ -103,13 +90,13 @@
           </div>
 
           <div class="form-buttons">
-            <!-- We do NOT rely on form submit directly; JS sends with chosen action -->
+            <!-- Buttons are inert for now; show a toast instead of submitting -->
             {% if article %}
-              <button type="button" class="btn btn-light" id="btnDraft"   data-action="draft">Save Edit</button>
-              <button type="button" class="btn btn-primary" id="btnPublish" data-action="publish">Publish Edit</button>
+              <button type="button" class="btn btn-light" id="btnDraft">Save Edit</button>
+              <button type="button" class="btn btn-primary" id="btnPublish">Publish Edit</button>
             {% else %}
-              <button type="button" class="btn btn-light" id="btnDraft"   data-action="draft">Save As Draft</button>
-              <button type="button" class="btn btn-primary" id="btnPublish" data-action="publish">Upload Article</button>
+              <button type="button" class="btn btn-light" id="btnDraft">Save As Draft</button>
+              <button type="button" class="btn btn-primary" id="btnPublish">Upload Article</button>
             {% endif %}
           </div>
         </form>
@@ -122,142 +109,110 @@
     </aside>
   </main>
 
-  <!-- Processing Overlay -->
-  <div id="overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-hidden="true">
-    <div class="modal">
-      <h3 id="confirmTitle">Processing…</h3>
-      <p id="confirmText">Please wait while we save your story.</p>
-      <div class="spinner" aria-hidden="true"></div>
-    </div>
-  </div>
-
-  <!-- Center Confirmation Popup -->
+  <!-- Center Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
-    <span id="toastMsg"></span>
+    <span id="toastMsg">This feature is currently disabled while the page is being rebuilt.</span>
   </div>
 
-  <!-- Menu toggle -->
+  <!-- Menu toggle (no navigation) -->
   <script>
     (function(){
       const btn=document.getElementById('menuBtn');
       const panel=document.getElementById('menuPanel');
-      function closeP(){ panel.style.display='none'; }
-      function toggleP(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
-      btn.addEventListener('click',e=>{ e.stopPropagation(); toggleP(); });
-      document.addEventListener('click',e=>{ if(panel && !panel.contains(e.target) && e.target!==btn) closeP(); });
-      document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeP(); });
+      function closeP(){ if(panel) panel.style.display='none'; }
+      function toggleP(){ if(panel) panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
+      if(btn){
+        btn.addEventListener('click',e=>{ e.stopPropagation(); toggleP(); });
+        document.addEventListener('click',e=>{ if(panel && !panel.contains(e.target) && e.target!==btn) closeP(); });
+        document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeP(); });
+      }
     })();
   </script>
 
-  <!-- Create / Publish logic -->
+  <!-- Inert button behavior: show toast instead of submitting or navigating -->
   <script>
     (function(){
-      const form    = document.getElementById('editorForm');
-      const overlay = document.getElementById('overlay');
-      const toast   = document.getElementById('toast');
-      const msgSpan = document.getElementById('toastMsg');
-
-      const btnDraft   = document.getElementById('btnDraft');
-      const btnPublish = document.getElementById('btnPublish');
-
-      function showOverlay(title, text, showSpinner=true){
-        document.getElementById('confirmTitle').textContent = title || 'Processing…';
-        document.getElementById('confirmText').textContent  = text  || 'Please wait…';
-        const sp = overlay.querySelector('.spinner');
-        if (sp) sp.style.display = showSpinner ? 'block' : 'none';
-        overlay.style.display = 'flex';
-        overlay.setAttribute('aria-hidden','false');
-      }
-      function hideOverlay(){
-        overlay.style.display = 'none';
-        overlay.setAttribute('aria-hidden','true');
-      }
-      function showToast(msg){
-        msgSpan.textContent = msg || 'Done.';
+      const toast = document.getElementById('toast');
+      const showToast = (msg) => {
+        if (msg) document.getElementById('toastMsg').textContent = msg;
         toast.classList.add('show');
-      }
-      function hideToast(){
-        toast.classList.remove('show');
-      }
-
-      async function send(action){
-        // Show processing immediately
-        showOverlay("Processing…", action === 'draft' ? "Saving draft…" : "Uploading article…", true);
-
-        // Wait exactly 4 seconds before posting
-        await new Promise(r => setTimeout(r, 4000));
-
-        // Build form payload
-        const fd = new FormData(form);
-        fd.set('action', action);
-
-        try {
-          const res = await fetch(form.action, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: fd
-          });
-
-          const data = await res.json().catch(() => ({}));
-          hideOverlay();
-
-          // Show confirmation for ~2s, then redirect
-          showToast(data.message || (action==='draft' ? 'Saved draft.' : 'Uploaded.'));
-          setTimeout(() => {
-            hideToast();
-            if (data.redirect) window.location.href = data.redirect;
-            else window.location.href = "{{ url_for('subscriberHomepage') }}";
-          }, 2000);
-
-        } catch (err) {
-          hideOverlay();
-          showToast('⚠️ Network error. Please try again.');
-          setTimeout(hideToast, 2500);
-        }
-      }
-
-      if (btnDraft)   btnDraft.addEventListener('click', () => send('draft'));
-      if (btnPublish) btnPublish.addEventListener('click', () => send('publish'));
+        setTimeout(()=> toast.classList.remove('show'), 2000);
+      };
+      ['btnDraft','btnPublish'].forEach(id => {
+        const b=document.getElementById(id);
+        if(b) b.addEventListener('click', ()=> showToast('This feature is disabled during redevelopment.'));
+      });
     })();
   </script>
 
-  <!-- Logout Confirmation Modal -->
-<div id="logoutModal" class="modal-overlay">
-  <div class="modal">
-    <h2>Log Out?</h2>
-    <div class="buttons">
-      <button class="yes" id="confirmLogout">Yes</button>
-      <button class="no" id="cancelLogout">No</button>
-    </div>
-  </div>
-</div>
-
+  <!-- Removed logout modal and any url_for-based redirects/links to keep this page non-navigable -->
 <script>
-  (function() {
-    const modal = document.getElementById("logoutModal");
-    const confirmBtn = document.getElementById("confirmLogout");
-    const cancelBtn = document.getElementById("cancelLogout");
+  (function(){
+    const select = document.getElementById('category');
+    const toast  = document.getElementById('toast');
+    const msgEl  = document.getElementById('toastMsg');
 
-    // intercept logout links
-    document.querySelectorAll(".logout-link").forEach(link => {
-      link.addEventListener("click", e => {
-        e.preventDefault();
-        modal.style.display = "flex";
+    const showToast = (m) => {
+      msgEl.textContent = m || 'Done.';
+      toast.classList.add('show');
+      setTimeout(()=> toast.classList.remove('show'), 2000);
+    };
+
+    // 1) Load categories into <select>
+    async function loadCategories() {
+      try {
+        const res = await fetch("{{ url_for('api_categories') }}");
+        if (!res.ok) throw new Error(res.status);
+        const rows = await res.json(); // [{categoryID, name}, ...]
+        // clear (keep placeholder)
+        [...select.querySelectorAll('option')].forEach((o,i)=>{ if(i>0) o.remove(); });
+        rows.forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r.categoryID;     // IMPORTANT: we submit ID
+          opt.textContent = r.name;
+          select.appendChild(opt);
+        });
+      } catch (e) {
+        showToast('Failed to load categories.');
+      }
+    }
+    loadCategories();
+
+    // 2) “Save as Draft” — keep on hold (just toast)
+    const btnDraft = document.getElementById('btnDraft');
+    if (btnDraft) {
+      btnDraft.addEventListener('click', () =>
+        showToast('Draft is temporarily on hold.')
+      );
+    }
+
+    // 3) “Upload Article” — send form + image to /api/articles
+    const form = document.getElementById('editorForm');
+    const btnPublish = document.getElementById('btnPublish');
+
+    if (btnPublish && form) {
+      btnPublish.addEventListener('click', async () => {
+        const fd = new FormData(form); // contains title, content, category_id, image
+        try {
+          const res = await fetch("{{ url_for('api_articles_create') if false else url_for('api_articles') }}", {
+            method: 'POST',
+            body: fd,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+          });
+          const data = await res.json().catch(()=>({}));
+          if (!res.ok || !data.ok) throw new Error(data.message || 'Upload failed');
+
+          showToast(data.message || 'Uploaded.');
+          // soft redirect after short delay (optional)
+          setTimeout(()=> {
+            if (data.redirect) window.location.href = data.redirect;
+          }, 1200);
+
+        } catch (err) {
+          showToast((err && err.message) || 'Upload error.');
+        }
       });
-    });
-
-    confirmBtn.addEventListener("click", () => {
-      window.location.href = "{{ url_for('logout') }}";
-    });
-
-    cancelBtn.addEventListener("click", () => {
-      modal.style.display = "none";
-    });
-
-    // close modal on Escape key
-    document.addEventListener("keydown", e => {
-      if (e.key === "Escape") modal.style.display = "none";
-    });
+    }
   })();
 </script>
 
