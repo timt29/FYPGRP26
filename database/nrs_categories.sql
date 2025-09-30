@@ -36,7 +36,14 @@ CREATE TABLE `categories` (
 
 LOCK TABLES `categories` WRITE;
 /*!40000 ALTER TABLE `categories` DISABLE KEYS */;
-INSERT INTO `categories` VALUES (2,'Trending',NULL),(3,'Politics',NULL),(4,'Sports',NULL),(5,'Technology',NULL),(6,'Economic',NULL),(7,'AsiaNews',NULL),(8,'WorldNews',NULL);
+INSERT INTO categories (categoryID, name, description) VALUES
+  (1,'Trending','Hot stories gaining rapid attention across the site and social platforms.'),
+  (2,'Politics','Government, policy, elections, parties, and political analysis.'),
+  (3,'Sports','Scores, fixtures, transfers, and coverage of major events and leagues.'),
+  (4,'Technology','Tech industry news, product launches, AI, cybersecurity, and gadgets.'),
+  (5,'Economic','Markets, macro data, business/finance, and corporate developments.'),
+  (6,'AsiaNews','Key developments across Asia in politics, business, culture, and society.'),
+  (7,'WorldNews','Major global events beyond Asia, international affairs, and breaking news.');
 /*!40000 ALTER TABLE `categories` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
