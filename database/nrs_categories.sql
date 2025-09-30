@@ -1,8 +1,8 @@
 -- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
 --
--- Host: localhost    Database: nrs
+-- Host: 127.0.0.1    Database: nrs
 -- ------------------------------------------------------
--- Server version	8.0.42
+-- Server version	8.0.43
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -36,14 +36,7 @@ CREATE TABLE `categories` (
 
 LOCK TABLES `categories` WRITE;
 /*!40000 ALTER TABLE `categories` DISABLE KEYS */;
-INSERT INTO categories (categoryID, name, description) VALUES
-  (1,'Trending','Hot stories gaining rapid attention across the site and social platforms.'),
-  (2,'Politics','Government, policy, elections, parties, and political analysis.'),
-  (3,'Sports','Scores, fixtures, transfers, and coverage of major events and leagues.'),
-  (4,'Technology','Tech industry news, product launches, AI, cybersecurity, and gadgets.'),
-  (5,'Economic','Markets, macro data, business/finance, and corporate developments.'),
-  (6,'AsiaNews','Key developments across Asia in politics, business, culture, and society.'),
-  (7,'WorldNews','Major global events beyond Asia, international affairs, and breaking news.');
+INSERT INTO `categories` VALUES (1,'Trending','Hot stories gaining rapid attention across the site and social platforms.'),(2,'Politics','Government, policy, elections, parties, and political analysis.'),(3,'Sports','Scores, fixtures, transfers, and coverage of major events and leagues.'),(4,'Technology','Tech industry news, product launches, AI, cybersecurity, and gadgets.'),(5,'Economic','Markets, macro data, business/finance, and corporate developments.'),(6,'AsiaNews','Key developments across Asia in politics, business, culture, and society.'),(7,'WorldNews','Major global events beyond Asia, international affairs, and breaking news.');
 /*!40000 ALTER TABLE `categories` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -56,4 +49,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-09-25 20:48:14
+-- Dump completed on 2025-09-30 17:42:24
