@@ -57,17 +57,17 @@
       {% endwith %}
       <form method="POST" action="/login">
         <label for="email">Email Address</label>
-        <input type="email" id="email" name="email" required />
+        <input type="email" id="email" name="email" value="{{ remembered_email or '' }}" required />
 
         <label for="password">Password</label>
         <input type="password" id="password" name="password" required />
 
         <div class="form-bottom">
-          <div class="remember">
-            <input type="checkbox" id="remember" name="remember" />
-            <label for="remember">Remember Me</label>
-          </div>
-          <button type="submit">Sign in</button>
+            <div class="remember">
+                <input type="checkbox" id="remember" name="remember" {% if remembered_email %}checked{% endif %}/>
+                <label for="remember">Remember Me</label>
+            </div>
+            <button type="submit">Sign in</button>
         </div>
 
         <div class="form-links">

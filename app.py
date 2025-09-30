@@ -609,9 +609,12 @@ def subscriber_api_bookmarks():
 # ---------- Auth ----------
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    remembered_email = request.cookies.get("remembered_email")  # Get cookie if exists
+
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
+        remember = request.form.get("remember")  # Checkbox returns "on" if checked, None if not
 
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
@@ -621,7 +624,6 @@ def login():
         conn.close()
 
         if user:
-            # NOTE: plaintext password check (not recommended for production)
             if password == user["password"]:
                 # Block suspended BEFORE setting session
                 if user["usertype"].lower() == "suspended":
@@ -633,23 +635,36 @@ def login():
                 session["usertype"] = user["usertype"]
                 session["user"] = user["name"]
 
-                # Role redirects
-                if user["usertype"] == "Admin":
-                    return redirect(url_for("adminHomepage"))
-                elif user["usertype"] == "Moderator":
-                    return redirect(url_for("modHomepage"))
-                elif user["usertype"] == "Subscriber":
-                    return redirect(url_for("subscriberHomepage"))
-                elif user["usertype"] == "Author":
-                    return redirect(url_for("authorHomepage"))
+                role_redirects = {
+                    "Admin": "adminHomepage",
+                    "Moderator": "modHomepage",
+                    "Subscriber": "subscriberHomepage",
+                    "Author": "authorHomepage"
+                }
+
+                redirect_route = role_redirects.get(user["usertype"])
+                resp = redirect(url_for(redirect_route) if redirect_route else url_for("login"))
+
+                # Handle "Remember Me"
+                if remember:
+                    # Save email in a cookie for 30 days
+                    resp.set_cookie("remembered_email", email, max_age=30*24*60*60)
                 else:
+                    # Remove cookie if unchecked
+                    resp.delete_cookie("remembered_email")
+
+                if not redirect_route:
                     flash("Invalid user type.")
-                    return redirect(url_for("login"))
+                return resp
+
             else:
                 flash("Incorrect password.")
+                return redirect(url_for("login"))
         else:
             flash("User not found.")
-    return render_template("login.html")
+            return redirect(url_for("login"))
+
+    return render_template("login.html", remembered_email=remembered_email)
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -680,6 +695,7 @@ def logout():
     session.clear()
     resp = redirect(url_for("login"))
     resp.delete_cookie("session")  # kill session cookie
+    flash("You have been logged out successfully.")
     return resp
 
 @app.after_request
@@ -691,6 +707,7 @@ def add_no_cache_headers(response):
 
 # ---------- Moderator: manage users ----------
 @app.route("/manageUsers")
+@login_required("Moderator")
 def manage_users():
     if "userID" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
@@ -710,6 +727,7 @@ def manage_users():
     return render_template("manageUsers.html", users=users)
 
 @app.route("/warnUser", methods=["POST"])
+@login_required("Moderator")
 def warn_user():
     if "userID" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
@@ -733,6 +751,7 @@ def warn_user():
     return redirect(url_for("manage_users"))
 
 @app.route("/toggleSuspend", methods=["POST"])
+@login_required("Moderator")
 def toggle_suspend():
     if "userID" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
@@ -806,6 +825,7 @@ def forgot_password():
 
 # ---------- Admin views ----------
 @app.route("/viewAllUsers")
+@login_required("Admin")
 def view_all_users():
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
@@ -821,6 +841,7 @@ def view_all_users():
     return render_template("viewAllUsers.html", users=users)
 
 @app.route("/searchAccount", methods=["GET", "POST"])
+@login_required("Admin")
 def search_account():
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
@@ -845,6 +866,7 @@ def search_account():
     return render_template("searchAccount.html", users=users, search_term=search_term)
 
 @app.route("/createUser", methods=["GET", "POST"])
+@login_required("Admin")
 def create_user():
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
@@ -872,11 +894,12 @@ def create_user():
         conn.close()
 
         flash("User created successfully!")
-        return redirect(url_for("view_all_users"))
+        return redirect(url_for("create_user"))
 
     return render_template("createUser.html")
 
 @app.route("/updateUser", methods=["GET", "POST"])
+@login_required("Admin")
 def update_user():
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
@@ -912,6 +935,7 @@ def update_user():
 
 
 @app.route("/manageUserStatus", methods=["GET", "POST"])
+@login_required("Admin")
 def manage_user_status():
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
@@ -969,6 +993,7 @@ def manage_user_status():
     return render_template("manageUserStatus.html", users=users)
 
 @app.route("/newUsers")
+@login_required("Admin")
 def report_new_users():
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
@@ -992,6 +1017,7 @@ def report_new_users():
     return render_template("newUsers.html", users=new_users)
 
 @app.route("/articleSubmissions")
+@login_required("Admin")
 def report_article_submissions():
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
@@ -1014,6 +1040,7 @@ def report_article_submissions():
     return render_template("articleSubmissions.html", articles=articles)
 
 @app.route("/loginActivity")
+@login_required("Admin")
 def login_activity():
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
@@ -1036,6 +1063,7 @@ def login_activity():
     return render_template("loginActivity.html", activities=activities)
 
 @app.route("/flaggedArticles")
+@login_required("Moderator")
 def flagged_articles():
     if "userID" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
@@ -1059,6 +1087,7 @@ def flagged_articles():
     return render_template("flaggedArticles.html", articles=articles)
 # (YY)
 @app.route("/flaggedComments")
+@login_required("Moderator")
 def flagged_comments():
     if "userID" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
@@ -1082,6 +1111,7 @@ def flagged_comments():
     return render_template("flaggedComments.html", comments=comments)
 # (YY)
 @app.route("/pendingArticles", methods=["GET", "POST"])
+@login_required("Moderator")
 def pending_articles():
     if "userID" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
@@ -1109,6 +1139,7 @@ def pending_articles():
     return render_template("pendingArticles.html", articles=articles)
 # (YY)
 @app.route("/manageCategories", methods=["GET"])
+@login_required("Moderator")
 def manage_categories():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -1119,6 +1150,7 @@ def manage_categories():
     return render_template("manageCategories.html", categories=categories)
 # (YY)
 @app.route("/manageCategories/create", methods=["GET", "POST"])
+@login_required("Moderator")
 def add_category():
     if request.method == "POST":
         name = request.form.get("categoryName").strip()
@@ -1156,6 +1188,7 @@ def add_category():
     return render_template("createCategory.html")
 # (YY)
 @app.route("/manageCategories/update", methods=["GET", "POST"])
+@login_required("Moderator")
 def update_category():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -1187,6 +1220,7 @@ def update_category():
 
 # (YY)
 @app.route("/manageCategories/delete", methods=["GET"])
+@login_required("Moderator")
 def delete_category_page():
     search = request.args.get("search", "")
     conn = get_db_connection()
@@ -1205,6 +1239,7 @@ def delete_category_page():
 
 # Handle actual deletion (YY)
 @app.route("/manageCategories/delete/<int:categoryID>", methods=["POST"])
+@login_required("Moderator")
 def delete_category(categoryID):
     conn = get_db_connection()
     cursor = conn.cursor()
