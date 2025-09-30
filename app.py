@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort, make_response
 import os, time
 import uuid
 from functools import wraps
@@ -46,22 +46,25 @@ def get_db_connection():
 '''
 print("Connected to MySQL")
 # ---------- Auth wrapper ---------- # (YY)
-def login_required(user_type):
-    """
-    Decorator to protect routes based on login and user type.
-    """
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
+def login_required(role=None):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorated_view(*args, **kwargs):
+            # If no session → force logout
             if "userID" not in session:
-                flash("Please log in first.")
+                session.clear()
                 return redirect(url_for("login"))
-            if session.get("usertype") != user_type:
-                flash("Access denied.")
+
+            # If a role is required → check it
+            if role and session.get("usertype") != role:
+                # Wrong role? Destroy session completely
+                session.clear()
+                flash("Access denied. Please log in again.", "danger")
                 return redirect(url_for("login"))
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
+
+            return fn(*args, **kwargs)
+        return decorated_view
+    return wrapper
 
 # ---------- Public pages ----------# (TIM)
 @app.route("/")
@@ -172,37 +175,33 @@ def category(category_name):
 @app.route("/adminHomepage")
 @login_required("Admin")
 def adminHomepage():
-    if "userID" not in session or session.get("usertype") != "Admin":
-        flash("Access denied.")
-        return redirect(url_for("login"))
-
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Total users
+    # Fetch user stats
     cursor.execute("SELECT COUNT(*) AS total FROM users")
-    total_users = cursor.fetchone()['total']
+    total_users = cursor.fetchone()["total"]
 
-    # New users today
     cursor.execute("SELECT COUNT(*) AS new_today FROM users WHERE DATE(created_at) = CURDATE()")
-    new_users_today = cursor.fetchone()['new_today']
+    new_users_today = cursor.fetchone()["new_today"]
 
-    # Suspended users (usertype = 'Suspended')
     cursor.execute("SELECT COUNT(*) AS suspended FROM users WHERE usertype='Suspended'")
-    suspended_users = cursor.fetchone()['suspended']
+    suspended_users = cursor.fetchone()["suspended"]
 
-    # Active users (everyone except Suspended)
     cursor.execute("SELECT COUNT(*) AS active FROM users WHERE usertype!='Suspended'")
-    active_users = cursor.fetchone()['active']
+    active_users = cursor.fetchone()["active"]
 
     cursor.close()
     conn.close()
 
-    return render_template("adminHomepage.html",
-                           total_users=total_users,
-                           new_users_today=new_users_today,
-                           suspended_users=suspended_users,
-                           active_users=active_users)
+    # Render template directly; @after_request will handle no-cache headers
+    return render_template(
+        "adminHomepage.html",
+        total_users=total_users,
+        new_users_today=new_users_today,
+        suspended_users=suspended_users,
+        active_users=active_users,
+    )
 
 # (YY)
 @app.route("/modHomepage") 
@@ -676,12 +675,19 @@ def register():
             conn.close()
     return render_template("register.html")
 
-
 @app.route("/logout")
 def logout():
     session.clear()
-    flash("You have been logged out.")
-    return redirect(url_for("index"))
+    resp = redirect(url_for("login"))
+    resp.delete_cookie("session")  # kill session cookie
+    return resp
+
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "-1"
+    return response
 
 # ---------- Moderator: manage users ----------
 @app.route("/manageUsers")
