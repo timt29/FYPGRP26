@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>{{ 'Edit Article' if article else 'Create Your Story' }} — EchoPress</title>
+  <title>Edit Article — EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -12,7 +12,6 @@
   <!-- Top Bar -->
   <header class="topbar">
     <div class="left">
-      <!-- Logo goes back to subscriberHomepage -->
       <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </button>
@@ -34,76 +33,70 @@
         <a class="menu-item" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
-  </header> <!-- ✅ missing closing tag added -->
+  </header>
 
   <!-- Layout -->
   <main class="page">
-    <!-- Left -->
     <section class="feed">
       <div class="article-card detail">
-        <div class="card-header">{{ 'Edit Article' if article else 'Create Your Story' }}</div>
+        <div class="card-header">Edit Article</div>
 
-        <!-- Editor form -->
+        <!-- Prefilled editor -->
         <form id="editorForm" method="POST" action="#" enctype="multipart/form-data" class="create-form">
-          <input type="hidden" name="id" value="{{ article.id if article else '' }}">
+          <input type="hidden" id="article_id" name="id" value="{{ article.articleID }}">
 
           <div>
             <label for="title">Add Heading:</label>
-            <input type="text" id="title" name="title" value="{{ article.title if article else '' }}" required>
+            <input type="text" id="title" name="title" value="{{ article.title }}" required>
           </div>
 
           <div>
             <label for="category">Select Category:</label>
             <select id="category" name="category_id" required>
-              <option value="" disabled selected>Choose one…</option>
+              <option value="" disabled>Choose one…</option>
+              <!-- options inserted by JS; current one auto-selected -->
             </select>
           </div>
 
           <div>
             <label for="image">Upload Cover Image:</label>
             <input type="file" id="image" name="image">
-            {% if article and article.image_name %}
-              <div class="note">Current file: <em>{{ article.image_name }}</em></div>
+            {% if article.image %}
+              <div class="note">Current file: <em>{{ article.image }}</em></div>
             {% endif %}
           </div>
 
           <div>
             <label for="content">Tell Us Your Story:</label>
-            <textarea id="content" name="content" rows="12" required>{{ article.content if article else '' }}</textarea>
+            <textarea id="content" name="content" rows="12" required>{{ article.content }}</textarea>
           </div>
 
           <div class="form-buttons">
-            {% if article %}
-              <button type="button" class="btn btn-light" id="btnDraft">Save Edit</button>
-              <button type="button" class="btn btn-primary" id="btnPublish">Publish Edit</button>
-            {% else %}
-              <button type="button" class="btn btn-light" id="btnDraft">Save As Draft</button>
-              <button type="button" class="btn btn-primary" id="btnPublish">Upload Article</button>
-            {% endif %}
+            <button type="button" class="btn btn-light"   id="btnSaveDraft">Save Draft</button>
+            <button type="button" class="btn btn-primary" id="btnSavePublish">Save & Publish</button>
             <button type="button" class="btn" onclick="history.back()">Cancel</button>
           </div>
         </form>
       </div>
     </section>
 
-    <!-- Right -->
     <aside class="sidebar">
       <div class="ads">Ads</div>
     </aside>
   </main>
 
-  <!-- Center Toast -->
+  <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
     <span id="toastMsg">Done.</span>
   </div>
 
-  <!-- Simple menu toggle -->
+  <!-- Menu toggle -->
   <script>
     (function(){
       const btn = document.getElementById('menuBtn');
       const panel = document.getElementById('menuPanel');
       if (!btn || !panel) return;
-      const closeP = () => panel.style.display = 'none';
+      const closeP  = () => panel.style.display = 'none';
       const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
       btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
       document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
@@ -111,63 +104,61 @@
     })();
   </script>
 
-  <!-- Load categories + handle Draft/Publish -->
+  <!-- Load categories + update logic -->
   <script>
     (function(){
-      const select  = document.getElementById('category');
-      const toast   = document.getElementById('toast');
-      const msgEl   = document.getElementById('toastMsg');
-      const form    = document.getElementById('editorForm');
-      const btnDraft   = document.getElementById('btnDraft');
-      const btnPublish = document.getElementById('btnPublish');
+      const select   = document.getElementById('category');
+      const form     = document.getElementById('editorForm');
+      const toast    = document.getElementById('toast');
+      const msgEl    = document.getElementById('toastMsg');
+      const articleId= document.getElementById('article_id').value;
+      const showToast= (m)=>{ msgEl.textContent=m||'Done.'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1400); };
 
-      const showToast = (m) => {
-        msgEl.textContent = m || 'Done.';
-        toast.classList.add('show');
-        setTimeout(()=> toast.classList.remove('show'), 1400);
-      };
+      // Prefill: which category is current?
+      const CURRENT_CAT_ID = {{ article.catID if article.catID is not none else 'null' }};
 
-      // Populate categories from API
+      // 1) Populate categories and select current
       async function loadCategories() {
         try {
           const res = await fetch("{{ url_for('api_categories') }}", { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const rows = await res.json(); // [{categoryID, name}]
-          // clear options except placeholder
-          [...select.querySelectorAll('option')].forEach((o,i)=>{ if(i>0) o.remove(); });
+          const rows = await res.json();
+          // clear existing (keep none)
+          select.innerHTML = '<option value="" disabled>Choose one…</option>';
           rows.forEach(r => {
             const opt = document.createElement('option');
-            opt.value = r.categoryID;  // submit ID
+            opt.value = r.categoryID;
             opt.textContent = r.name;
+            if (CURRENT_CAT_ID && Number(CURRENT_CAT_ID) === Number(r.categoryID)) opt.selected = true;
             select.appendChild(opt);
           });
-        } catch (e) {
+        } catch {
           showToast('Failed to load categories');
         }
       }
 
-      // Submit helper
-      async function submitArticle(action) {
+      // 2) Send update (draft or publish)
+      async function save(action){
         const fd = new FormData(form);
-        fd.set('action', action); // "draft" | "publish"
-        try {
-          const res = await fetch("{{ url_for('api_articles') }}", {
-            method: 'POST',
+        fd.set('action', action); // 'draft'|'publish'
+        try{
+          const res = await fetch("{{ url_for('subscriber_update_article', article_id=0) }}".replace(/0$/, articleId), {
+            method:'POST',
             body: fd,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            headers: {'X-Requested-With':'XMLHttpRequest'}
           });
           const data = await res.json().catch(()=>({}));
           if (!res.ok || !data.ok) throw new Error(data.message || 'Failed');
-          showToast(data.message || (action === 'draft' ? 'Draft saved.' : 'Article uploaded.'));
-          setTimeout(()=> { if (data.redirect) window.location.href = data.redirect; }, 900);
-        } catch (err) {
+          showToast(data.message || 'Saved.');
+          setTimeout(()=> {
+            if (data.redirect) window.location.href = data.redirect;
+          }, 900);
+        }catch(err){
           showToast(err.message || 'Error');
         }
       }
 
-      // Wire buttons
-      if (btnDraft)   btnDraft.addEventListener('click',   () => submitArticle('draft'));
-      if (btnPublish) btnPublish.addEventListener('click', () => submitArticle('publish'));
+      document.getElementById('btnSaveDraft').addEventListener('click', ()=> save('draft'));
+      document.getElementById('btnSavePublish').addEventListener('click', ()=> save('publish'));
 
       loadCategories();
     })();

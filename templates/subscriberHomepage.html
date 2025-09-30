@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>EchoPress — Subscriber Home (No Links)</title>
+  <title>EchoPress — Subscriber Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -15,6 +15,7 @@
       <div class="brand">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </div>
+
       <!-- Search sits to the RIGHT of the logo -->
       <form id="searchForm" class="search" action="#" method="get" role="search">
         <input id="searchQ" name="q" type="text" placeholder="Searching for… ?" aria-label="Search" />
@@ -24,14 +25,14 @@
 
     <!-- User name then menu button; panel anchored to the RIGHT -->
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user', 'Subscriber') }} !</span>
+      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
-        <span class="menu-item">View My Articles</span>
-        <span class="menu-item">View Bookmark</span>
+        <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
+        <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
         <span class="menu-item">View Analytics</span>
         <span class="menu-item">Edit Profile</span>
-        <a class="menu-item" href="{{ url_for('logout') }}">Log Out</a>
+        <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
   </header>
@@ -48,12 +49,10 @@
     </div>
   </nav>
 
-
   <!-- Main two-column layout -->
   <main class="page">
     <!-- LEFT: Feed (dynamic) -->
-<section class="feed" id="feed"></section>
-
+    <section class="feed" id="feed"></section>
 
     <!-- RIGHT: Sidebar -->
     <aside class="sidebar">
@@ -66,135 +65,185 @@
     </aside>
   </main>
 
-  <!-- Tiny JS for menu toggle (kept inline for simplicity) -->
+  <!-- Logout Confirmation Modal (place BEFORE its script) -->
+  <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h2 style="margin-top:0;">Log out?</h2>
+      <div class="buttons">
+        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu toggle -->
   <script>
     (function(){
       const btn = document.getElementById('menuBtn');
       const panel = document.getElementById('menuPanel');
       if(!btn || !panel) return;
-      function closeP(){ panel.style.display='none'; }
-      function toggleP(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
+      const closeP  = () => panel.style.display='none';
+      const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
       btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
       document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
       document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
     })();
   </script>
 
+  <!-- Articles + Search (single, consolidated block) -->
   <script>
-  document.addEventListener('click', e => {
-    const b = e.target.closest('.tab[data-cat]');
-    if (!b) return;
-    const cat = b.getAttribute('data-cat');
-    const url = new URL(window.location.href);
-    url.searchParams.set('cat', cat);
-    window.location.href = url.toString();
-  });
-</script>
+  (async function () {
+    const feedEl  = document.getElementById("feed");
+    const API_URL = "{{ url_for('subscriber_search_api') }}";
+    const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
+    const ACTIVE_CAT = "{{ active_category|default('Trending') }}";
+    const tabAll   = document.getElementById("tabAll");
+    const searchForm  = document.getElementById("searchForm");
+    const searchInput = document.getElementById("searchQ");
 
- <script>
-(async function () {
-  const feedEl   = document.getElementById("feed");
-  const API_URL  = "{{ url_for('subscriber_search_api') }}";
-  const ACTIVE_CAT = "{{ active_category|default('Trending') }}";
-  const tabAll   = document.getElementById("tabAll");
-  const searchForm = document.getElementById("searchForm");
-  const searchInput = document.getElementById("searchQ");
+    let lastCategory = ACTIVE_CAT;
 
-  let lastCategory = ACTIVE_CAT;
+    const truncate = (t, n=220) => (!t ? "" : (t=t.trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
+    const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-  function truncate(t,n=220){ if(!t) return ""; t=t.trim(); return t.length>n?t.slice(0,n-1)+"…":t; }
-  function esc(s){ return (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-  function card(a){
-    const img = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
-    return `<article class="article-card" data-id="${a.articleID}">
-      <div class="text"><h3>${esc(a.title)}</h3><p class="desc">${esc(truncate(a.content))}</p></div>
-      <div class="thumb-wrap"><img src="${img}" alt=""></div></article>`;
-  }
-  function setActiveTab(btn){
-    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-    if (btn) btn.classList.add("active");
-  }
-
-  async function loadArticles(cat, q){
-    feedEl.innerHTML = "";
-    const p = new URLSearchParams();
-    if (cat) p.set("cat", cat);
-    if (q)   p.set("q", q);
-    p.set("limit","10");
-
-    const res = await fetch(`${API_URL}?${p.toString()}`);
-    if(!res.ok){ feedEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`; return {rows:[]}; }
-    const rows = await res.json();
-    feedEl.innerHTML = rows.length ? rows.map(card).join("") : "<p>No articles found.</p>";
-    return {rows};
-  }
-
-  // Initial load (no search): All tab stays hidden
-  loadArticles(ACTIVE_CAT);
-
-  // Handle category tab click (including after searching)
-  document.addEventListener("click", async e => {
-    const btn = e.target.closest(".tab[data-cat]");
-    if (!btn) return;
-
-    const cat = btn.getAttribute("data-cat"); // empty string means All
-    const q   = (searchInput?.value || "").trim();
-
-    // If user clicks a real category, remember it
-    if (cat) lastCategory = cat;
-
-    const {rows} = await loadArticles(cat, q);
-
-    // If clicking All manually while empty search (rare), leave it visible if there are rows,
-    // otherwise hide it again.
-    if (btn === tabAll) {
-      if (rows.length === 0 && !q) tabAll.classList.add("hidden");
+    function setActiveTab(btn){
+      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+      if (btn) btn.classList.add("active");
     }
 
-    setActiveTab(btn);
-  });
+    function card(a){
+      const img = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
+      return `<article class="article-card open-article" data-id="${a.articleID}" role="button" tabindex="0">
+        <div class="text">
+          <h3>${esc(a.title)}</h3>
+          <p class="desc">${esc(truncate(a.content))}</p>
+        </div>
+        <div class="thumb-wrap"><img src="${img}" alt=""></div>
+      </article>`;
+    }
 
-  // SEARCH: intercept submit, show All tab if there are results and activate it
-  if (searchForm){
-    searchForm.addEventListener("submit", async e => {
-      e.preventDefault();
-      const q = (searchInput.value || "").trim();
+    async function loadArticles(cat, q){
+      feedEl.innerHTML = "";
+      const p = new URLSearchParams();
+      if (cat) p.set("cat", cat);
+      if (q)   p.set("q", q);
+      p.set("limit","10");
 
-      if (!q){
-        // Empty query: hide All, go back to last real category
+      const res = await fetch(`${API_URL}?${p.toString()}`);
+      if(!res.ok){
+        feedEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`;
+        return {rows:[]};
+      }
+      const rows = await res.json();
+      feedEl.innerHTML = rows.length ? rows.map(card).join("") : "<p>No articles found.</p>";
+      return {rows};
+    }
+
+    // Initial load (no search): All tab stays hidden
+    loadArticles(ACTIVE_CAT);
+
+    // Handle category tab click
+    document.addEventListener("click", async e => {
+      const btn = e.target.closest(".tab[data-cat]");
+      if (!btn) return;
+
+      const cat = btn.getAttribute("data-cat"); // empty string means All
+      const q   = (searchInput?.value || "").trim();
+
+      if (cat) lastCategory = cat;
+
+      const {rows} = await loadArticles(cat, q);
+
+      if (btn === tabAll && rows.length === 0 && !q) {
         tabAll.classList.add("hidden");
-        // find the button for lastCategory
+      }
+      setActiveTab(btn);
+    });
+
+    // SEARCH: show All tab when there are results across categories
+    if (searchForm){
+      searchForm.addEventListener("submit", async e => {
+        e.preventDefault();
+        const q = (searchInput.value || "").trim();
+
+        if (!q){
+          tabAll.classList.add("hidden");
+          const lastBtn = [...document.querySelectorAll(".tab[data-cat]")].find(b => b.getAttribute("data-cat") === lastCategory);
+          await loadArticles(lastCategory, "");
+          setActiveTab(lastBtn);
+          return;
+        }
+        const {rows} = await loadArticles("", q); // all categories
+        if (rows.length > 0){
+          tabAll.classList.remove("hidden");
+          setActiveTab(tabAll);
+        } else {
+          tabAll.classList.add("hidden");
+        }
+      });
+    }
+
+    // If the user clears search, restore last category
+    searchInput?.addEventListener("input", async () => {
+      if (searchInput.value.trim() === ""){
+        tabAll.classList.add("hidden");
         const lastBtn = [...document.querySelectorAll(".tab[data-cat]")].find(b => b.getAttribute("data-cat") === lastCategory);
         await loadArticles(lastCategory, "");
         setActiveTab(lastBtn);
-        return;
-      }
-
-      // Do an all-categories search (no cat param)
-      const {rows} = await loadArticles("", q);
-
-      if (rows.length > 0){
-        // Show + activate the All tab
-        tabAll.classList.remove("hidden");
-        setActiveTab(tabAll);
-      } else {
-        // No results: keep All hidden, stay on current category
-        tabAll.classList.add("hidden");
       }
     });
-  }
 
-  // Optional: if user clears the input and blurs, restore last category
-  searchInput?.addEventListener("input", async () => {
-    if (searchInput.value.trim() === ""){
-      tabAll.classList.add("hidden");
-      const lastBtn = [...document.querySelectorAll(".tab[data-cat]")].find(b => b.getAttribute("data-cat") === lastCategory);
-      await loadArticles(lastCategory, "");
-      setActiveTab(lastBtn);
-    }
-  });
-})();
-</script>
+    // OPEN ARTICLE: click / Enter key (kept inside this IIFE so feedEl & VIEW_URL_TPL exist)
+    feedEl.addEventListener("click", (e) => {
+      const el = e.target.closest(".open-article");
+      if (!el) return;
+      const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
+      window.location.href = url;
+    });
+    feedEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const el = e.target.closest(".open-article");
+      if (!el) return;
+      const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
+      window.location.href = url;
+    });
+  })();
+  </script>
+
+  <!-- Logout modal wiring (AFTER modal element) -->
+  <script>
+    (function () {
+      const modal   = document.getElementById('logoutModal');
+      const confirm = document.getElementById('logoutConfirm');
+      const cancel  = document.getElementById('logoutCancel');
+
+      document.querySelectorAll('.logout-link').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          modal.dataset.href = a.getAttribute('href');
+          modal.classList.add('show');
+          modal.setAttribute('aria-hidden', 'false');
+        });
+      });
+
+      function closeModal() {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        delete modal.dataset.href;
+      }
+
+      if (cancel)  cancel.addEventListener('click', closeModal);
+      if (confirm) confirm.addEventListener('click', () => {
+        const href = modal.dataset.href || "{{ url_for('logout') }}";
+        window.location.href = href;
+      });
+
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+      });
+    })();
+  </script>
 
 </body>
 </html>

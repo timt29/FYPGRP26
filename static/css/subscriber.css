@@ -521,3 +521,105 @@ html,body{ background:var(--bg); color:var(--ink); font-family:Arial,Helvetica,s
 /* optional: quick fade-in/out */
 @keyframes toastPop { from { opacity: 0; transform: translate(-50%,-55%);} to { opacity: 1; transform: translate(-50%,-50%);} }
 .toast.show { animation: toastPop .15s ease-out; }
+
+
+/* Article view */
+.article-view .article-title { margin: 6px 0 4px; text-align: center; }
+.article-header {
+  display:flex; align-items:center; justify-content:center; gap:12px; position:relative;
+}
+.article-header .article-actions {
+  position:absolute; right:0; top:0; display:flex; gap:8px;
+}
+.meta { color:#666; display:flex; gap:8px; justify-content:center; margin-bottom:12px; font-size:.95rem; }
+.hero img { width:100%; height:auto; border-radius:12px; margin:8px 0 16px; }
+.article-content { line-height:1.7; color:#222; word-wrap:break-word; }
+
+/* Pin button */
+.pin-btn { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid #d0d7ff; border-radius:10px; background:#f5f7ff; cursor:pointer; }
+.pin-btn[aria-pressed="true"] { background:#e6f4ff; border-color:#9ecbff; font-weight:600; }
+
+/* (If not already present) toast styles */
+.toast{
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  background:#fff; border:1px solid #ddd; padding:18px 24px; border-radius:10px;
+  box-shadow:0 8px 24px rgba(0,0,0,.18); z-index:3000; display:none; text-align:center; max-width:90vw;
+}
+.toast.show{ display:flex; align-items:center; justify-content:center; }
+
+/* Two-column article body (text + image on the right) */
+.article-view .two-col{
+  display: grid;
+  grid-template-columns: 1fr 320px; /* text | image width */
+  gap: 16px;
+  align-items: start;
+}
+
+.thumb-wrap.side img{
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  display: block;
+}
+
+/* On small screens, stack */
+@media (max-width: 900px){
+  .article-view .two-col{
+    grid-template-columns: 1fr;
+  }
+  .thumb-wrap.side{
+    margin: 10px 0 0;
+  }
+}
+
+/* Make entire card clickable in My Articles */
+.my-article .card-link {
+  display: grid;
+  grid-template-columns: 1fr 160px; /* text | image */
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+.my-article .thumb-wrap img {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+  display: block;
+}
+.my-article h3 { margin: 6px 0 6px; }
+.my-article .desc { color:#333; }
+.my-article .meta-line { color:#666; font-size:.9rem; margin-top:6px; }
+
+/* Status & category badges */
+.badge {
+  display:inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: .78rem;
+  margin-right: 6px;
+  border: 1px solid transparent;
+}
+.badge-draft     { background:#fff3cd; color:#8a6d3b; border-color:#f1e3a3; }
+.badge-published { background:#e6f4ff; color:#1a73e8; border-color:#c8e1ff; }
+.badge-cat       { background:#f5f7ff; color:#334; border-color:#dfe6ff; }
+
+/* Responsive stack */
+@media (max-width: 800px){
+  .my-article .card-link { grid-template-columns: 1fr; }
+}
+
+/* Logout modal */
+.modal-overlay{
+  position: fixed; inset: 0;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.45); z-index: 4000; padding: 16px;
+}
+.modal-overlay.show{ display: flex; }
+.modal{
+  background: #fff; border-radius: 12px; padding: 18px 20px;
+  width: min(420px, 92vw); box-shadow: 0 12px 28px rgba(0,0,0,.2);
+}
+.modal .buttons{
+  display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;
+}
+

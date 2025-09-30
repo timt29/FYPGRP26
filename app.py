@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort
 import os, time
 import uuid
 from functools import wraps
@@ -293,16 +293,15 @@ def api_categories():
 @app.route("/api/articles", methods=["POST"])
 @login_required("Subscriber")
 def api_articles_create():
-    action  = request.form.get("action", "publish").lower()  # "publish" or "draft"
+    action  = request.form.get("action", "publish").lower()
     title   = (request.form.get("title") or "").strip()
     content = (request.form.get("content") or "").strip()
-    cat_id  = request.form.get("category_id")  # categoryID (int)
+    cat_id  = request.form.get("category_id")
     author  = session.get("user") or "Subscriber"
 
     if not title or not content or not cat_id:
         return jsonify({"ok": False, "message": "Title, content, and category are required."}), 400
 
-    # save image (optional)
     image_rel = None
     file = request.files.get("image")
     if file and file.filename:
@@ -314,19 +313,16 @@ def api_articles_create():
         file.save(os.path.join(img_dir, unique))
         image_rel = f"/static/img/{unique}"
 
-    # insert
     publish = (action == "publish")
     conn = get_db_connection()
     cur = conn.cursor()
 
     if publish:
-        # publish now: draft = FALSE, set published_at/updated_at
         cur.execute("""
             INSERT INTO articles (title, content, author, published_at, updated_at, image, catID, draft)
             VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE)
         """, (title, content, author, image_rel, cat_id))
     else:
-        # draft: draft = TRUE; leave published_at NULL, set updated_at
         cur.execute("""
             INSERT INTO articles (title, content, author, published_at, updated_at, image, catID, draft)
             VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE)
@@ -342,9 +338,6 @@ def api_articles_create():
     })
 
 # (MW)
-# imports (if missing)
-from flask import jsonify, request
-
 @app.route("/subscriber/api/articles", endpoint="subscriber_search_api")
 @login_required("Subscriber")
 def subscriber_search_api():
@@ -356,7 +349,7 @@ def subscriber_search_api():
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    where  = ["a.draft = FALSE"]   # hide drafts
+    where  = ["a.draft = FALSE"]
     params = []
 
     if cat:
@@ -383,6 +376,236 @@ def subscriber_search_api():
     cur.close(); conn.close()
     return jsonify(rows)
 
+# (MW)
+# -------View route (full-page article, shows pin state)----------------
+@app.route("/subscriber/article/<int:article_id>")
+@login_required("Subscriber")
+def subscriber_article_view(article_id):
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    cur.execute("""
+        SELECT a.articleID, a.title, a.content, a.author,
+               a.published_at, a.updated_at,
+               CASE
+                 WHEN a.image IS NULL OR a.image = '' THEN NULL
+                 WHEN a.image LIKE 'http%' THEN a.image
+                 WHEN a.image LIKE '/static/%' THEN a.image
+                 WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
+                 ELSE CONCAT('/static/img/', a.image)
+               END AS image,
+               c.name AS category
+        FROM articles a
+        LEFT JOIN categories c ON a.catID = c.categoryID
+        WHERE a.articleID = %s
+          AND a.draft = FALSE
+        LIMIT 1
+    """, (article_id,))
+    article = cur.fetchone()
+    if not article:
+        cur.close(); conn.close()
+        abort(404)
+
+    # pin state...
+    cur.execute("SELECT 1 FROM subscriber_pins WHERE userID=%s AND articleID=%s LIMIT 1",
+                (session["userID"], article_id))
+    is_pinned = cur.fetchone() is not None
+
+    cur.close(); conn.close()
+    return render_template("subscriberArticleView.html", article=article, is_pinned=is_pinned)
+
+@app.route("/subscriber/api/pin", methods=["POST"])
+@login_required("Subscriber")
+def subscriber_toggle_pin():
+    data = request.get_json(silent=True) or {}
+    article_id = data.get("articleID")
+
+    if not article_id:
+        return jsonify(ok=False, message="articleID is required"), 400
+
+    conn = get_db_connection()
+    cur  = conn.cursor()
+
+    # Check current state
+    cur.execute("""
+        SELECT id FROM subscriber_pins
+        WHERE userID=%s AND articleID=%s
+        LIMIT 1
+    """, (session["userID"], article_id))
+    row = cur.fetchone()
+
+    if row:
+        cur.execute("DELETE FROM subscriber_pins WHERE id=%s", (row[0],))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify(ok=True, state="unpinned", message="Article unpinned")
+    else:
+        try:
+            cur.execute("""
+                INSERT INTO subscriber_pins (userID, articleID)
+                VALUES (%s, %s)
+            """, (session["userID"], article_id))
+            conn.commit()
+            cur.close(); conn.close()
+            return jsonify(ok=True, state="pinned", message="Article pinned")
+        except Exception as e:
+            conn.rollback()
+            cur.close(); conn.close()
+            return jsonify(ok=False, message="Unable to pin"), 500
+
+# --- My Articles: page ---
+@app.route("/subscriber/my-articles")
+@login_required("Subscriber")
+def subscriber_my_articles():
+    return render_template("subscriberMyArticles.html")
+
+# --- My Articles: JSON API ---
+@app.route("/subscriber/api/my-articles")
+@login_required("Subscriber")
+def subscriber_api_my_articles():
+    status = (request.args.get("status") or "all").lower()
+    limit  = int(request.args.get("limit", 20))
+    offset = int(request.args.get("offset", 0))
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    where  = ["a.author = %s"]                      
+    params = [session.get("user")]                   
+
+    if status == "published":
+        where.append("a.draft = FALSE")
+    elif status == "drafts":
+        where.append("a.draft = TRUE")
+
+    cur.execute(f"""
+        SELECT a.articleID, a.title, a.content, a.draft,
+               a.published_at, a.updated_at,
+               CASE
+                 WHEN a.image IS NULL OR a.image = '' THEN NULL
+                 WHEN a.image LIKE 'http%' THEN a.image
+                 WHEN a.image LIKE '/static/%' THEN a.image
+                 WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
+                 ELSE CONCAT('/static/img/', a.image)
+               END AS image,
+               c.name AS category
+        FROM articles a
+        LEFT JOIN categories c ON a.catID = c.categoryID
+        WHERE {" AND ".join(where)}
+        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+        LIMIT %s OFFSET %s
+    """, (*params, limit, offset))
+
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return jsonify(rows)
+
+# View: load edit page 
+@app.route("/subscriber/edit-article/<int:article_id>")
+@login_required("Subscriber")
+def subscriber_edit_article(article_id):
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT a.articleID, a.title, a.content, a.catID, a.image, a.draft,
+               a.published_at, a.updated_at
+        FROM articles a
+        WHERE a.articleID = %s AND a.author = %s
+        LIMIT 1
+    """, (article_id, session.get("user")))
+    article = cur.fetchone()
+    cur.close(); conn.close()
+    if not article:
+        return ("Forbidden", 403)
+    return render_template("subscriberEditArticles.html", article=article)
+
+# API: update article 
+@app.route("/subscriber/api/article/<int:article_id>", methods=["POST"])
+@login_required("Subscriber")
+def subscriber_update_article(article_id):
+    action      = (request.form.get("action") or "").lower()   # 'draft' | 'publish'
+    title       = (request.form.get("title") or "").strip()
+    content     = (request.form.get("content") or "").strip()
+    category_id = request.form.get("category_id")
+    image_file  = request.files.get("image")
+
+    if not title or not content or not category_id:
+        return jsonify(ok=False, message="Title, content and category are required."), 400
+
+    draft_flag = (action != "publish")
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    cur.execute("SELECT author FROM articles WHERE articleID=%s LIMIT 1", (article_id,))
+    row = cur.fetchone()
+    if not row or row["author"] != session.get("user"):
+        cur.close(); conn.close()
+        return jsonify(ok=False, message="Forbidden"), 403
+
+    image_name = None
+    if image_file and image_file.filename:
+        image_name = image_file.filename
+        image_path = os.path.join(app.static_folder, "img", image_name)
+        image_file.save(image_path)
+
+    # Build UPDATE
+    fields = ["title=%s", "content=%s", "catID=%s", "draft=%s", "updated_at=NOW()"]
+    params = [title, content, category_id, draft_flag]
+
+    if not draft_flag:
+        fields.append("published_at=NOW()")
+
+    if image_name:
+        fields.append("image=%s")
+        params.append(image_name)
+
+    params.append(article_id)
+
+    cur.execute(f"UPDATE articles SET {', '.join(fields)} WHERE articleID=%s", params)
+    conn.commit()
+    cur.close(); conn.close()
+
+    return jsonify(ok=True, message="Saved.", redirect=url_for("subscriber_my_articles"))
+
+# Bookmarks page
+@app.route("/subscriber/bookmarks")
+@login_required("Subscriber")
+def subscriber_bookmarks():
+    return render_template("subscriberBookmarks.html")
+
+# Bookmarks data for the logged-in user
+@app.route("/subscriber/api/bookmarks")
+@login_required("Subscriber")
+def subscriber_api_bookmarks():
+    uid = session.get("userID")
+    if uid is None:
+        return jsonify(ok=False, message="Not logged in"), 401
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT a.articleID, a.title, a.content, a.author,
+               a.published_at, a.updated_at,
+               CASE
+                 WHEN a.image IS NULL OR a.image = '' THEN NULL
+                 WHEN a.image LIKE 'http%%' THEN a.image
+                 WHEN a.image LIKE '/static/%%' THEN a.image
+                 WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image, '../static', '/static')
+                 ELSE CONCAT('/static/img/', a.image)
+               END AS image,
+               c.name AS category,
+               sp.pinned_at
+        FROM subscriber_pins sp
+        JOIN articles a        ON a.articleID = sp.articleID
+        LEFT JOIN categories c ON a.catID = c.categoryID
+        WHERE sp.userID = %s
+          AND (a.draft IS NULL OR a.draft = FALSE)
+        ORDER BY sp.pinned_at DESC
+    """, (uid,))
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return jsonify(rows)
 
 # (YY)
 # ---------- Auth ----------

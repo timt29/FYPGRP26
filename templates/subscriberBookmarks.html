@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Bookmarked Articles — EchoPress</title>
+  <title>Bookmarks — EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -12,192 +12,146 @@
   <!-- Top Bar -->
   <header class="topbar">
     <div class="left">
-      <a href="{{ url_for('subscriberHomepage') }}" class="brand">
+      <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
-      </a>
-      <div class="search">
-        <input type="text" placeholder="Searching for… ?" aria-label="Search" />
-        <button>Search</button>
-      </div>
+      </button>
+      <form id="searchForm" class="search" role="search" onsubmit="return false;">
+        <input id="q" type="text" placeholder="Search bookmarks…" aria-label="Search" />
+        <button type="button" id="searchBtn">Search</button>
+      </form>
     </div>
 
     <div class="right">
       <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
-        <a href="{{ url_for('bookmarks') }}" class="active">View Bookmarks</a>
-        <a href="{{ url_for('my_articles') }}">View My Articles</a>
-        <a href="/analytics">View Analytics</a>
-        <a href="/profile">Edit Profile</a>
-        <a href="#" class="logout-link">Log Out</a>
+        <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
+        <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
+        <span class="menu-item">View Analytics</span>
+        <span class="menu-item">Edit Profile</span>
+        <a class="menu-item" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
   </header>
 
-  <!-- Tabs (optional) -->
-  <nav class="tabs">
-    <div class="tabs-inner">
-      <a href="#" class="tab">For you</a>
-      <a href="#" class="tab active">Trending</a>
-      <a href="#" class="tab">Politics</a>
-      <a href="#" class="tab">Sports</a>
-      <a href="#" class="tab">Technology</a>
-      <a href="#" class="tab">Economic</a>
-      <a href="#" class="tab">AsiaNews</a>
-      <a href="#" class="tab">WorldNews</a>
-    </div>
-  </nav>
+  <!-- No tabs anymore -->
 
-  <!-- Page -->
+  <!-- Layout -->
   <main class="page">
+    <section class="feed" id="feed"></section>
 
-    <!-- LEFT: Bookmarked list -->
-    <section class="feed">
-      <div class="article-card detail">
-        <div class="row-between" style="margin-bottom:12px;">
-          <div class="card-header" style="margin:0;">Bookmarked Articles</div>
-          <div class="sort-wrap">
-            <select onchange="window.location.search='?sort='+this.value">
-              <option value="">Sort by</option>
-              <option value="recent"  {{ 'selected' if request.args.get('sort')=='recent'  else '' }}>Most Recent</option>
-              <option value="title"   {{ 'selected' if request.args.get('sort')=='title'   else '' }}>Title (A–Z)</option>
-              <option value="category"{{ 'selected' if request.args.get('sort')=='category'else '' }}>Category</option>
-            </select>
-          </div>
-        </div>
-
-        {% if not articles %}
-          <p>No bookmarks yet.</p>
-        {% else %}
-          {% for a in articles %}
-            <div class="list-item" id="bk-{{ a.slug }}">
-              <div class="item-info">
-                {% set href =
-                  (a.slug=='article1' and url_for('subscriberArticle1')) or
-                  (a.slug=='article2' and url_for('subscriberArticle2')) or
-                  (a.slug=='article3' and url_for('subscriberArticle3')) or
-                  (a.slug=='article4' and url_for('subscriberArticle4')) %}
-                <a href="{{ href }}" style="color:#000;text-decoration:none;">
-                  <h3 class="item-title">{{ a.title }}</h3>
-                </a>
-                <p class="item-desc">{{ (a.content or '')[:240] }}{% if (a.content or '')|length > 240 %}…{% endif %}</p>
-                <div class="row-between">
-                  <div class="item-meta">
-                    <span class="pill">{{ a.category }}</span>
-                    <span class="pill">Bookmarked</span>
-                  </div>
-                  <div class="actions">
-                    <button class="btn btn-light unpin-btn" data-slug="{{ a.slug }}" type="button" style="border:1px solid #ccc;">
-                      Unpin
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {% if a.image_url %}
-                <a href="{{ href }}" style="flex:0 0 220px;display:block;">
-                  <img class="thumb" src="{{ a.image_url }}" alt="thumbnail">
-                </a>
-              {% else %}
-                <div class="no-thumb">No Image</div>
-              {% endif %}
-            </div>
-          {% endfor %}
-        {% endif %}
-      </div>
-    </section>
-
-    <!-- RIGHT: quick menu + Ads -->
     <aside class="sidebar">
+      <button type="button" class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">Create Your Story</button>
       <div class="ads">Ads</div>
     </aside>
-
   </main>
 
-  <!-- menu + unpin JS -->
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <span id="toastMsg">Done.</span>
+  </div>
+
+  <!-- Menu toggle -->
   <script>
     (function(){
-      // menu
-      const btn=document.getElementById('menuBtn');
-      const panel=document.getElementById('menuPanel');
-      function closeP(){ panel.style.display='none'; }
-      function toggleP(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
-      btn.addEventListener('click',e=>{ e.stopPropagation(); toggleP(); });
-      document.addEventListener('click',e=>{ if(panel && !panel.contains(e.target) && e.target!==btn) closeP(); });
-      document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeP(); });
-
-      // Unpin buttons
-      document.querySelectorAll('.unpin-btn').forEach(b=>{
-        b.addEventListener('click', async e=>{
-          const slug = b.dataset.slug;
-          try {
-            const res = await fetch("{{ url_for('pin_article') }}", {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ slug })
-            });
-            const data = await res.json();
-            if (data.ok) {
-              // remove from DOM after unpin
-              const card = document.getElementById('bk-'+slug);
-              if (card) card.remove();
-              // if list becomes empty, show message
-              if (!document.querySelector('.list-item')) {
-                const container = document.querySelector('.article-card.detail');
-                const p = document.createElement('p');
-                p.textContent = "No bookmarks yet. Open an article and use the kebab → “Pin / Unpin”.";
-                container.appendChild(p);
-              }
-            } else {
-              alert('Failed to update bookmark.');
-            }
-          } catch (err) {
-            alert('Network error.');
-          }
-        });
-      });
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      if (!btn || !panel) return;
+      const closeP  = () => panel.style.display = 'none';
+      const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
+      btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
     })();
   </script>
 
-  <!-- Logout Confirmation Modal -->
-<div id="logoutModal" class="modal-overlay">
-  <div class="modal">
-    <h2>Log Out?</h2>
-    <div class="buttons">
-      <button class="yes" id="confirmLogout">Yes</button>
-      <button class="no" id="cancelLogout">No</button>
-    </div>
-  </div>
-</div>
+  <!-- Bookmarks logic -->
+  <script>
+  (function(){
+    const feedEl   = document.getElementById("feed");
+    const API_URL  = "{{ url_for('subscriber_api_bookmarks') }}";
+    const VIEW_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
+    const TOGGLE   = "{{ url_for('subscriber_toggle_pin') }}";
 
-<script>
-  (function() {
-    const modal = document.getElementById("logoutModal");
-    const confirmBtn = document.getElementById("confirmLogout");
-    const cancelBtn = document.getElementById("cancelLogout");
+    const toast = document.getElementById('toast');
+    const msgEl = document.getElementById('toastMsg');
+    const showToast = (m)=>{ msgEl.textContent=m||'Done.'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1400); };
 
-    // intercept logout links
-    document.querySelectorAll(".logout-link").forEach(link => {
-      link.addEventListener("click", e => {
-        e.preventDefault();
-        modal.style.display = "flex";
-      });
+    const truncate = (t, n=200) => (!t ? "" : (t=t.trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
+    const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+    function card(a){
+      const img  = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
+      const href = VIEW_TPL.replace(/0$/, a.articleID);
+
+      return `
+        <article class="article-card my-article" data-id="${a.articleID}" style="position:relative;">
+          <a class="card-link" href="${href}" aria-label="${esc(a.title)}">
+            <div class="text">
+              <div class="card-top">
+                ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
+              </div>
+              <h3>${esc(a.title)}</h3>
+              <p class="desc">${esc(truncate(a.content))}</p>
+              <div class="meta-line">
+                ${a.author ? `<span>By ${esc(a.author)}</span>` : ""}
+                ${a.published_at ? `<span> • ${esc(a.published_at)}</span>` : ""}
+              </div>
+            </div>
+            <div class="thumb-wrap"><img src="${img}" alt=""></div>
+          </a>
+
+          <!-- Unpin bottom-right -->
+          <div class="card-footer" style="display:flex;justify-content:flex-end;margin-top:10px;">
+            <button type="button" class="btn btn-light btn-unpin" data-id="${a.articleID}">Unpin</button>
+          </div>
+        </article>
+      `;
+    }
+
+    function render(list){
+      feedEl.innerHTML = list.length ? list.map(card).join("") : "<p>No bookmarks yet.</p>";
+    }
+
+    async function load(){
+      const res = await fetch(API_URL, { headers: { 'X-Requested-With':'XMLHttpRequest' }});
+      if(!res.ok){ feedEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`; return; }
+      data = await res.json();
+      render(data);
+    }
+
+    // Unpin (event delegation)
+    document.addEventListener("click", async (e)=>{
+      const b = e.target.closest(".btn-unpin");
+      if(!b) return;
+      const id = b.getAttribute("data-id");
+      try{
+        const res = await fetch(TOGGLE, {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ articleID: Number(id) })
+        });
+        const out = await res.json();
+        if(!res.ok || !out.ok) throw new Error(out.message || "Failed");
+        showToast("Removed from bookmarks.");
+        load();
+      }catch(err){
+        showToast(err.message || "Error");
+      }
     });
 
-    confirmBtn.addEventListener("click", () => {
-      window.location.href = "{{ url_for('logout') }}";
+    // Simple client-side search
+    let data = [];
+    const q = document.getElementById("q");
+    document.getElementById("searchBtn").addEventListener("click", ()=>{
+      const s = (q.value || "").toLowerCase();
+      if(!s) return render(data);
+      render(data.filter(x => (x.title||"").toLowerCase().includes(s) || (x.content||"").toLowerCase().includes(s)));
     });
 
-    cancelBtn.addEventListener("click", () => {
-      modal.style.display = "none";
-    });
-
-    // close modal on Escape key
-    document.addEventListener("keydown", e => {
-      if (e.key === "Escape") modal.style.display = "none";
-    });
+    load();
   })();
-</script>
-
+  </script>
 </body>
 </html>
