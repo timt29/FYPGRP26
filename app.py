@@ -72,7 +72,6 @@ def index():
         SELECT articleID, title, content, author, published_at, updated_at, image
         FROM articles
         ORDER BY published_at DESC
-        LIMIT 4
     """)
     articles = cursor.fetchall()
     cursor.close()
