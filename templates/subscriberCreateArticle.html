@@ -6,22 +6,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
-  <style>
-    /* Minimal helpers to keep this page usable without navigation */
-    .toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; border: 1px solid #ccc; padding: 18px 24px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); z-index: 3000; display: none; text-align: center; max-width: 90vw; }
-    .toast.show { display: flex; align-items: center; justify-content: center; }
-    .note { font-size: .9rem; color: #666; margin-top: .5rem; }
-  </style>
 </head>
 <body>
 
   <!-- Top Bar -->
   <header class="topbar">
     <div class="left">
-      <!-- brand with no link -->
-      <div class="brand">
+      <!-- Logo goes back to subscriberHomepage -->
+      <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
-      </div>
+      </button>
+
       <div class="search">
         <input type="text" placeholder="Searching for… ?" aria-label="Search" />
         <button type="button">Search</button>
@@ -31,27 +26,15 @@
     <div class="right">
       <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
-      <!-- menu items converted to non-navigable spans -->
       <div id="menuPanel" class="menu-panel">
         <span class="menu-item">View My Articles</span>
         <span class="menu-item">View Bookmark</span>
         <span class="menu-item">View Analytics</span>
         <span class="menu-item">Edit Profile</span>
-        <span class="menu-item">Log Out</span>
+        <a class="menu-item" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
   </header>
-
-<!-- Tabs (dynamic) -->
-<nav class="tabs">
-  <div class="tabs-inner">
-    {% for cat in categories %}
-      <button type="button"
-              class="tab {% if cat.name == active_category %}active{% endif %}"
-              data-cat="{{ cat.name|e }}">{{ cat.name }}</button>
-    {% endfor %}
-  </div>
-</nav>
 
   <!-- Layout -->
   <main class="page">
@@ -60,7 +43,7 @@
       <div class="article-card detail">
         <div class="card-header">{{ 'Edit Article' if article else 'Create Your Story' }}</div>
 
-        <!-- IMPORTANT: form is inert; no action while page is being rebuilt -->
+        <!-- Editor form -->
         <form id="editorForm" method="POST" action="#" enctype="multipart/form-data" class="create-form">
           <input type="hidden" name="id" value="{{ article.id if article else '' }}">
 
@@ -90,7 +73,6 @@
           </div>
 
           <div class="form-buttons">
-            <!-- Buttons are inert for now; show a toast instead of submitting -->
             {% if article %}
               <button type="button" class="btn btn-light" id="btnDraft">Save Edit</button>
               <button type="button" class="btn btn-primary" id="btnPublish">Publish Edit</button>
@@ -98,6 +80,7 @@
               <button type="button" class="btn btn-light" id="btnDraft">Save As Draft</button>
               <button type="button" class="btn btn-primary" id="btnPublish">Upload Article</button>
             {% endif %}
+            <button type="button" class="btn" onclick="history.back()">Cancel</button>
           </div>
         </form>
       </div>
@@ -111,110 +94,83 @@
 
   <!-- Center Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
-    <span id="toastMsg">This feature is currently disabled while the page is being rebuilt.</span>
+    <span id="toastMsg">Done.</span>
   </div>
 
-  <!-- Menu toggle (no navigation) -->
+  <!-- Simple menu toggle -->
   <script>
     (function(){
-      const btn=document.getElementById('menuBtn');
-      const panel=document.getElementById('menuPanel');
-      function closeP(){ if(panel) panel.style.display='none'; }
-      function toggleP(){ if(panel) panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
-      if(btn){
-        btn.addEventListener('click',e=>{ e.stopPropagation(); toggleP(); });
-        document.addEventListener('click',e=>{ if(panel && !panel.contains(e.target) && e.target!==btn) closeP(); });
-        document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeP(); });
-      }
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      if (!btn || !panel) return;
+      const closeP = () => panel.style.display = 'none';
+      const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
+      btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
     })();
   </script>
 
-  <!-- Inert button behavior: show toast instead of submitting or navigating -->
+  <!-- Load categories + handle Draft/Publish -->
   <script>
     (function(){
-      const toast = document.getElementById('toast');
-      const showToast = (msg) => {
-        if (msg) document.getElementById('toastMsg').textContent = msg;
+      const select  = document.getElementById('category');
+      const toast   = document.getElementById('toast');
+      const msgEl   = document.getElementById('toastMsg');
+      const form    = document.getElementById('editorForm');
+      const btnDraft   = document.getElementById('btnDraft');
+      const btnPublish = document.getElementById('btnPublish');
+
+      const showToast = (m) => {
+        msgEl.textContent = m || 'Done.';
         toast.classList.add('show');
-        setTimeout(()=> toast.classList.remove('show'), 2000);
+        setTimeout(()=> toast.classList.remove('show'), 1400);
       };
-      ['btnDraft','btnPublish'].forEach(id => {
-        const b=document.getElementById(id);
-        if(b) b.addEventListener('click', ()=> showToast('This feature is disabled during redevelopment.'));
-      });
-    })();
-  </script>
 
-  <!-- Removed logout modal and any url_for-based redirects/links to keep this page non-navigable -->
-<script>
-  (function(){
-    const select = document.getElementById('category');
-    const toast  = document.getElementById('toast');
-    const msgEl  = document.getElementById('toastMsg');
-
-    const showToast = (m) => {
-      msgEl.textContent = m || 'Done.';
-      toast.classList.add('show');
-      setTimeout(()=> toast.classList.remove('show'), 2000);
-    };
-
-    // 1) Load categories into <select>
-    async function loadCategories() {
-      try {
-        const res = await fetch("{{ url_for('api_categories') }}");
-        if (!res.ok) throw new Error(res.status);
-        const rows = await res.json(); // [{categoryID, name}, ...]
-        // clear (keep placeholder)
-        [...select.querySelectorAll('option')].forEach((o,i)=>{ if(i>0) o.remove(); });
-        rows.forEach(r => {
-          const opt = document.createElement('option');
-          opt.value = r.categoryID;     // IMPORTANT: we submit ID
-          opt.textContent = r.name;
-          select.appendChild(opt);
-        });
-      } catch (e) {
-        showToast('Failed to load categories.');
-      }
-    }
-    loadCategories();
-
-    // 2) “Save as Draft” — keep on hold (just toast)
-    const btnDraft = document.getElementById('btnDraft');
-    if (btnDraft) {
-      btnDraft.addEventListener('click', () =>
-        showToast('Draft is temporarily on hold.')
-      );
-    }
-
-    // 3) “Upload Article” — send form + image to /api/articles
-    const form = document.getElementById('editorForm');
-    const btnPublish = document.getElementById('btnPublish');
-
-    if (btnPublish && form) {
-      btnPublish.addEventListener('click', async () => {
-        const fd = new FormData(form); // contains title, content, category_id, image
+      // Populate categories from API
+      async function loadCategories() {
         try {
-          const res = await fetch("{{ url_for('api_articles_create') if false else url_for('api_articles') }}", {
+          const res = await fetch("{{ url_for('api_categories') }}", { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const rows = await res.json(); // [{categoryID, name}]
+          // clear options except placeholder
+          [...select.querySelectorAll('option')].forEach((o,i)=>{ if(i>0) o.remove(); });
+          rows.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.categoryID;  // submit ID
+            opt.textContent = r.name;
+            select.appendChild(opt);
+          });
+        } catch (e) {
+          showToast('Failed to load categories');
+        }
+      }
+
+      // Submit helper
+      async function submitArticle(action) {
+        const fd = new FormData(form);
+        fd.set('action', action); // "draft" | "publish"
+        try {
+          const res = await fetch("{{ url_for('api_articles') }}", {
             method: 'POST',
             body: fd,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
           });
           const data = await res.json().catch(()=>({}));
-          if (!res.ok || !data.ok) throw new Error(data.message || 'Upload failed');
-
-          showToast(data.message || 'Uploaded.');
-          // soft redirect after short delay (optional)
-          setTimeout(()=> {
-            if (data.redirect) window.location.href = data.redirect;
-          }, 1200);
-
+          if (!res.ok || !data.ok) throw new Error(data.message || 'Failed');
+          showToast(data.message || (action === 'draft' ? 'Draft saved.' : 'Article uploaded.'));
+          setTimeout(()=> { if (data.redirect) window.location.href = data.redirect; }, 900);
         } catch (err) {
-          showToast((err && err.message) || 'Upload error.');
+          showToast(err.message || 'Error');
         }
-      });
-    }
-  })();
-</script>
+      }
 
+      // Wire buttons
+      if (btnDraft)   btnDraft.addEventListener('click',   () => submitArticle('draft'));
+      if (btnPublish) btnPublish.addEventListener('click', () => submitArticle('publish'));
+
+      loadCategories();
+    })();
+  </script>
 </body>
 </html>

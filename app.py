@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response
-from flask import jsonify, request
 import os, time
 import uuid
 from functools import wraps
@@ -240,32 +239,38 @@ def subscriberHomepage():
 @login_required("Subscriber")
 def api_articles():
     cat = request.args.get("cat") 
+    q     = (request.args.get("q") or "").strip()
     limit = int(request.args.get("limit", 10))
     offset = int(request.args.get("offset", 0))
 
     conn = get_db_connection()
     cur = conn.cursor(dictionary=True)
 
-    if cat:
-        cur.execute("""
-            SELECT a.articleID, a.title, a.content, a.author,
-                   a.published_at, a.updated_at, a.image, c.name AS category
-            FROM articles a
-            JOIN categories c ON a.catID = c.categoryID
-            WHERE c.name = %s
-            ORDER BY a.published_at DESC
-            LIMIT %s OFFSET %s
-        """, (cat, limit, offset))
-    else:
-        cur.execute("""
-            SELECT a.articleID, a.title, a.content, a.author,
-                   a.published_at, a.updated_at, a.image, c.name AS category
-            FROM articles a
-            LEFT JOIN categories c ON a.catID = c.categoryID
-            ORDER BY a.published_at DESC
-            LIMIT %s OFFSET %s
-        """, (limit, offset))
+    params = []
+    where  = ["a.draft = FALSE"]  # <-- exclude drafts
 
+    join   = "LEFT JOIN categories c ON a.catID = c.categoryID"
+    if cat:
+        where.append("c.name = %s")
+        params.append(cat)
+
+    if q:
+        where.append("(a.title LIKE %s OR a.content LIKE %s)")
+        like = f"%{q}%"
+        params.extend([like, like])
+
+    sql = f"""
+        SELECT a.articleID, a.title, a.content, a.author,
+               a.published_at, a.updated_at, a.image, c.name AS category
+        FROM articles a
+        {join}
+        WHERE {" AND ".join(where)}
+        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+        LIMIT %s OFFSET %s
+    """
+    params.extend([limit, offset])
+
+    cur.execute(sql, tuple(params))
     rows = cur.fetchall()
     cur.close(); conn.close()
     return jsonify(rows)
@@ -288,42 +293,96 @@ def api_categories():
 @app.route("/api/articles", methods=["POST"])
 @login_required("Subscriber")
 def api_articles_create():
-    # form fields
-    title   = request.form.get("title", "").strip()
-    content = request.form.get("content", "").strip()
-    cat_id  = request.form.get("category_id")  
+    action  = request.form.get("action", "publish").lower()  # "publish" or "draft"
+    title   = (request.form.get("title") or "").strip()
+    content = (request.form.get("content") or "").strip()
+    cat_id  = request.form.get("category_id")  # categoryID (int)
     author  = session.get("user") or "Subscriber"
 
     if not title or not content or not cat_id:
-        return jsonify({"ok": False, "message": "Missing title/content/category."}), 400
+        return jsonify({"ok": False, "message": "Title, content, and category are required."}), 400
 
+    # save image (optional)
     image_rel = None
     file = request.files.get("image")
     if file and file.filename:
         img_dir = os.path.join(app.root_path, "static", "img")
         os.makedirs(img_dir, exist_ok=True)
-        base = secure_filename(file.filename)
-        name, ext = os.path.splitext(base)
+        safe = secure_filename(file.filename)
+        name, ext = os.path.splitext(safe)
         unique = f"{name}_{int(time.time())}{ext}"
-        save_path = os.path.join(img_dir, unique)
-        file.save(save_path)
+        file.save(os.path.join(img_dir, unique))
         image_rel = f"/static/img/{unique}"
 
-    # insert into DB
+    # insert
+    publish = (action == "publish")
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("""
-        INSERT INTO articles (title, content, author, published_at, updated_at, image, catID)
-        VALUES (%s, %s, %s, NOW(), NOW(), %s, %s)
-    """, (title, content, author, image_rel, cat_id))
+
+    if publish:
+        # publish now: draft = FALSE, set published_at/updated_at
+        cur.execute("""
+            INSERT INTO articles (title, content, author, published_at, updated_at, image, catID, draft)
+            VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE)
+        """, (title, content, author, image_rel, cat_id))
+    else:
+        # draft: draft = TRUE; leave published_at NULL, set updated_at
+        cur.execute("""
+            INSERT INTO articles (title, content, author, published_at, updated_at, image, catID, draft)
+            VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE)
+        """, (title, content, author, image_rel, cat_id))
+
     conn.commit()
     cur.close(); conn.close()
 
     return jsonify({
         "ok": True,
-        "message": "Article uploaded.",
-        "redirect": url_for("subscriberHomepage")  
+        "message": "Article uploaded." if publish else "Draft saved.",
+        "redirect": url_for("subscriberHomepage")
     })
+
+# (MW)
+# imports (if missing)
+from flask import jsonify, request
+
+@app.route("/subscriber/api/articles", endpoint="subscriber_search_api")
+@login_required("Subscriber")
+def subscriber_search_api():
+    cat   = request.args.get("cat")
+    q     = (request.args.get("q") or "").strip()
+    limit = int(request.args.get("limit", 10))
+    offset= int(request.args.get("offset", 0))
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    where  = ["a.draft = FALSE"]   # hide drafts
+    params = []
+
+    if cat:
+        where.append("c.name = %s")
+        params.append(cat)
+
+    if q:
+        like = f"%{q}%"
+        where.append("(a.title LIKE %s OR a.content LIKE %s)")
+        params.extend([like, like])
+
+    sql = f"""
+        SELECT a.articleID, a.title, a.content, a.author,
+               a.published_at, a.updated_at, a.image, c.name AS category
+        FROM articles a
+        LEFT JOIN categories c ON a.catID = c.categoryID
+        WHERE {' AND '.join(where)}
+        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+        LIMIT %s OFFSET %s
+    """
+    params.extend([limit, offset])
+    cur.execute(sql, tuple(params))
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return jsonify(rows)
+
 
 # (YY)
 # ---------- Auth ----------

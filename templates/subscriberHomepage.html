@@ -16,8 +16,8 @@
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </div>
       <!-- Search sits to the RIGHT of the logo -->
-      <form class="search" action="#" method="get" role="search">
-        <input type="text" placeholder="Searching for… ?" aria-label="Search" />
+      <form id="searchForm" class="search" action="#" method="get" role="search">
+        <input id="searchQ" name="q" type="text" placeholder="Searching for… ?" aria-label="Search" />
         <button type="submit" aria-label="Search">Search</button>
       </form>
     </div>
@@ -31,7 +31,7 @@
         <span class="menu-item">View Bookmark</span>
         <span class="menu-item">View Analytics</span>
         <span class="menu-item">Edit Profile</span>
-        <span class="menu-item">Log Out</span>
+        <a class="menu-item" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
   </header>
@@ -39,6 +39,7 @@
   <!-- Tabs (dynamic) -->
   <nav class="tabs">
     <div class="tabs-inner">
+      <button type="button" id="tabAll" class="tab hidden" data-cat="">All</button>
       {% for cat in categories %}
         <button type="button"
                 class="tab {% if cat.name == active_category %}active{% endif %}"
@@ -92,55 +93,108 @@
 
  <script>
 (async function () {
-  const feedEl = document.getElementById("feed");
-  const API_URL = "{{ url_for('api_articles') }}";   // <— use endpoint name
-
+  const feedEl   = document.getElementById("feed");
+  const API_URL  = "{{ url_for('subscriber_search_api') }}";
   const ACTIVE_CAT = "{{ active_category|default('Trending') }}";
+  const tabAll   = document.getElementById("tabAll");
+  const searchForm = document.getElementById("searchForm");
+  const searchInput = document.getElementById("searchQ");
 
-  function truncate(text, n = 220) {
-    if (!text) return "";
-    const t = text.trim();
-    return t.length > n ? t.slice(0, n - 1) + "…" : t;
-  }
+  let lastCategory = ACTIVE_CAT;
+
+  function truncate(t,n=220){ if(!t) return ""; t=t.trim(); return t.length>n?t.slice(0,n-1)+"…":t; }
   function esc(s){ return (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-  function articleCardHTML(a) {
-    const imgSrc = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
-    return `
-      <article class="article-card" data-id="${a.articleID}">
-        <div class="text">
-          <h3>${esc(a.title)}</h3>
-          <p class="desc">${esc(truncate(a.content))}</p>
-        </div>
-        <div class="thumb-wrap"><img src="${imgSrc}" alt=""></div>
-      </article>`;
+  function card(a){
+    const img = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
+    return `<article class="article-card" data-id="${a.articleID}">
+      <div class="text"><h3>${esc(a.title)}</h3><p class="desc">${esc(truncate(a.content))}</p></div>
+      <div class="thumb-wrap"><img src="${img}" alt=""></div></article>`;
   }
-  async function loadArticles(cat) {
+  function setActiveTab(btn){
+    document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+  }
+
+  async function loadArticles(cat, q){
     feedEl.innerHTML = "";
     const p = new URLSearchParams();
     if (cat) p.set("cat", cat);
-    p.set("limit", "10");
+    if (q)   p.set("q", q);
+    p.set("limit","10");
+
     const res = await fetch(`${API_URL}?${p.toString()}`);
-    if (!res.ok) { feedEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`; return; }
+    if(!res.ok){ feedEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`; return {rows:[]}; }
     const rows = await res.json();
-    feedEl.innerHTML = rows.length ? rows.map(articleCardHTML).join("") : "<p>No articles found.</p>";
+    feedEl.innerHTML = rows.length ? rows.map(card).join("") : "<p>No articles found.</p>";
+    return {rows};
   }
+
+  // Initial load (no search): All tab stays hidden
   loadArticles(ACTIVE_CAT);
 
-  // keep your tab click handler if you want instant switching without navigation
-  document.addEventListener("click", e => {
+  // Handle category tab click (including after searching)
+  document.addEventListener("click", async e => {
     const btn = e.target.closest(".tab[data-cat]");
     if (!btn) return;
-    const cat = btn.getAttribute("data-cat");
-    loadArticles(cat);
-    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    btn.classList.add("active");
+
+    const cat = btn.getAttribute("data-cat"); // empty string means All
+    const q   = (searchInput?.value || "").trim();
+
+    // If user clicks a real category, remember it
+    if (cat) lastCategory = cat;
+
+    const {rows} = await loadArticles(cat, q);
+
+    // If clicking All manually while empty search (rare), leave it visible if there are rows,
+    // otherwise hide it again.
+    if (btn === tabAll) {
+      if (rows.length === 0 && !q) tabAll.classList.add("hidden");
+    }
+
+    setActiveTab(btn);
+  });
+
+  // SEARCH: intercept submit, show All tab if there are results and activate it
+  if (searchForm){
+    searchForm.addEventListener("submit", async e => {
+      e.preventDefault();
+      const q = (searchInput.value || "").trim();
+
+      if (!q){
+        // Empty query: hide All, go back to last real category
+        tabAll.classList.add("hidden");
+        // find the button for lastCategory
+        const lastBtn = [...document.querySelectorAll(".tab[data-cat]")].find(b => b.getAttribute("data-cat") === lastCategory);
+        await loadArticles(lastCategory, "");
+        setActiveTab(lastBtn);
+        return;
+      }
+
+      // Do an all-categories search (no cat param)
+      const {rows} = await loadArticles("", q);
+
+      if (rows.length > 0){
+        // Show + activate the All tab
+        tabAll.classList.remove("hidden");
+        setActiveTab(tabAll);
+      } else {
+        // No results: keep All hidden, stay on current category
+        tabAll.classList.add("hidden");
+      }
+    });
+  }
+
+  // Optional: if user clears the input and blurs, restore last category
+  searchInput?.addEventListener("input", async () => {
+    if (searchInput.value.trim() === ""){
+      tabAll.classList.add("hidden");
+      const lastBtn = [...document.querySelectorAll(".tab[data-cat]")].find(b => b.getAttribute("data-cat") === lastCategory);
+      await loadArticles(lastCategory, "");
+      setActiveTab(lastBtn);
+    }
   });
 })();
 </script>
-
-
-
-  <!-- Removed logout modal and link handlers to ensure there are no navigational actions for now -->
 
 </body>
 </html>
