@@ -80,6 +80,56 @@ html,body{ background:var(--bg); color:var(--ink); font-family:Arial,Helvetica,s
 .thumb-wrap{ flex:0 0 clamp(220px, 30vw, 320px); display:block; }
 .thumb{ width:100%; height:clamp(160px, 22vw, 200px); object-fit:cover; border-radius:8px; border:1px solid #ddd; }
 
+/* === Homepage card spacing (matches Article View feel) === */
+
+/* Add side padding inside each article card on the homepage feed */
+.feed .article-card{
+  padding-left: 18px;
+  padding-right: 18px;
+}
+
+/* Give the text block a little inner space so it doesn't kiss the edges,
+   and leave a bit of room from the thumbnail on the right */
+.feed .article-card .text{
+  padding-left: 6px;
+  padding-right: 12px;
+}
+
+/* Tighten header/paragraph margins for a clean, aligned look */
+.feed .article-card h3{
+  margin: 0 0 6px 0;
+}
+.feed .article-card .desc{
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* Keep side image neat */
+.feed .article-card .thumb-wrap img{
+  border-radius: 10px;
+  display: block;
+}
+
+/* Optional: on very small screens reduce padding slightly */
+@media (max-width: 600px){
+  .feed .article-card{
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .feed .article-card .text{
+    padding-right: 8px;
+  }
+}
+
+/* Hand cursor on hover for clickable article cards */
+.feed .article-card.open-article,
+.feed .article-card.open-article .text,
+.feed .article-card.open-article h3,
+.feed .article-card.open-article .desc {
+  cursor: pointer;
+}
+
+
 /* ===== Buttons & Ads ===== */
 .btn{ display:inline-block; font-weight:600; text-decoration:none; text-align:center; cursor:pointer;
       padding:12px 14px; border-radius:10px; border:1px solid transparent; }
@@ -621,5 +671,154 @@ html,body{ background:var(--bg); color:var(--ink); font-family:Arial,Helvetica,s
 }
 .modal .buttons{
   display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;
+}
+
+/* ===== Subscriber Article View (shared, safe to append) ===== */
+
+/* Keep the article card comfortable */
+.article-card.detail.article-view {
+  padding: 20px;       /* overall padding inside the card */
+}
+
+/* Header + content left/right breathing room */
+.article-view .article-header {
+  padding: 0 16px;
+  margin-bottom: 6px;
+}
+
+.article-view .article-title {
+  margin: 0;
+  line-height: 1.25;
+}
+
+/* Toolbar lives between header and content */
+.article-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 16px 12px;   /* left/right match header/content padding */
+}
+
+/* Buttons (neutral + light) */
+.btn.btn-outline {
+  border: 1px solid #cfd6e4;
+  background: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn.btn-light {
+  border: 1px solid #e7e9ee;
+  background: #f7f7f9;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Two-column area spacing */
+.article-view .two-col {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 16px;                    /* gap between text & image */
+  align-items: start;
+  padding: 0 16px;              /* match left/right padding */
+}
+
+.article-view .article-content {
+  line-height: 1.6;
+  color: #333;
+}
+
+/* Side image */
+.article-view .thumb-wrap.side img {
+  display: block;
+  max-width: 260px;
+  height: auto;
+  border-radius: 8px;
+}
+
+/* Meta line under content */
+.article-view .meta {
+  padding: 12px 16px 0;         /* match left/right padding */
+  color: #666;
+  font-size: 0.95rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Small toast for feedback */
+.toast {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  display: none;
+  z-index: 3000;
+}
+.toast.show { display: block; }
+
+/* Responsive: stack image under content on narrow screens */
+@media (max-width: 860px) {
+  .article-view .two-col {
+    grid-template-columns: 1fr;
+  }
+  .article-view .thumb-wrap.side img {
+    max-width: 100%;
+  }
+}
+
+/* Align the action buttons to the right, give nice spacing */
+.action-bar{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:12px;
+  margin:8px 0 16px;
+}
+
+/* Ghost button look used for Bookmark/TTS buttons */
+.btn-ghost{
+  background:#fff;
+  border:1px solid #e3e3e3;
+  border-radius:10px;
+  padding:10px 14px;
+  font-weight:600;
+  box-shadow:0 3px 10px rgba(0,0,0,.06);
+  cursor:pointer;
+}
+.btn-ghost:hover{ border-color:#cfd4da; }
+
+/* TTS controls shown after activation */
+.tts-controls.hidden{ display:none; }
+.tts-controls{ display:inline-flex; gap:8px; }
+
+/* Make the whole article breathe a bit more on the sides */
+.article-card.detail.article-view{
+  padding-left:24px;
+  padding-right:24px;
+}
+.article-header .article-title{
+  padding-left:8px;
+  padding-right:8px;
+}
+.article-content{
+  padding-left:8px;
+  padding-right:8px;
+  line-height:1.7;
+}
+
+/* Keep side image tidy */
+.thumb-wrap.side img{
+  border-radius:10px;
+  max-width:260px;
+  height:auto;
+  display:block;
 }
 

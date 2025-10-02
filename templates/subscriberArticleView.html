@@ -17,9 +17,9 @@
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </button>
 
-      <!-- (Optional) public search; leave as-is if you want it -->
-      <form class="search" action="{{ url_for('search') }}" method="get" role="search">
-        <input type="text" name="q" placeholder="Searching for… ?" aria-label="Search" />
+      <!-- In-page subscriber search -->
+      <form id="subSearchForm" class="search" action="#" method="get" role="search">
+        <input id="subSearchQ" type="text" name="q" placeholder="Searching for… ?" aria-label="Search" />
         <button type="submit" aria-label="Search">Search</button>
       </form>
     </div>
@@ -39,26 +39,34 @@
 
   <!-- Page -->
   <main class="page">
-    <section class="feed">
-      <article class="article-card detail article-view">
+
+    <!-- ===== ARTICLE VIEW (hidden when showing results) ===== -->
+    <section id="articleSection" class="feed">
+      <article id="articleRoot" class="article-card detail article-view" data-article-id="{{ article.articleID }}">
         <header class="article-header">
           <h1 class="article-title">{{ article.title }}</h1>
-
-          <!-- Actions stack: Pin/Unpin, then Read Aloud -->
-          <div class="article-actions" style="display:flex; flex-direction:column; gap:.5rem; align-items:flex-start;">
-            <button id="pinBtn" class="pin-btn" aria-pressed="{{ 'true' if is_pinned else 'false' }}">
-              <span class="pin-icon" aria-hidden="true">📌</span>
-              <span class="pin-text">{{ 'Unpin' if is_pinned else 'Pin' }}</span>
-            </button>
-
-            <!-- NEW: Read Aloud button -->
-            <button id="readBtn" class="btn btn-light" type="button" aria-live="polite">
-              🔊 Read Article
-            </button>
-          </div>
         </header>
 
-        <!-- Two-column body: text + image (image stacks on mobile via CSS) -->
+        <!-- RIGHT-ALIGNED ACTION BAR -->
+        <div class="action-bar">
+          <button id="bookmarkBtn" class="btn btn-ghost" aria-pressed="{{ 'true' if is_pinned else 'false' }}">
+            <span class="pin-icon" aria-hidden="true">📌</span>
+            <span class="label">{{ 'Remove Bookmark' if is_pinned else 'Add Bookmark' }}</span>
+          </button>
+
+          <div id="ttsWrap">
+            <button id="ttsStart" class="btn btn-ghost">
+              <span aria-hidden="true">🔊</span> Read Article
+            </button>
+            <div id="ttsControls" class="tts-controls hidden">
+              <button id="ttsPause"  class="btn btn-ghost">Pause</button>
+              <button id="ttsResume" class="btn btn-ghost">Continue</button>
+              <button id="ttsReplay" class="btn btn-ghost">Replay</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Two-column body: text + image -->
         <div class="article-body two-col">
           <div class="article-content">
             {{ article.content | safe }}
@@ -79,15 +87,26 @@
         </div>
       </article>
 
-      <!-- Comments placeholder (no persistence yet) -->
+      <!-- Comments placeholder -->
       <section class="card" style="padding:18px; margin-top:16px;">
         <h3 style="margin:0 0 12px 0;">Comments</h3>
         <p style="color:#666">Comments feature coming soon.</p>
       </section>
     </section>
 
+    <!-- ===== SEARCH RESULTS (shown in-page; hides article view) ===== -->
+    <section id="resultsSection" class="feed hidden" aria-live="polite" aria-busy="false">
+      <div class="results-header">
+        <h2 class="results-title">Search results</h2>
+        <button id="closeResults" type="button" class="btn btn-light">Close results</button>
+      </div>
+      <section id="resultsFeed"></section>
+    </section>
+
     <aside class="sidebar">
-      <button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">Create Your Story</button>
+      <button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">
+        Create Your Story
+      </button>
       <div class="ads">Ads</div>
     </aside>
   </main>
@@ -111,155 +130,229 @@
     })();
   </script>
 
-  <!-- Pin/Unpin -->
-  <script>
-    (function(){
-      const pinBtn  = document.getElementById('pinBtn');
-      const toast   = document.getElementById('toast');
-      const msgEl   = document.getElementById('toastMsg');
-      const showToast = (m) => { msgEl.textContent = m || 'Done.'; toast.classList.add('show'); setTimeout(()=> toast.classList.remove('show'), 1400); };
+  <!-- In-page Subscriber Search -->
+<script>
+  (function(){
+    const API_URL      = "{{ url_for('subscriber_search_api') }}";
+    const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
+    const PLACEHOLDER  = "{{ url_for('static', filename='img/placeholder.png') }}";
 
-      if (!pinBtn) return;
+    const form   = document.getElementById('subSearchForm');
+    const input  = document.getElementById('subSearchQ');
+    const articleSection = document.getElementById('articleSection');
+    const resultsSection = document.getElementById('resultsSection');
+    const resultsFeed    = document.getElementById('resultsFeed');
+    const closeBtn       = document.getElementById('closeResults');
 
-      pinBtn.addEventListener('click', async () => {
-        try{
-          const res = await fetch("{{ url_for('subscriber_toggle_pin') }}", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ articleID: {{ article.articleID }} })
-          });
-          const data = await res.json();
-          if (!res.ok || !data.ok) throw new Error(data.message || "Failed");
+    const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const trunc = (t, n=220) => (!t ? "" : (t=t.trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
 
-          const nowPinned = data.state === 'pinned';
-          pinBtn.setAttribute('aria-pressed', nowPinned ? 'true' : 'false');
-          pinBtn.querySelector('.pin-text').textContent = nowPinned ? 'Unpin' : 'Pin';
-          showToast(nowPinned ? 'Pinned to your list.' : 'Unpinned.');
-        }catch(err){
-          showToast('Unable to update pin. Please try again.');
-        }
-      });
-    })();
-  </script>
+    function imageCandidates(raw) {
+      let v = (raw ?? "").toString().trim();
+      const downs = v.toLowerCase();
+      if (!v || downs === "null" || downs === "none" || downs === "undefined") return [];
 
-  <!-- Text-to-Speech -->
-  <script>
-    (function(){
-      const readBtn = document.getElementById('readBtn');
-      const toast   = document.getElementById('toast');
-      const msgEl   = document.getElementById('toastMsg');
-      const showToast = (m) => { msgEl.textContent = m || 'Done.'; toast.classList.add('show'); setTimeout(()=> toast.classList.remove('show'), 1400); };
+      const fname = v.split("/").pop();
 
-      if (!readBtn) return;
+      const list = [];
 
-      // Basic state machine
-      let state = 'idle'; // 'idle' | 'reading' | 'paused'
-      let queue = [];     // utterances queue
+      if (/^https?:\/\//i.test(v)) list.push(v);
 
-      function getArticleText() {
-        const el = document.querySelector('.article-content');
-        if (!el) return '';
-        // Prefer visible text only
-        return el.innerText.replace(/\s+\n/g, '\n').trim();
+      if (/static\//i.test(v)) {
+        const p = v.startsWith("/") ? v : "/" + v;
+        list.push(p);
       }
 
-      function splitIntoChunks(text, maxLen = 1800) {
-        // Split by paragraphs and sentences to keep utterances natural and under limits
-        const parts = [];
-        const paras = text.split(/\n{2,}/);
-        for (const p of paras) {
-          const clean = p.replace(/\s+/g,' ').trim();
-          if (!clean) continue;
-          if (clean.length <= maxLen) { parts.push(clean); continue; }
-          // Further split by sentence-ish boundaries
-          const sentences = clean.split(/([.!?…]+)\s+/);
-          let buf = '';
-          for (let i=0; i<sentences.length; i+=2) {
-            const chunk = (sentences[i] || '') + (sentences[i+1] || '');
-            if ((buf + ' ' + chunk).trim().length > maxLen) {
-              if (buf) parts.push(buf.trim());
-              buf = chunk;
-            } else {
-              buf = (buf ? (buf + ' ' + chunk) : chunk);
-            }
+      if (!/^https?:\/\//i.test(v) && /\/./.test(v)) {
+        list.push(v.startsWith("/") ? v : "/" + v);
+        list.push("/static/" + v.replace(/^\/+/, "")); // also try under /static
+      }
+
+      if (fname && !v.includes("/")) {
+        list.push("/static/uploads/" + fname);
+        list.push("/static/img/" + fname);
+      }
+
+      // De-duplicate while preserving order
+      return [...new Set(list)];
+    }
+
+    function attachImageLoader(img, candidates) {
+      if (!candidates.length) { img.src = PLACEHOLDER; return; }
+      let idx = 0;
+      function tryNext() {
+        if (idx >= candidates.length) { img.src = PLACEHOLDER; return; }
+        img.src = candidates[idx++];
+      }
+      img.onerror = tryNext;
+      tryNext();
+    }
+
+    function card(a){
+      const rawImage = a.image ?? a.image_url ?? a.imagePath ?? a.imageName ?? a.cover;
+      const cands = imageCandidates(rawImage);
+
+      const id = `img_${a.articleID}_${Math.random().toString(36).slice(2)}`;
+
+      const html = `
+        <article class="article-card open-article" data-id="${a.articleID}" role="button" tabindex="0">
+          <div class="text">
+            <h3>${esc(a.title)}</h3>
+            <p class="desc">${esc(trunc(a.content))}</p>
+          </div>
+          <div class="thumb-wrap">
+            <img id="${id}" alt="">
+          </div>
+        </article>`;
+      
+      queueMicrotask(() => {
+        const img = document.getElementById(id);
+        if (img) attachImageLoader(img, cands);
+      });
+
+      return html;
+    }
+
+    async function runSearch(q){
+      resultsSection.setAttribute('aria-busy','true');
+      resultsFeed.innerHTML = "";
+      try{
+        const p = new URLSearchParams({ q, limit: "20" });
+        const res = await fetch(`${API_URL}?${p.toString()}`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const rows = await res.json();
+        resultsFeed.innerHTML = rows.length ? rows.map(card).join("") : "<p>No articles found.</p>";
+      }catch(err){
+        console.error(err);
+        resultsFeed.innerHTML = `<p style="color:#b00">Failed to load results.</p>`;
+      }finally{
+        resultsSection.setAttribute('aria-busy','false');
+      }
+    }
+
+    function showResults(){ articleSection.classList.add('hidden'); resultsSection.classList.remove('hidden'); }
+    function hideResults(){ resultsSection.classList.add('hidden'); articleSection.classList.remove('hidden'); }
+
+    if (form){
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const q = (input.value || '').trim();
+        if (!q) { hideResults(); return; }
+        showResults();
+        runSearch(q);
+      });
+    }
+    if (closeBtn) closeBtn.addEventListener('click', hideResults);
+    if (input) input.addEventListener('input', () => { if (input.value.trim()==="") hideResults(); });
+
+    // Open result
+    resultsFeed.addEventListener('click', (e) => {
+      const el = e.target.closest('.open-article');
+      if (!el) return;
+      const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
+      window.location.href = url;
+    });
+    resultsFeed.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const el = e.target.closest('.open-article');
+      if (!el) return;
+      const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
+      window.location.href = url;
+    });
+  })();
+</script>
+
+
+  <!-- Bookmark + TTS -->
+  <script>
+    (function(){
+      const toast   = document.getElementById('toast');
+      const msgEl   = document.getElementById('toastMsg');
+      const showToast = (m) => { msgEl.textContent = m || 'Done.'; toast.classList.add('show'); setTimeout(()=> toast.classList.remove('show'), 1400); };
+
+      /* Bookmark toggle */
+      const bookmarkBtn = document.getElementById('bookmarkBtn');
+      const articleRoot = document.getElementById('articleRoot');
+      const articleID   = parseInt(articleRoot?.dataset.articleId || '0', 10);
+      const endpoint    = "{{ url_for('subscriber_toggle_pin') }}";
+
+      if (bookmarkBtn){
+        bookmarkBtn.addEventListener('click', async () => {
+          if (!articleID){ showToast('Missing article ID.'); return; }
+          try{
+            const res  = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ articleID })
+            });
+            const data = await res.json().catch(()=> ({}));
+            if (!res.ok || !data.ok){ throw new Error(data.message || ('HTTP '+res.status)); }
+            const nowBookmarked = data.state === 'pinned';
+            bookmarkBtn.setAttribute('aria-pressed', nowBookmarked ? 'true' : 'false');
+            const label = bookmarkBtn.querySelector('.label');
+            if (label) label.textContent = nowBookmarked ? 'Remove Bookmark' : 'Add Bookmark';
+            showToast(nowBookmarked ? 'Bookmarked.' : 'Removed from bookmarks.');
+          }catch(err){
+            showToast('Unable to update bookmark.');
+            console.error(err);
           }
-          if (buf) parts.push(buf.trim());
-        }
-        return parts;
-      }
-
-      function resetSpeech() {
-        window.speechSynthesis.cancel();
-        state = 'idle';
-        queue = [];
-        readBtn.textContent = '🔊 Read Article';
-      }
-
-      function speak() {
-        const text = getArticleText();
-        if (!text) { showToast('Nothing to read.'); return; }
-
-        // Prepare utterances
-        const chunks = splitIntoChunks(text);
-        queue = chunks.map(t => {
-          const u = new SpeechSynthesisUtterance(t);
-          // Optional: tweak rate/pitch if you like
-          u.rate = 1.0;   // 0.1–10
-          u.pitch = 1.0;  // 0–2
-          u.onend = handleUtteranceEnd;
-          u.onerror = (e) => { console.error(e); resetSpeech(); showToast('Reading error.'); };
-          return u;
         });
-
-        // Start speaking
-        state = 'reading';
-        readBtn.textContent = '⏸️ Pause';
-        queue.forEach(u => window.speechSynthesis.speak(u));
       }
 
-      function handleUtteranceEnd() {
-        // When the last utterance completes, if nothing left in the queue AND not paused, return to idle
-        const speaking = window.speechSynthesis.speaking;
-        const pending  = window.speechSynthesis.pending;
-        if (!speaking && !pending && state !== 'paused') {
-          resetSpeech();
-        }
+      /* TTS (Web Speech API) */
+      const ttsStart   = document.getElementById('ttsStart');
+      const ttsCtrls   = document.getElementById('ttsControls');
+      const ttsPause   = document.getElementById('ttsPause');
+      const ttsResume  = document.getElementById('ttsResume');
+      const ttsReplay  = document.getElementById('ttsReplay');
+
+      // Gather plain text from the article (ignoring the sidebar image)
+      const articleText = (() => {
+        const el = document.querySelector('.article-content');
+        return el ? el.innerText.trim() : '';
+      })();
+
+      function speak(text){
+        if (!('speechSynthesis' in window)){ showToast('Reader not supported by this browser.'); return; }
+        window.speechSynthesis.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        utter.rate = 1.0;
+        utter.pitch = 1.0;
+        window.speechSynthesis.speak(utter);
       }
 
-      function toggle() {
-        if (!('speechSynthesis' in window)) {
-          showToast('Text reading is not supported on this browser.');
-          return;
-        }
-
-        if (state === 'idle') {
-          // Fresh read
-          speak();
-        } else if (state === 'reading') {
-          // Pause
-          window.speechSynthesis.pause();
-          state = 'paused';
-          readBtn.textContent = '▶️ Resume';
-        } else if (state === 'paused') {
-          // Resume
-          window.speechSynthesis.resume();
-          state = 'reading';
-          readBtn.textContent = '⏸️ Pause';
-        }
+      if (ttsStart){
+        ttsStart.addEventListener('click', () => {
+          if (!articleText){ showToast('Nothing to read.'); return; }
+          speak(articleText);
+          ttsCtrls.classList.remove('hidden');
+          ttsStart.classList.add('hidden');
+        });
+      }
+      if (ttsPause){
+        ttsPause.addEventListener('click', () => {
+          if (window.speechSynthesis.speaking && !window.speechSynthesis.paused){
+            window.speechSynthesis.pause();
+          }
+        });
+      }
+      if (ttsResume){
+        ttsResume.addEventListener('click', () => {
+          if (window.speechSynthesis.paused){
+            window.speechSynthesis.resume();
+          }
+        });
+      }
+      if (ttsReplay){
+        ttsReplay.addEventListener('click', () => {
+          speak(articleText);
+        });
       }
 
-      // Stop reading if the user navigates away or reloads
-      window.addEventListener('beforeunload', resetSpeech);
-      document.addEventListener('visibilitychange', () => {
-        if (document.hidden && state === 'reading') {
-          // Auto-pause when tab hidden
-          window.speechSynthesis.pause();
-          state = 'paused';
-          readBtn.textContent = '▶️ Resume';
-        }
+      // Clean up on page unload
+      window.addEventListener('beforeunload', () => {
+        if ('speechSynthesis' in window){ window.speechSynthesis.cancel(); }
       });
-
-      readBtn.addEventListener('click', toggle);
     })();
   </script>
 </body>
