@@ -10,6 +10,8 @@ from werkzeug.utils import secure_filename
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
+from deep_translator import GoogleTranslator
+
 
 import nltk
 
