@@ -5,7 +5,7 @@ from functools import wraps
 import webbrowser
 import threading
 import mysql.connector
-from datetime import datetime
+from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
@@ -604,6 +604,226 @@ def subscriber_api_bookmarks():
     rows = cur.fetchall()
     cur.close(); conn.close()
     return jsonify(rows)
+
+# --- (MW) Subscriber comment functions ------
+def _timeago(ts):
+    # naive, good-enough "x min ago"
+    if not ts:
+        return ""
+    if isinstance(ts, str):
+        try:
+            ts = datetime.fromisoformat(ts.replace("Z",""))
+        except Exception:
+            return ""
+    now = datetime.now(timezone.utc)
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    delta = int((now - ts).total_seconds())
+    if delta < 60:  return "just now"
+    if delta < 3600: return f"{delta//60}m ago"
+    if delta < 86400: return f"{delta//3600}h ago"
+    return f"{delta//86400}d ago"
+
+@app.get("/subscriber/api/comments")
+@login_required()
+def subscriber_api_comments():
+    from flask import jsonify, request, session
+
+    article_id = int(request.args.get("article_id", 0))
+    uid = session.get("userID")  # <- use the correct session key
+
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    # 1) Load comments for this article
+    cur.execute("""
+        SELECT
+            c.commentID,
+            c.comment_text,
+            c.likes,
+            c.dislikes,
+            c.created_at,
+            c.userID,
+            u.name AS author,
+            (c.userID = %s) AS mine
+        FROM comments c
+        JOIN users u ON u.userID = c.userID
+        WHERE c.articleID = %s
+        ORDER BY c.created_at DESC
+    """, (uid, article_id))
+    rows = cur.fetchall()
+
+    # 2) Load my reaction (like/dislike) for these comments, if any
+    my_reaction_map = {}
+    if rows:
+        comment_ids = [str(r["commentID"]) for r in rows]
+        # Build a safe IN (...) list; since these come from DB rows, it’s fine to join
+        in_clause = ",".join(comment_ids)
+
+        cur.execute(f"""
+            SELECT commentID, reaction
+            FROM comment_reactions
+            WHERE userID = %s AND commentID IN ({in_clause})
+        """, (uid,))
+        for r in cur.fetchall():
+            # if both existed somehow, last write wins; normally there’s a UNIQUE(userID, commentID)
+            my_reaction_map[r["commentID"]] = r["reaction"]
+
+    cur.close()
+    conn.close()
+
+    # 3) Shape API payload
+    def to_iso(dt):
+        try:
+            return dt.isoformat()
+        except Exception:
+            return None
+
+    out = []
+    for r in rows:
+        out.append({
+            "commentID": r["commentID"],
+            "text": r["comment_text"],
+            "likes": int(r["likes"] or 0),
+            "dislikes": int(r["dislikes"] or 0),
+            "created_at": to_iso(r["created_at"]),
+            "time_ago": "",  # optional: compute on server or format on client
+            "author": r["author"] or "Anonymous",
+            "mine": bool(r["mine"]),
+            "my_reaction": my_reaction_map.get(r["commentID"])  # "like" | "dislike" | None
+        })
+
+    return jsonify(out)
+
+
+@app.post("/subscriber/api/comments")
+@login_required("Subscriber")
+def subscriber_api_comment_create():
+    uid = session.get("userID")
+    article_id = request.form.get("articleID", type=int)
+    text = (request.form.get("text") or "").strip()
+    parent_id = request.form.get("parent_id", type=int)
+
+    if not article_id or not text:
+        return jsonify(ok=False, message="articleID and text required"), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO comments (articleID, userID, comment_text, is_reply, reply_to_comment_id)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (article_id, uid, text, 1 if parent_id else 0, parent_id))
+    conn.commit()
+    new_id = cur.lastrowid
+    cur.close(); conn.close()
+    return jsonify(ok=True, commentID=new_id)
+
+@app.put("/subscriber/api/comments/<int:comment_id>")
+@login_required("Subscriber")
+def subscriber_api_comment_update(comment_id):
+    uid = session.get("userID")
+    text = (request.json.get("text") or "").strip()
+    if not text:
+        return jsonify(ok=False, message="text required"), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+    # ensure ownership
+    cur.execute("SELECT userID FROM comments WHERE commentID=%s", (comment_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close(); return jsonify(ok=False, message="Not found"), 404
+    if row[0] != uid:
+        cur.close(); conn.close(); return jsonify(ok=False, message="Forbidden"), 403
+
+    cur.execute("UPDATE comments SET comment_text=%s WHERE commentID=%s", (text, comment_id))
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify(ok=True)
+
+@app.delete("/subscriber/api/comments/<int:comment_id>")
+@login_required("Subscriber")
+def subscriber_api_comment_delete(comment_id):
+    uid = session.get("userID")
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT userID FROM comments WHERE commentID=%s", (comment_id,))
+    row = cur.fetchone()
+    if not row:
+        cur.close(); conn.close(); return jsonify(ok=False, message="Not found"), 404
+    if row[0] != uid:
+        cur.close(); conn.close(); return jsonify(ok=False, message="Forbidden"), 403
+    cur.execute("DELETE FROM comments WHERE commentID=%s", (comment_id,))
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify(ok=True)
+
+@app.post("/subscriber/api/comments/<int:comment_id>/react")
+@login_required("Subscriber")
+def subscriber_api_comment_react(comment_id):
+    uid = session.get("userID")
+    action = (request.json.get("action") or "").lower()  # "like"|"dislike"|"clear"
+
+    if action not in ("like", "dislike", "clear"):
+        return jsonify(ok=False, message="Invalid action"), 400
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    # read current
+    cur.execute("""SELECT reaction FROM comment_reactions WHERE commentID=%s AND userID=%s""",
+                (comment_id, uid))
+    row = cur.fetchone()
+    prev = row[0] if row else None
+
+    # counters first (get current counts)
+    cur.execute("SELECT likes, dislikes FROM comments WHERE commentID=%s", (comment_id,))
+    cd = cur.fetchone()
+    if not cd:
+        cur.close(); conn.close()
+        return jsonify(ok=False, message="Comment not found"), 404
+    likes, dislikes = cd
+
+    # apply transitions
+    if action == "clear":
+        if prev == "like":
+            likes = max(0, likes - 1)
+        elif prev == "dislike":
+            dislikes = max(0, dislikes - 1)
+        if prev:
+            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userID=%s",
+                        (comment_id, uid))
+    else:
+        if prev == action:
+            # toggle off same action
+            if action == "like":   likes = max(0, likes - 1)
+            else:                  dislikes = max(0, dislikes - 1)
+            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userID=%s",
+                        (comment_id, uid))
+            action = "clear"
+        else:
+            # switch or create
+            if prev == "like":
+                likes = max(0, likes - 1)
+            elif prev == "dislike":
+                dislikes = max(0, dislikes - 1)
+            if action == "like":
+                likes += 1
+            else:
+                dislikes += 1
+            cur.execute("""
+                INSERT INTO comment_reactions (commentID, userID, reaction)
+                VALUES (%s,%s,%s)
+                ON DUPLICATE KEY UPDATE reaction=VALUES(reaction), updated_at=CURRENT_TIMESTAMP
+            """, (comment_id, uid, action))
+
+    # persist counters
+    cur.execute("UPDATE comments SET likes=%s, dislikes=%s WHERE commentID=%s",
+                (likes, dislikes, comment_id))
+    conn.commit()
+    cur.close(); conn.close()
+
+    return jsonify(ok=True, likes=likes, dislikes=dislikes, state=None if action=="clear" else action)
 
 # (YY)
 # ---------- Auth ----------

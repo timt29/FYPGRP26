@@ -12,7 +12,6 @@
   <!-- Top Bar -->
   <header class="topbar">
     <div class="left">
-      <!-- Back to subscriber home -->
       <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </button>
@@ -87,14 +86,23 @@
         </div>
       </article>
 
-      <!-- Comments placeholder -->
-      <section class="card" style="padding:18px; margin-top:16px;">
-        <h3 style="margin:0 0 12px 0;">Comments</h3>
-        <p style="color:#666">Comments feature coming soon.</p>
+      <!-- Comments -->
+      <section class="card comments">
+        <h3 class="comments-title">Comments</h3>
+
+        <!-- Create -->
+        <form id="cForm" class="comment-form" autocomplete="off">
+          <img src="{{ url_for('static', filename='img/avatar.png') }}" alt="" class="comment-avatar">
+          <textarea id="cInput" class="comment-input" rows="3" placeholder="Add a comment…"></textarea>
+          <button id="cSend" type="submit" class="btn btn-primary">Send</button>
+        </form>
+
+        <!-- List -->
+        <div id="cList" class="comment-list"></div>
       </section>
     </section>
 
-    <!-- ===== SEARCH RESULTS (shown in-page; hides article view) ===== -->
+    <!-- ===== SEARCH RESULTS (in-page; hides article view) ===== -->
     <section id="resultsSection" class="feed hidden" aria-live="polite" aria-busy="false">
       <div class="results-header">
         <h2 class="results-title">Search results</h2>
@@ -131,7 +139,7 @@
   </script>
 
   <!-- In-page Subscriber Search -->
-<script>
+  <script>
   (function(){
     const API_URL      = "{{ url_for('subscriber_search_api') }}";
     const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
@@ -153,27 +161,18 @@
       if (!v || downs === "null" || downs === "none" || downs === "undefined") return [];
 
       const fname = v.split("/").pop();
-
       const list = [];
 
       if (/^https?:\/\//i.test(v)) list.push(v);
-
-      if (/static\//i.test(v)) {
-        const p = v.startsWith("/") ? v : "/" + v;
-        list.push(p);
-      }
-
+      if (/static\//i.test(v)) list.push(v.startsWith("/") ? v : "/" + v);
       if (!/^https?:\/\//i.test(v) && /\/./.test(v)) {
         list.push(v.startsWith("/") ? v : "/" + v);
-        list.push("/static/" + v.replace(/^\/+/, "")); // also try under /static
+        list.push("/static/" + v.replace(/^\/+/, ""));
       }
-
       if (fname && !v.includes("/")) {
         list.push("/static/uploads/" + fname);
         list.push("/static/img/" + fname);
       }
-
-      // De-duplicate while preserving order
       return [...new Set(list)];
     }
 
@@ -191,7 +190,6 @@
     function card(a){
       const rawImage = a.image ?? a.image_url ?? a.imagePath ?? a.imageName ?? a.cover;
       const cands = imageCandidates(rawImage);
-
       const id = `img_${a.articleID}_${Math.random().toString(36).slice(2)}`;
 
       const html = `
@@ -200,16 +198,12 @@
             <h3>${esc(a.title)}</h3>
             <p class="desc">${esc(trunc(a.content))}</p>
           </div>
-          <div class="thumb-wrap">
-            <img id="${id}" alt="">
-          </div>
+          <div class="thumb-wrap"><img id="${id}" alt=""></div>
         </article>`;
-      
       queueMicrotask(() => {
         const img = document.getElementById(id);
         if (img) attachImageLoader(img, cands);
       });
-
       return html;
     }
 
@@ -245,7 +239,6 @@
     if (closeBtn) closeBtn.addEventListener('click', hideResults);
     if (input) input.addEventListener('input', () => { if (input.value.trim()==="") hideResults(); });
 
-    // Open result
     resultsFeed.addEventListener('click', (e) => {
       const el = e.target.closest('.open-article');
       if (!el) return;
@@ -260,8 +253,7 @@
       window.location.href = url;
     });
   })();
-</script>
-
+  </script>
 
   <!-- Bookmark + TTS -->
   <script>
@@ -270,7 +262,6 @@
       const msgEl   = document.getElementById('toastMsg');
       const showToast = (m) => { msgEl.textContent = m || 'Done.'; toast.classList.add('show'); setTimeout(()=> toast.classList.remove('show'), 1400); };
 
-      /* Bookmark toggle */
       const bookmarkBtn = document.getElementById('bookmarkBtn');
       const articleRoot = document.getElementById('articleRoot');
       const articleID   = parseInt(articleRoot?.dataset.articleId || '0', 10);
@@ -299,14 +290,12 @@
         });
       }
 
-      /* TTS (Web Speech API) */
       const ttsStart   = document.getElementById('ttsStart');
       const ttsCtrls   = document.getElementById('ttsControls');
       const ttsPause   = document.getElementById('ttsPause');
       const ttsResume  = document.getElementById('ttsResume');
       const ttsReplay  = document.getElementById('ttsReplay');
 
-      // Gather plain text from the article (ignoring the sidebar image)
       const articleText = (() => {
         const el = document.querySelector('.article-content');
         return el ? el.innerText.trim() : '';
@@ -349,11 +338,174 @@
         });
       }
 
-      // Clean up on page unload
       window.addEventListener('beforeunload', () => {
         if ('speechSynthesis' in window){ window.speechSynthesis.cancel(); }
       });
     })();
   </script>
+
+  <!-- Comments logic -->
+  <script>
+  (function(){
+    const ARTICLE_ID = {{ article.articleID }};
+    const LIST   = document.getElementById('cList');
+    const FORM   = document.getElementById('cForm');
+    const INPUT  = document.getElementById('cInput');
+
+    const API_LIST   = "{{ url_for('subscriber_api_comments') }}";
+    const API_CREATE = "{{ url_for('subscriber_api_comment_create') }}";
+    const API_EDIT   = (id)=> `/subscriber/api/comments/${id}`;
+    const API_REACT  = (id)=> `/subscriber/api/comments/${id}/react`;
+
+    const esc = s => (s||"").replace(/[&<>]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+
+    function commentHTML(c){
+      // Map common field names
+      const id    = c.commentID ?? c.id;
+      const body  = c.text ?? c.body ?? '';
+      const user  = c.author ?? c.user_name ?? 'User';
+      const when  = c.time_ago ?? c.created_at ?? '';
+      const mine  = !!c.mine;
+      const likes = Number(c.likes ?? 0);
+      const dislikes = Number(c.dislikes ?? 0);
+      const myReact = c.my_reaction; // 1, -1, or 0
+
+      return `
+      <article class="comment-card" data-id="${id}">
+        <div class="comment-meta">
+          <img src="{{ url_for('static', filename='img/avatar.png') }}" alt="" class="avatar">
+          <span class="comment-name">${esc(user)}</span>
+          <span class="comment-time">${esc(when)}</span>
+        </div>
+
+        <div class="c-body">
+          <p class="c-text">${esc(body)}</p>
+          ${mine ? `
+            <div class="c-edit">
+              <textarea class="c-edit-input" rows="3"></textarea>
+              <div class="c-edit-actions">
+                <button class="btn btn-light c-edit-cancel" type="button">Cancel</button>
+                <button class="btn btn-primary c-edit-save"  type="button">Save</button>
+              </div>
+            </div>` : ``}
+        </div>
+
+        <div class="c-actions">
+          <button class="c-like btn btn-ghost" data-val="1" aria-pressed="${myReact===1?'true':'false'}">
+            👍 <span class="c-like-count">${likes}</span>
+          </button>
+          <button class="c-dislike btn btn-ghost" data-val="-1" aria-pressed="${myReact===-1?'true':'false'}">
+            👎 <span class="c-dislike-count">${dislikes}</span>
+          </button>
+          ${mine ? `
+            <button class="c-edit-btn btn btn-ghost" type="button">Edit</button>
+            <button class="c-del-btn btn btn-ghost" type="button" style="color:#b00;">Delete</button>` : ``}
+        </div>
+      </article>`;
+    }
+
+    async function loadComments(){
+      LIST.innerHTML = '';
+      try{
+        const res = await fetch(`${API_LIST}?article_id=${ARTICLE_ID}`);
+        const rows = res.ok ? await res.json() : [];
+        LIST.innerHTML = rows.length ? rows.map(commentHTML).join('') : '<p class="c-empty">Be the first to comment.</p>';
+      }catch(e){
+        console.error(e);
+        LIST.innerHTML = '<p class="c-empty">Failed to load comments.</p>';
+      }
+    }
+
+    // Create
+    FORM?.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const text = (INPUT.value||'').trim();
+      if (!text) return;
+      const fd = new FormData();
+      fd.set('articleID', ARTICLE_ID);
+      fd.set('text', text);
+      try{
+        const res = await fetch(API_CREATE, { method:'POST', body: fd });
+        if (res.ok){ INPUT.value=''; loadComments(); }
+      }catch(err){ console.error(err); }
+    });
+
+    // Delegated actions
+    LIST.addEventListener('click', async (e)=>{
+      const card = e.target.closest('.comment-card');
+      if (!card) return;
+      const id = card.dataset.id;
+
+      // Like/Dislike
+      if (e.target.closest('.c-like') || e.target.closest('.c-dislike')){
+        const isLike = !!e.target.closest('.c-like');
+        const action = isLike ? 'like' : 'dislike';
+        try{
+          const res = await fetch(API_REACT(id), {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ action })
+          });
+          const data = res.ok ? await res.json() : null;
+          if (data?.ok){
+            card.querySelector('.c-like-count').textContent    = data.likes;
+            card.querySelector('.c-dislike-count').textContent = data.dislikes;
+            card.querySelector('.c-like').setAttribute('aria-pressed', data.state==='like' ? 'true':'false');
+            card.querySelector('.c-dislike').setAttribute('aria-pressed', data.state==='dislike' ? 'true':'false');
+          }
+        }catch(err){ console.error(err); }
+        return;
+      }
+
+      // Enter edit mode
+      if (e.target.closest('.c-edit-btn')){
+        const bodyEl   = card.querySelector('.c-text');
+        const editWrap = card.querySelector('.c-edit');
+        const input    = card.querySelector('.c-edit-input');
+        editWrap.classList.add('show');
+        bodyEl.classList.add('hidden');
+        input.value = bodyEl.textContent;
+        input.focus();
+        return;
+      }
+
+      // Cancel edit
+      if (e.target.closest('.c-edit-cancel')){
+        const bodyEl   = card.querySelector('.c-text');
+        const editWrap = card.querySelector('.c-edit');
+        editWrap.classList.remove('show');
+        bodyEl.classList.remove('hidden');
+        return;
+      }
+
+      // Save edit
+      if (e.target.closest('.c-edit-save')){
+        const input = card.querySelector('.c-edit-input');
+        const newText = (input.value||'').trim();
+        if (!newText) return;
+        try{
+          const res = await fetch(API_EDIT(id), {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ text: newText })
+          });
+          if (res.ok) loadComments();
+        }catch(err){ console.error(err); }
+        return;
+      }
+
+      // Delete
+      if (e.target.closest('.c-del-btn')){
+        if (!confirm('Delete this comment?')) return;
+        try{
+          const res = await fetch(API_EDIT(id), { method:'DELETE' });
+          if (res.ok) loadComments();
+        }catch(err){ console.error(err); }
+        return;
+      }
+    });
+
+    loadComments();
+  })();
+  </script>
+
 </body>
 </html>
