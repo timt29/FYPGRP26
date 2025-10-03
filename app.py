@@ -10,6 +10,8 @@ from werkzeug.utils import secure_filename
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
+from utils.profanity_filter import contains_profanity, censor_text
+
 
 import nltk
 
@@ -299,6 +301,13 @@ def api_articles_create():
 
     if not title or not content or not cat_id:
         return jsonify({"ok": False, "message": "Title, content, and category are required."}), 400
+
+    # profanity blocking
+    if contains_profanity(title) or contains_profanity(content):
+        return jsonify({
+            "ok": False,
+            "message": "Your article contains blocked words. Please revise and try again."
+        }), 400
 
     image_rel = None
     file = request.files.get("image")
