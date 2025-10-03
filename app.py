@@ -1498,6 +1498,25 @@ def summarize():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# ---------- Multilingual SUpport ----------
+translated = GoogleTranslator(source="auto", target="de").translate
+@app.route("/translate", methods=["POST"])
+def translate():
+    data = request.get_json()
+    title = data.get("title")
+    content = data.get("content")
+    summary = data.get("summary", [])
+    target_lang = data.get("target_lang")
+
+    try:
+        translate_title = GoogleTranslator(source="auto", target=target_lang).translate(title) if title else ""
+        translated_content = GoogleTranslator(source="auto", target=target_lang).translate(content)
+        translated_summary = [GoogleTranslator(source="auto", target=target_lang).translate(s) for s in summary]
+        
+        return jsonify({"title": translate_title, "content": translated_content, "summary": translated_summary})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 # ---------- Dev helper ----------
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
