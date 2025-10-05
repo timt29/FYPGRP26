@@ -1,8 +1,8 @@
 -- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
 --
--- Host: 127.0.0.1    Database: nrs
+-- Host: localhost    Database: nrs
 -- ------------------------------------------------------
--- Server version	8.0.43
+-- Server version	8.0.42
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -31,7 +31,7 @@ CREATE TABLE `login_activity` (
   PRIMARY KEY (`activityID`),
   KEY `userID` (`userID`),
   CONSTRAINT `login_activity_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -40,6 +40,7 @@ CREATE TABLE `login_activity` (
 
 LOCK TABLES `login_activity` WRITE;
 /*!40000 ALTER TABLE `login_activity` DISABLE KEYS */;
+INSERT INTO `login_activity` VALUES (1,10,'random@gmail.com','2025-10-06 02:47:59','127.0.0.1'),(2,1,'alice@example.com','2025-10-06 02:49:21','127.0.0.1'),(3,1,'alice@example.com','2025-10-06 02:52:42','127.0.0.1'),(4,2,'mike@example.com','2025-10-06 02:53:32','127.0.0.1'),(5,3,'sam@example.com','2025-10-06 02:53:42','127.0.0.1'),(6,9,'allah@example.com','2025-10-06 02:54:00','127.0.0.1'),(7,8,'dog@example.com','2025-10-06 02:54:10','127.0.0.1'),(8,1,'alice@example.com','2025-10-06 02:54:15','127.0.0.1'),(9,4,'amy@example.com','2025-10-06 02:54:26','127.0.0.1'),(10,5,'tim@example.com','2025-10-06 02:54:49','127.0.0.1'),(11,1,'alice@example.com','2025-10-06 02:55:01','127.0.0.1'),(12,1,'alice@example.com','2025-10-06 02:56:11','127.0.0.1');
 /*!40000 ALTER TABLE `login_activity` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -52,4 +53,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-09-30 17:42:24
+-- Dump completed on 2025-10-06  2:57:55

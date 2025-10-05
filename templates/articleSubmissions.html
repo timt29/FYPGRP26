@@ -18,7 +18,7 @@
         <button onclick="toggleReports()">Reports ▸</button>
         <div class="submenu" id="reports-submenu">
             <a href="/newUsers">New Users</a>
-            <a href="/articleSubmissions">Article Submissions</a>
+            <a href="/articleSubmission">Published Articles</a>
             <a href="/loginActivity">Log in Activity</a>
         </div>
         <a href="#">Setting</a>
@@ -36,33 +36,42 @@
             </div>
         </div>
 
-        <div class="content">
-            <h2>Articles Submitted in the Last 7 Days</h2>
-            {% if articles %}
-            <table class="users-table">
-                <thead>
-                    <tr>
-                        <th>Article ID</th>
-                        <th>Title</th>
-                        <th>Author</th>
-                        <th>Submitted At</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for article in articles %}
-                    <tr>
-                        <td>{{ article.articleID }}</td>
-                        <td>{{ article.title }}</td>
-                        <td>{{ article.author }}</td>
-                        <td>{{ article.created_at }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            {% else %}
-            <p>No articles submitted in the past 7 days.</p>
-            {% endif %}
-        </div>
+        <div class="main-content">
+        <h2>📰 Article Submissions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Article ID</th>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Published Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for article in articles %}
+                <tr>
+                    <td>{{ article.articleID }}</td>
+                    <td>{{ article.title }}</td>
+                    <td>{{ article.author }}</td>
+                    <td>
+                        {% if article.published_at %}
+                            {{ article.published_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if article.draft == 0 %}
+                            <span class="status published">Published</span>
+                        {% else %}
+                            <span class="status draft">Draft</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 
     <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">

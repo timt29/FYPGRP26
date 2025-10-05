@@ -1,8 +1,8 @@
 -- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
 --
--- Host: 127.0.0.1    Database: nrs
+-- Host: localhost    Database: nrs
 -- ------------------------------------------------------
--- Server version	8.0.43
+-- Server version	8.0.42
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -30,6 +30,8 @@ CREATE TABLE `users` (
   `usertype` enum('Admin','Moderator','Subscriber','Author','Suspended') NOT NULL,
   `previous_usertype` varchar(50) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `is_logged_in` tinyint(1) DEFAULT '0',
+  `last_active` datetime DEFAULT NULL,
   PRIMARY KEY (`userID`),
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB AUTO_INCREMENT=12 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -41,7 +43,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'Alice','alice@example.com','test','Admin',NULL,'2025-09-13 07:50:34'),(2,'Mike','mike@example.com','test','Moderator',NULL,'2025-09-13 07:50:34'),(3,'Sam','sam@example.com','test','Subscriber',NULL,'2025-09-13 07:50:34'),(4,'Amy','amy@example.com','test','Author',NULL,'2025-09-13 07:50:34'),(5,'Tim','tim@example.com','test1','Author',NULL,'2025-09-13 07:50:34'),(7,'Ming','ming@example.com','test','Moderator',NULL,'2025-09-13 07:50:34'),(8,'dog','dog@example.com','test','Moderator',NULL,'2025-09-13 07:50:34'),(9,'allah','allah@example.com','test','Moderator',NULL,'2025-09-13 12:26:22'),(10,'random','random@gmail.com','test','Subscriber',NULL,'2025-09-25 11:30:24');
+INSERT INTO `users` VALUES (1,'Alice','alice@example.com','test','Admin',NULL,'2025-09-13 07:50:34',0,'2025-10-06 02:56:40'),(2,'Mike','mike@example.com','test','Moderator',NULL,'2025-09-13 07:50:34',0,'2025-10-06 02:53:36'),(3,'Sam','sam@example.com','test','Subscriber',NULL,'2025-09-13 07:50:34',0,'2025-10-06 02:53:47'),(4,'Amy','amy@example.com','test','Author',NULL,'2025-09-13 07:50:34',1,'2025-10-06 02:54:26'),(5,'Tim','tim@example.com','test1','Author',NULL,'2025-09-13 07:50:34',1,'2025-10-06 02:54:49'),(7,'Ming','ming@example.com','test','Moderator',NULL,'2025-09-13 07:50:34',0,NULL),(8,'dog','dog@example.com','test','Moderator',NULL,'2025-09-13 07:50:34',0,'2025-10-06 02:54:12'),(9,'allah','allah@example.com','test','Moderator',NULL,'2025-09-13 12:26:22',0,'2025-10-06 02:54:02'),(10,'random','random@gmail.com','test','Subscriber',NULL,'2025-09-25 11:30:24',0,'2025-10-06 02:49:18');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -54,4 +56,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-09-30 17:42:24
+-- Dump completed on 2025-10-06  2:57:55

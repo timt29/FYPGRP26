@@ -21,7 +21,7 @@
         <button onclick="toggleReports()">Reports ▸</button>
         <div class="submenu" id="reports-submenu">
             <a href="/newUsers">New Users</a>
-            <a href="/articleSubmissions">Article Submissions</a>
+            <a href="/articleSubmission">Published Articles</a>
             <a href="/loginActivity">Log in Activity</a>
         </div>
         <a href="#">Setting</a>
@@ -42,33 +42,37 @@
 
         <!-- Content -->
         <div class="content">
-            <h2>Recent Login Activities</h2>
-            {% if activities %}
-            <table class="users-table">
+            <h2>User Login Activity</h2>
+              {% if users %}
+              <table class="users-table">
                 <thead>
-                    <tr>
-                        <th>Activity ID</th>
-                        <th>User ID</th>
-                        <th>Email</th>
-                        <th>Login Time</th>
-                        <th>IP Address</th>
-                    </tr>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Last Active</th>
+                  </tr>
                 </thead>
                 <tbody>
-                    {% for activity in activities %}
-                    <tr>
-                        <td>{{ activity.activityID }}</td>
-                        <td>{{ activity.userID }}</td>
-                        <td>{{ activity.email }}</td>
-                        <td>{{ activity.login_time }}</td>
-                        <td>{{ activity.ip_address }}</td>
-                    </tr>
-                    {% endfor %}
+                  {% for user in users %}
+                  <tr>
+                    <td>{{ user.userID }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                      {% if user.is_logged_in %}
+                        <span class="status active">🟢 Active</span>
+                      {% else %}
+                        <span class="status inactive">🔴 Inactive</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ user.last_seen }}</td>
+                  </tr>
+                  {% endfor %}
                 </tbody>
-            </table>
-            {% else %}
-            <p>No login activities recorded yet.</p>
-            {% endif %}
+              </table>
+              {% else %}
+              <p>No user activity recorded yet.</p>
+              {% endif %}
         </div>
     </div>
     

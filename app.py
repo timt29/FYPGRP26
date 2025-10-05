@@ -844,23 +844,38 @@ def login():
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
-        remember = request.form.get("remember")  # Checkbox returns "on" if checked, None if not
+        remember = request.form.get("remember")
 
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
-        cursor.close()
-        conn.close()
 
         if user:
-            if password == user["password"]:
-                # Block suspended BEFORE setting session
+            # Replace this if you store plain text passwords (not recommended)
+            # if password == user["password"]:
+            if password == user["password"]:  # or use check_password_hash(user["password"], password)
+                # Check if suspended
                 if user["usertype"].lower() == "suspended":
                     flash("Your account has been suspended. Please contact support.")
                     return redirect(url_for("login"))
 
-                # Set session
+                # ✅ Mark user as logged in and update last active time
+                cursor.execute("""
+                    UPDATE users
+                    SET is_logged_in = TRUE, last_active = NOW()
+                    WHERE userID = %s
+                """, (user["userID"],))
+
+                # ✅ Record login activity (optional but useful)
+                cursor.execute("""
+                    INSERT INTO login_activity (userID, email, login_time, ip_address)
+                    VALUES (%s, %s, NOW(), %s)
+                """, (user["userID"], user["email"], request.remote_addr))
+
+                conn.commit()
+
+                # ✅ Set session data
                 session["userID"] = user["userID"]
                 session["usertype"] = user["usertype"]
                 session["user"] = user["name"]
@@ -873,14 +888,12 @@ def login():
                 }
 
                 redirect_route = role_redirects.get(user["usertype"])
-                resp = redirect(url_for(redirect_route) if redirect_route else url_for("login"))
+                resp = make_response(redirect(url_for(redirect_route) if redirect_route else url_for("login")))
 
-                # Handle "Remember Me"
+                # ✅ Handle "Remember Me" cookie
                 if remember:
-                    # Save email in a cookie for 30 days
-                    resp.set_cookie("remembered_email", email, max_age=30*24*60*60)
+                    resp.set_cookie("remembered_email", email, max_age=30 * 24 * 60 * 60)
                 else:
-                    # Remove cookie if unchecked
                     resp.delete_cookie("remembered_email")
 
                 if not redirect_route:
@@ -894,6 +907,7 @@ def login():
             flash("User not found.")
             return redirect(url_for("login"))
 
+    # On GET, render login page with remembered email if any
     return render_template("login.html", remembered_email=remembered_email)
 
 @app.route("/register", methods=["GET", "POST"])
@@ -922,11 +936,40 @@ def register():
 
 @app.route("/logout")
 def logout():
+    # Update database to mark user inactive before clearing session
+    if "userID" in session:
+        user_id = session["userID"]
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users 
+            SET is_logged_in = FALSE, last_active = NOW()
+            WHERE userID = %s
+        """, (user_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+    # Destroy session and clear cookie
     session.clear()
     resp = redirect(url_for("login"))
-    resp.delete_cookie("session")  # kill session cookie
+    resp.delete_cookie("session")  # remove Flask session cookie
     flash("You have been logged out successfully.")
     return resp
+
+@app.before_request
+def update_last_active():
+    if "userID" in session:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users
+            SET last_active = NOW()
+            WHERE userID = %s
+        """, (session["userID"],))
+        conn.commit()
+        cursor.close()
+        conn.close()
 
 @app.after_request
 def add_no_cache_headers(response):
@@ -934,6 +977,7 @@ def add_no_cache_headers(response):
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "-1"
     return response
+
 
 # ---------- Moderator: manage users ----------
 @app.route("/manageUsers")
@@ -1246,27 +1290,35 @@ def report_new_users():
 
     return render_template("newUsers.html", users=new_users)
 
-@app.route("/articleSubmissions")
+@app.route("/articleSubmission")
 @login_required("Admin")
-def report_article_submissions():
+def article_submission():
+    # Ensure only Admins can access
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
+    # Get database connection
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Example: fetch articles submitted in the last 7 days
+    # Fetch latest articles
     cursor.execute("""
-        SELECT articleID, title, author, created_at
+        SELECT 
+            articleID, 
+            title, 
+            author, 
+            published_at, 
+            draft
         FROM articles
-        WHERE created_at >= NOW() - INTERVAL 7 DAY
-        ORDER BY created_at DESC
+        ORDER BY published_at DESC
     """)
     articles = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
+    # Render the page
     return render_template("articleSubmissions.html", articles=articles)
 
 @app.route("/loginActivity")
@@ -1279,18 +1331,38 @@ def login_activity():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Fetch last 100 login activities (most recent first)
     cursor.execute("""
-        SELECT activityID, userID, email, login_time, ip_address
-        FROM login_activity
-        ORDER BY login_time DESC
-        LIMIT 100
+        SELECT 
+            userID, 
+            email,
+            is_logged_in,
+            last_active
+        FROM users
+        ORDER BY last_active DESC
     """)
-    activities = cursor.fetchall()
+    users = cursor.fetchall()
+
+    # Calculate "x hours ago"
+    now = datetime.now()
+    for user in users:
+        if user["last_active"]:
+            diff = now - user["last_active"]
+            seconds = diff.total_seconds()
+            if seconds < 60:
+                user["last_seen"] = "Just Now"
+            elif seconds < 3600:
+                user["last_seen"] = f"{int(seconds // 60)} min ago"
+            elif seconds < 86400:
+                user["last_seen"] = f"{int(seconds // 3600)} hrs ago"
+            else:
+                user["last_seen"] = f"{int(seconds // 86400)} days ago"
+        else:
+            user["last_seen"] = "N/A"
+
     cursor.close()
     conn.close()
 
-    return render_template("loginActivity.html", activities=activities)
+    return render_template("loginActivity.html", users=users)
 
 @app.route("/flaggedArticles")
 @login_required("Moderator")
