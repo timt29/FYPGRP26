@@ -848,3 +848,34 @@ html,body{ background:var(--bg); color:var(--ink); font-family:Arial,Helvetica,s
 .c-replybox { margin-top: 8px; display: flex; gap: 8px; }
 .c-replybox textarea { flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 8px; }
 .c-empty { color: #666; }
+
+.article-card.detail {
+  position: relative;
+  padding-bottom: 60px; /* ensures space so button doesn’t overlap text */
+}
+
+/* Share button container */
+.share-button {
+  position: absolute;
+  bottom: 15px;
+  right: 15px;
+}
+
+/* The share button itself */
+.share-button button {
+  background: transparent;
+  border: none;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 6px;
+  padding: 6px 8px;
+  transition: background 0.2s ease;
+}
+
+.share-button button:hover {
+  background: rgba(0,0,0,0.05);
+}

@@ -84,6 +84,13 @@
           {% if article.published_at %}<span>• Published {{ article.published_at }}</span>{% endif %}
           {% if article.updated_at %}<span>• Updated {{ article.updated_at }}</span>{% endif %}
         </div>
+
+        <div class="share-button">
+          <button id="shareBtn" class="btn btn-ghost" title="Share">
+            <img src="{{ url_for('static', filename='img/share.png') }}" alt="Share" style="width:20px; vertical-align:middle;" />
+            <span>Share</span>
+          </button>
+        </div>
       </article>
 
       <!-- Comments -->
@@ -504,6 +511,28 @@
     });
 
     loadComments();
+  })();
+
+    (function() {
+    const shareBtn = document.getElementById("shareBtn");
+    if (!shareBtn) return;
+
+    shareBtn.addEventListener("click", () => {
+      const url = window.location.href;
+      const titleEl = document.querySelector(".article-title");
+      const title = titleEl ? titleEl.innerText : document.title;
+
+      if (navigator.share) {
+        navigator.share({
+          title: title,
+          url: url
+        }).catch(err => console.error("Share failed:", err));
+      } else {
+        navigator.clipboard.writeText(url).then(() => {
+          alert("Link copied to clipboard!");
+        });
+      }
+    });
   })();
   </script>
 
