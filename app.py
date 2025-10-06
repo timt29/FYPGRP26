@@ -1298,27 +1298,32 @@ def article_submission():
         flash("Access denied.")
         return redirect(url_for("login"))
 
-    # Get database connection
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Fetch latest articles
+    # Fetch only articles created by valid users (exclude system/orphan articles)
     cursor.execute("""
-        SELECT 
-            articleID, 
-            title, 
-            author, 
-            published_at, 
-            draft
-        FROM articles
-        ORDER BY published_at DESC
+    SELECT 
+        a.articleID,
+        a.title,
+        a.content,
+        a.author,
+        a.published_at,
+        a.updated_at,
+        a.image,
+        a.catID,
+        a.draft
+    FROM articles a
+    INNER JOIN users u ON a.author = u.name
+    WHERE u.usertype IN ('Author', 'Subscriber')
+    ORDER BY a.published_at DESC
     """)
+
     articles = cursor.fetchall()
 
     cursor.close()
     conn.close()
 
-    # Render the page
     return render_template("articleSubmissions.html", articles=articles)
 
 @app.route("/loginActivity")
