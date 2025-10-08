@@ -428,37 +428,36 @@
     `;
   }
 
-  // Build tree from flat list
-  function buildTree(flat){
-    const map = new Map();
-    flat.forEach(r => {
-      map.set(r.commentID, Object.assign({}, r, { children: [] }));
-    });
-    const roots = [];
-    map.forEach(node => {
-      const pid = node.parent_id || null;
-      if (pid && map.has(pid)){
-        map.get(pid).children.push(node);
-      } else {
-        roots.push(node);
-      }
-    });
+  function buildTree(flat) {
+  const map = new Map();
+  flat.forEach(r => {
+    map.set(r.commentID, Object.assign({}, r, { children: [] }));
+  });
 
-    // sort function: newest first by created_at
-    const sorter = (a,b) => {
+  const roots = [];
+  map.forEach(node => {
+    const pid = node.parent_id || null;
+    if (pid && map.has(pid)) {
+      map.get(pid).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  // sort: newest-first for roots, oldest-first for replies
+  function sortRec(arr, depth = 0) {
+    arr.sort((a, b) => {
       const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
       const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return tb - ta;
-    };
-
-    // recursively sort children newest-first
-    function sortRec(arr){
-      arr.sort(sorter);
-      arr.forEach(n => sortRec(n.children));
-    }
-    sortRec(roots);
-    return roots;
+      return depth === 0 ? tb - ta : ta - tb;
+    });
+    arr.forEach(n => sortRec(n.children, depth + 1));
   }
+
+  sortRec(roots);
+  return roots;  // <-- required
+}
+
 
   // Render tree to HTML
   function renderTree(nodes, depth=0){
