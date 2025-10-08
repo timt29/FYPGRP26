@@ -541,10 +541,15 @@
     if (e.target.closest('.c-reply-btn')){
       const replyBox = card.querySelector('.c-reply-box');
       if (!replyBox) return;
-      // show box and focus
       replyBox.style.display = replyBox.style.display === 'none' ? 'block' : 'none';
       const ta = replyBox.querySelector('.c-reply-input');
-      if (ta) { ta.focus(); ta.value = ''; }
+      if (ta) { 
+        const author = card.querySelector('.comment-name')?.textContent || '';
+        ta.value = `@${author} `;   // pre-fill with @username
+        ta.focus();
+        // Optional: move cursor to end
+        ta.selectionStart = ta.selectionEnd = ta.value.length;
+      }
       return;
     }
 
