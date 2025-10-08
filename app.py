@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort, make_response
-import os, io, re, time, uuid, time, zipfile, shutil
+import os, io, re, time, uuid, time, zipfile, shutil, secrets
 from functools import wraps
 import webbrowser
 import threading
@@ -1123,6 +1123,118 @@ def subscriber_api_comment_react(comment_id):
     cur.close(); conn.close()
 
     return jsonify(ok=True, likes=likes, dislikes=dislikes, state=None if action=="clear" else action)
+
+# (MW) --------------Profile page----------------
+def save_profile_image(file_storage):
+    if not file_storage or not file_storage.filename:
+        return None
+    safe = secure_filename(file_storage.filename)
+    name, ext = os.path.splitext(safe)
+    if ext.lower() not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        raise ValueError("Unsupported image type")
+    unique = f"{name}_{int(time.time())}{ext}"
+    dest_dir = Path(app.root_path) / "static" / "profilePictures"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    file_storage.save(dest_dir / unique)
+    return f"/static/profilePictures/{unique}"
+
+@app.route("/profile")
+@login_required("Subscriber")
+def profile():
+    uid = session["userID"]
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT userID, name, email, usertype, image, bio
+        FROM users
+        WHERE userID=%s
+        LIMIT 1
+    """, (uid,))
+    u = cur.fetchone()
+    cur.close(); conn.close()
+
+    if not u:
+        flash("User not found.", "error")
+        return redirect(url_for("subscriberHomepage"))
+
+    # Normalize stored image paths so the browser can render them
+    img = (u.get("image") or "")
+    if img.startswith("../static/"):
+        u["image"] = img.replace("../static", "/static")
+    elif img.startswith("./static/"):
+        u["image"] = img.replace("./static", "/static")
+
+    # Optional: also pass a 'profile' dict since the template may use either
+    profile = {
+        "display_name": u["name"],
+        "email": u["email"],
+        "usertype": u["usertype"],
+        "bio": u.get("bio"),
+        "avatar_url": u.get("image"),
+    }
+
+    # Your template expects 'pinned' and 'articles' too; pass empty lists for now
+    return render_template(
+        "subscriberProfile.html",
+        user=u,
+        profile=profile,
+        pinned=[],
+        articles=[]
+    )
+
+@app.route("/profile/update", methods=["POST"])
+@login_required("Subscriber")
+def profile_update():
+    uid = session["userID"]
+    next_url = request.form.get("next") or request.referrer or url_for("subscriberHomepage")
+
+    name = (request.form.get("name") or "").strip()
+    bio  = (request.form.get("bio")  or "").strip()
+    avatar_file = request.files.get("avatar")
+
+    # --- fetch current user values for change detection ---
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("SELECT name, bio, image FROM users WHERE userID=%s LIMIT 1", (uid,))
+    row = cur.fetchone()
+    cur.close()
+
+    current_name = (row.get("name") or "").strip() if row else ""
+    current_bio  = (row.get("bio") or "").strip() if row else ""
+    # NOTE: we only treat avatar as changed if a file is uploaded
+
+    no_text_change = (name == current_name and bio == current_bio)
+    no_avatar_upload = not (avatar_file and avatar_file.filename)
+
+    if no_text_change and no_avatar_upload:
+        # nothing to do → show "No changes" toast on profile for 2s, then return to last page
+        return redirect(url_for("profile", nochange=1, next=next_url))
+
+    # --- if we reach here, at least one field changed ---
+    new_img = None
+    if avatar_file and avatar_file.filename:
+        new_img = save_profile_image(avatar_file)
+
+    try:
+        cur = conn.cursor()
+        if new_img:
+            cur.execute("UPDATE users SET name=%s, bio=%s, image=%s WHERE userID=%s",
+                        (name, bio, new_img, uid))
+        else:
+            cur.execute("UPDATE users SET name=%s, bio=%s WHERE userID=%s",
+                        (name, bio, uid))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        err = str(e)
+        return redirect(url_for("profile", error=1, msg=err, next=next_url))
+    finally:
+        cur.close(); conn.close()
+
+    # success → show toast on profile for 2s, then return to last page
+    return redirect(url_for("profile", updated=1, next=next_url))
+
 
 # (YY)
 # ---------- Auth ----------

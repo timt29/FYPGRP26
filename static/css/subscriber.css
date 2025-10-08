@@ -879,3 +879,49 @@ html,body{ background:var(--bg); color:var(--ink); font-family:Arial,Helvetica,s
 .share-button button:hover {
   background: rgba(0,0,0,0.05);
 }
+
+
+/* Profile page */
+/* Avatar circle + letter fallback */
+.avatar { display: inline-flex; align-items: center; justify-content: center; }
+.avatar img,
+.avatar-initial {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+.avatar-initial {
+  background: #e8eef5;            
+  color: #2a4365;                 
+  font-weight: 700;
+  font-size: 36px;
+  line-height: 96px;             
+  text-align: center;
+  user-select: none;
+}
+
+/* Success overlay for profile update */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.35);
+  z-index: 1000;
+}
+.overlay.show { display: flex; }
+.overlay-card {
+  background: #fff;
+  padding: 22px 26px;
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  text-align: center;
+  max-width: 360px;
+  width: calc(100% - 40px);
+}
+.overlay-tick { font-size: 44px; line-height: 1; margin-bottom: 8px; }
+.overlay-title { font-weight: 600; font-size: 18px; margin: 0 0 4px; }
+.overlay-sub { opacity: .7; font-size: 14px; }
