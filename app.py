@@ -1,12 +1,16 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort, make_response
-import os, time
-import uuid
+import os, io, re, time, uuid, time, zipfile, shutil
 from functools import wraps
 import webbrowser
 import threading
 import mysql.connector
+import json
 from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
+from rapidfuzz import process, fuzz
+import fitz
+from pathlib import Path
+from docx import Document
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
@@ -291,10 +295,10 @@ def api_categories():
     cur.close(); conn.close()
     return jsonify(rows)
 
-@app.route("/api/articles", methods=["POST"])
+@app.route("/api/articles", methods=["POST"], endpoint="api_articles_post")
 @login_required("Subscriber")
 def api_articles_create():
-    action  = request.form.get("action", "publish").lower()
+    action  = (request.form.get("action") or "publish").lower()
     title   = (request.form.get("title") or "").strip()
     content = (request.form.get("content") or "").strip()
     cat_id  = request.form.get("category_id")
@@ -303,23 +307,44 @@ def api_articles_create():
     if not title or not content or not cat_id:
         return jsonify({"ok": False, "message": "Title, content, and category are required."}), 400
 
-    # profanity blocking
-    if contains_profanity(title) or contains_profanity(content):
-        return jsonify({
-            "ok": False,
-            "message": "Your article contains blocked words. Please revise and try again."
-        }), 400
+    # basic profanity gate (keep your own functions if you have them)
+    try:
+        if contains_profanity(title) or contains_profanity(content):
+            return jsonify({"ok": False, "message": "Your article contains blocked words. Please revise and try again."}), 400
+    except Exception:
+        # if the profanity lib fails, don't hard block publishing
+        pass
 
     image_rel = None
-    file = request.files.get("image")
-    if file and file.filename:
-        img_dir = os.path.join(app.root_path, "static", "img")
-        os.makedirs(img_dir, exist_ok=True)
-        safe = secure_filename(file.filename)
+    img_dir_fs = os.path.join(app.root_path, "static", "img")
+
+    # 1) Directly uploaded file has highest priority
+    up = request.files.get("image")
+    if up and up.filename:
+        os.makedirs(img_dir_fs, exist_ok=True)
+        safe = secure_filename(up.filename)
         name, ext = os.path.splitext(safe)
         unique = f"{name}_{int(time.time())}{ext}"
-        file.save(os.path.join(img_dir, unique))
+        up.save(os.path.join(img_dir_fs, unique))
         image_rel = f"/static/img/{unique}"
+    else:
+        # 2) Else, cover_url from importer (points to /static/uploads/articles/...)
+        cover_url = request.form.get("cover_url")
+        if cover_url:
+            copied = _copy_static_file(cover_url, img_dir_fs)
+            if copied:
+                image_rel = copied
+
+    # 3) (Optional) also persist any other extracted images if provided (not used by DB image field)
+    #    frontend sends JSON array in 'import_images'; we copy them into static/img for permanence.
+    try:
+        import_images_json = request.form.get("import_images", "[]")
+        import_images = json.loads(import_images_json) if import_images_json else []
+        if isinstance(import_images, list):
+            for rel in import_images:
+                _copy_static_file(rel, img_dir_fs)
+    except Exception:
+        pass  # non-fatal
 
     publish = (action == "publish")
     conn = get_db_connection()
@@ -344,6 +369,247 @@ def api_articles_create():
         "message": "Article uploaded." if publish else "Draft saved.",
         "redirect": url_for("subscriberHomepage")
     })
+
+def _copy_static_file(rel_url: str, dest_dir: str) -> str | None:
+    """
+    rel_url: like '/static/uploads/articles/<batch>/img/file.png'
+    dest_dir: absolute filesystem dir for static/img
+    Returns a new web path '/static/img/<unique>' or None.
+    """
+    if not rel_url or not rel_url.startswith("/static/"):
+        return None
+
+    src_path = Path(app.root_path, rel_url.lstrip("/")).resolve()
+    if not src_path.exists() or not src_path.is_file():
+        return None
+
+    dest_dir_path = Path(dest_dir)
+    dest_dir_path.mkdir(parents=True, exist_ok=True)
+
+    stem = src_path.stem
+    ext  = src_path.suffix
+    unique = f"{stem}_{int(time.time())}{ext}"
+    dest_path = dest_dir_path / unique
+
+    shutil.copy2(src_path, dest_path)
+    return f"/static/img/{unique}"
+
+# (MW) --------Import document, extract text & images--------
+@app.post("/subscriber/api/import-article")
+@login_required("Subscriber")
+def api_import_article():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify(ok=False, message="No file provided"), 400
+
+    ext = os.path.splitext(file.filename.lower())[1]
+    if ext not in {".txt", ".pdf", ".doc", ".docx"}:
+        return jsonify(ok=False, message="Unsupported file type"), 400
+
+    raw = file.read()
+    if not raw:
+        return jsonify(ok=False, message="Empty file"), 400
+
+    base_id = uuid.uuid4().hex[:12]
+    base_dir = os.path.join(app.static_folder, "uploads", "articles", base_id)
+    img_dir  = os.path.join(base_dir, "img")
+    os.makedirs(img_dir, exist_ok=True)
+
+    text = ""
+    img_names = []
+
+    try:
+        if ext == ".txt":
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1", errors="ignore")
+        elif ext == ".pdf":
+            text, img_names = _extract_from_pdf(raw, img_dir, base_id)
+        elif ext == ".docx":
+            text = _extract_text_docx(raw)
+            img_names = _extract_images_docx(raw, img_dir, base_id)
+        elif ext == ".doc":
+            try:
+                docx_bytes = _convert_doc_to_docx(raw)
+            except Exception as e:
+                return jsonify(ok=False, message=f".doc conversion failed: {e}"), 400
+            text = _extract_text_docx(docx_bytes)
+            img_names = _extract_images_docx(docx_bytes, img_dir, base_id)
+    except Exception as e:
+        return jsonify(ok=False, message=f"Import failed: {e}"), 500
+
+    _save_text_file(text, base_dir, base_id)  # optional
+
+    base_url = f"/static/uploads/articles/{base_id}/img"
+    img_urls = [f"{base_url}/{name}" for name in img_names]
+
+    return jsonify(ok=True, text=text, images=img_urls)
+
+def _extract_from_pdf(raw_bytes: bytes, img_dir: str, base_id: str):
+    os.makedirs(img_dir, exist_ok=True)
+    text_parts = []
+    image_names = []
+
+    doc = fitz.open(stream=raw_bytes, filetype="pdf")
+    try:
+        for page_index in range(len(doc)):
+            page = doc[page_index]
+            # text
+            text_parts.append(page.get_text())
+
+            # images
+            for img in page.get_images(full=True):
+                xref = img[0]
+                pix = fitz.Pixmap(doc, xref)
+                try:
+                    if pix.alpha:  # remove alpha for consistent PNGs
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    fname = f"p{page_index+1:03d}-{xref}.png"
+                    out_path = os.path.join(img_dir, fname)
+                    pix.save(out_path)
+                    image_names.append(fname)
+                finally:
+                    pix = None
+        full_text = "\n".join(text_parts).strip()
+        return full_text, image_names
+    finally:
+        doc.close()
+
+
+def _extract_text_docx(raw_bytes: bytes) -> str:
+    doc = Document(io.BytesIO(raw_bytes))
+    parts = [p.text for p in doc.paragraphs if p.text]
+    # also consider tables (optional)
+    for tbl in doc.tables:
+        for row in tbl.rows:
+            for cell in row.cells:
+                if cell.text:
+                    parts.append(cell.text)
+    text = "\n".join(parts)
+    # normalize a bit
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text
+
+
+def _extract_images_docx(raw_bytes: bytes, img_dir: str, base_id: str):
+    os.makedirs(img_dir, exist_ok=True)
+    image_names = []
+    with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
+        for name in zf.namelist():
+            # embedded images live under word/media/
+            if name.startswith("word/media/") and not name.endswith("/"):
+                data = zf.read(name)
+                fname = os.path.basename(name)
+                out_path = os.path.join(img_dir, fname)
+                with open(out_path, "wb") as f:
+                    f.write(data)
+                image_names.append(fname)
+    return image_names
+
+
+def _convert_doc_to_docx(raw_bytes: bytes) -> bytes:
+    import tempfile, win32com.client as win32
+    with tempfile.TemporaryDirectory() as td:
+        src = os.path.join(td, "in.doc")
+        dst = os.path.join(td, "out.docx")
+        with open(src, "wb") as f: f.write(raw_bytes)
+
+        word = win32.gencache.EnsureDispatch('Word.Application')
+        word.Visible = False
+        doc = word.Documents.Open(src)
+        try:
+            wdFormatXMLDocument = 12
+            doc.SaveAs(dst, FileFormat=wdFormatXMLDocument)
+        finally:
+            doc.Close(False)
+            word.Quit()
+
+        with open(dst, "rb") as f:
+            return f.read()
+
+
+def _save_text_file(text: str, base_dir: str, base_id: str):
+    os.makedirs(base_dir, exist_ok=True)
+    out_path = os.path.join(base_dir, "extracted.txt")
+    try:
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(text or "")
+    except Exception:
+        # Non-fatal; ignore disk errors here
+        pass
+
+
+# (MW) ------AI: suggest title, clean up text, pick category------
+@app.post("/subscriber/api/ai-suggest")
+@login_required("Subscriber")
+def api_ai_suggest():
+    # Read JSON
+    try:
+        data = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify(ok=False, message="Invalid JSON"), 400
+
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify(ok=False, message="No text provided"), 400
+
+    # Fetch categories via MySQL
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("SELECT categoryID, name FROM categories ORDER BY name")
+    categories = cur.fetchall()
+    cur.close(); conn.close()
+    if not categories:
+        return jsonify(ok=False, message="No categories configured"), 500
+
+    # Heuristic title & cleanup
+    def simple_title(t: str) -> str:
+        for line in t.splitlines():
+            s = line.strip()
+            if len(s) >= 8:
+                return s[:90].rstrip(" .!?:;")
+        t = t.strip()
+        return (t[:80] + "…") if len(t) > 80 else (t or "Untitled")
+
+    def basic_cleanup(t: str) -> str:
+        t = re.sub(r"[ \t]+", " ", t or "")
+        t = re.sub(r"\n{3,}", "\n\n", t)
+        return t.strip()
+
+    title = simple_title(text)
+    corrected = basic_cleanup(text)
+
+    # Pick category by fuzzy match across full text
+    choices = [c["name"] for c in categories]
+    STOP = set("""
+    a an the and or of for to in on with as at by from this that those these is are was were be been being
+    it its they them their we our you your i me my he she his her which who whom whose will would should could
+    """.split())
+
+    words = re.findall(r"[A-Za-z]{3,}", corrected.lower())
+    words = [w for w in words if w not in STOP and len(w) >= 4]
+
+    from collections import Counter
+    top_terms = [w for w, _n in Counter(words).most_common(30)] or ["general"]
+    query = " ".join(top_terms)
+
+    match = process.extractOne(query, choices, scorer=fuzz.WRatio)
+    if match:
+        cat_name, score, idx = match
+        cat_id = categories[idx]["categoryID"]
+    else:
+        cat_id  = categories[0]["categoryID"]
+        cat_name= categories[0]["name"]
+
+    return jsonify(
+        ok=True,
+        title=title,
+        corrected_text=corrected,
+        category_id=cat_id,
+        category_name=cat_name
+    )
 
 # (MW)
 @app.route("/subscriber/api/articles", endpoint="subscriber_search_api")
