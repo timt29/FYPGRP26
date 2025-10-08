@@ -31,6 +31,7 @@ CREATE TABLE `users` (
   `previous_usertype` varchar(50) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `is_logged_in` tinyint(1) DEFAULT '0',
+  `image` varchar(255) DEFAULT NULL,
   `last_active` datetime DEFAULT NULL,
   PRIMARY KEY (`userID`),
   UNIQUE KEY `email` (`email`)
@@ -43,7 +44,7 @@ CREATE TABLE `users` (
 
 LOCK TABLES `users` WRITE;
 /*!40000 ALTER TABLE `users` DISABLE KEYS */;
-INSERT INTO `users` VALUES (1,'Alice','alice@example.com','test','Admin',NULL,'2025-09-13 07:50:34',0,'2025-10-06 02:56:40'),(2,'Mike','mike@example.com','test','Moderator',NULL,'2025-09-13 07:50:34',0,'2025-10-06 02:53:36'),(3,'Sam','sam@example.com','test','Subscriber',NULL,'2025-09-13 07:50:34',0,'2025-10-06 02:53:47'),(4,'Amy','amy@example.com','test','Author',NULL,'2025-09-13 07:50:34',1,'2025-10-06 02:54:26'),(5,'Tim','tim@example.com','test1','Author',NULL,'2025-09-13 07:50:34',1,'2025-10-06 02:54:49'),(7,'Ming','ming@example.com','test','Moderator',NULL,'2025-09-13 07:50:34',0,NULL),(8,'dog','dog@example.com','test','Moderator',NULL,'2025-09-13 07:50:34',0,'2025-10-06 02:54:12'),(9,'allah','allah@example.com','test','Moderator',NULL,'2025-09-13 12:26:22',0,'2025-10-06 02:54:02'),(10,'random','random@gmail.com','test','Subscriber',NULL,'2025-09-25 11:30:24',0,'2025-10-06 02:49:18');
+INSERT INTO `users` VALUES (1,'Alice','alice@example.com','test','Admin',NULL,'2025-09-13 07:50:34',0,'../static/profilePictures/Alice.jpeg','2025-10-06 02:56:40'),(2,'Mike','mike@example.com','test','Moderator',NULL,'2025-09-13 07:50:34',0,'../static/profilePictures/Mike.jpg','2025-10-06 02:53:36'),(3,'Sam','sam@example.com','test','Subscriber',NULL,'2025-09-13 07:50:34',0,'../static/profilePictures/Sam.jpg','2025-10-06 02:53:47'),(4,'Amy','amy@example.com','test','Author',NULL,'2025-09-13 07:50:34',1,'../static/profilePictures/Amy.jpg','2025-10-06 02:54:26'),(5,'Tim','tim@example.com','test1','Author',NULL,'2025-09-13 07:50:34',1,'../static/profilePictures/Tim.jpg','2025-10-06 02:54:49'),(7,'Ming','ming@example.com','test','Moderator',NULL,'2025-09-13 07:50:34',0,'../static/profilePictures/Ming.jpg',NULL),(8,'dog','dog@example.com','test','Moderator',NULL,'2025-09-13 07:50:34',0,'../static/profilePictures/Dog.jpg','2025-10-06 02:54:12'),(9,'allah','allah@example.com','test','Moderator',NULL,'2025-09-13 12:26:22',0,'../static/profilePictures/Allah.jpg','2025-10-06 02:54:02'),(10,'random','random@gmail.com','test','Subscriber',NULL,'2025-09-25 11:30:24',0,'../static/profilePictures/Random.jpg','2025-10-06 02:49:18');
 /*!40000 ALTER TABLE `users` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
