@@ -635,7 +635,7 @@ def _timeago(ts):
     return f"{delta//86400}d ago"
 
 @app.get("/subscriber/api/comments")
-@login_required()
+@login_required("Subscriber")
 def subscriber_api_comments():
     from flask import jsonify, request, session
 
@@ -645,7 +645,7 @@ def subscriber_api_comments():
     conn = get_db_connection()
     cur = conn.cursor(dictionary=True)
 
-    # 1) Load comments for this article
+    # 1) Load comments for this article (include parent fields)
     cur.execute("""
         SELECT
             c.commentID,
@@ -654,6 +654,8 @@ def subscriber_api_comments():
             c.dislikes,
             c.created_at,
             c.userID,
+            c.is_reply,
+            c.reply_to_comment_id,
             u.name AS author,
             (c.userID = %s) AS mine
         FROM comments c
@@ -667,22 +669,19 @@ def subscriber_api_comments():
     my_reaction_map = {}
     if rows:
         comment_ids = [str(r["commentID"]) for r in rows]
-        # Build a safe IN (...) list; since these come from DB rows, it’s fine to join
         in_clause = ",".join(comment_ids)
-
         cur.execute(f"""
             SELECT commentID, reaction
             FROM comment_reactions
             WHERE userID = %s AND commentID IN ({in_clause})
         """, (uid,))
         for r in cur.fetchall():
-            # if both existed somehow, last write wins; normally there’s a UNIQUE(userID, commentID)
             my_reaction_map[r["commentID"]] = r["reaction"]
 
     cur.close()
     conn.close()
 
-    # 3) Shape API payload
+    # Helper to ISO-date
     def to_iso(dt):
         try:
             return dt.isoformat()
@@ -697,10 +696,11 @@ def subscriber_api_comments():
             "likes": int(r["likes"] or 0),
             "dislikes": int(r["dislikes"] or 0),
             "created_at": to_iso(r["created_at"]),
-            "time_ago": "",  # optional: compute on server or format on client
             "author": r["author"] or "Anonymous",
             "mine": bool(r["mine"]),
-            "my_reaction": my_reaction_map.get(r["commentID"])  # "like" | "dislike" | None
+            "my_reaction": my_reaction_map.get(r["commentID"]),  # "like" | "dislike" | None
+            "is_reply": bool(r.get("is_reply")),
+            "parent_id": r.get("reply_to_comment_id")  # null or int
         })
 
     return jsonify(out)
@@ -709,24 +709,47 @@ def subscriber_api_comments():
 @app.post("/subscriber/api/comments")
 @login_required("Subscriber")
 def subscriber_api_comment_create():
+    from flask import request, jsonify, session
     uid = session.get("userID")
-    article_id = request.form.get("articleID", type=int)
-    text = (request.form.get("text") or "").strip()
-    parent_id = request.form.get("parent_id", type=int)
+    article_id = request.form.get("articleID")
+    text = request.form.get("text", "").strip()
+    parent_id = request.form.get("parent_id")
 
-    if not article_id or not text:
-        return jsonify(ok=False, message="articleID and text required"), 400
+    if not text:
+        return jsonify({"ok": False, "error": "Empty comment."}), 400
 
     conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    # ✅ Ensure 1-level replies only (reply to top-level)
+    top_parent_id = None
+    if parent_id:
+        try:
+            pid = int(parent_id)
+            cur.execute("SELECT reply_to_comment_id FROM comments WHERE commentID=%s", (pid,))
+            row = cur.fetchone()
+            if row:
+                # if the parent already has a parent, use that (force top-level)
+                top_parent_id = row["reply_to_comment_id"] or pid
+            else:
+                top_parent_id = pid
+        except Exception:
+            top_parent_id = None
+
+    cur.close()
     cur = conn.cursor()
+
     cur.execute("""
         INSERT INTO comments (articleID, userID, comment_text, is_reply, reply_to_comment_id)
         VALUES (%s, %s, %s, %s, %s)
-    """, (article_id, uid, text, 1 if parent_id else 0, parent_id))
+    """, (article_id, uid, text, bool(top_parent_id), top_parent_id))
+
     conn.commit()
-    new_id = cur.lastrowid
-    cur.close(); conn.close()
-    return jsonify(ok=True, commentID=new_id)
+    cur.close()
+    conn.close()
+
+    return jsonify({"ok": True})
+
 
 @app.put("/subscriber/api/comments/<int:comment_id>")
 @login_required("Subscriber")
