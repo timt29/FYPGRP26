@@ -85,7 +85,12 @@
           {% if article.updated_at %}<span>• Updated {{ article.updated_at }}</span>{% endif %}
         </div>
 
-        <div class="share-button">
+        <div class="action-buttons">
+          <button id="reportBtn" class="btn btn-ghost" title="Report">
+            <img src="{{ url_for('static', filename='img/report.jpg') }}" alt="Report" style="width:20px; vertical-align:middle;" />
+            <span>Report</span>
+          </button>
+
           <button id="shareBtn" class="btn btn-ghost" title="Share">
             <img src="{{ url_for('static', filename='img/share.png') }}" alt="Share" style="width:20px; vertical-align:middle;" />
             <span>Share</span>
@@ -635,29 +640,120 @@
   // initial load
   loadComments();
 })();
+</script>
 
-    (function() {
-    const shareBtn = document.getElementById("shareBtn");
-    if (!shareBtn) return;
+<div id="reportModal" class="report-modal-overlay">
+  <div class="report-modal-card">
+    <h2 class="report-modal-title">Report Article</h2>
+    <div class="report-modal-body">
+      <form id="reportForm">
+        <label for="reason">Reason:</label>
+        <select id="reason" name="reason" required>
+          <option value="">-- Select a reason --</option>
+          <option value="spam">Spam or misleading</option>
+          <option value="inappropriate">Inappropriate content</option>
+          <option value="plagiarism">Plagiarism</option>
+          <option value="other">Other</option>
+        </select>
 
-    shareBtn.addEventListener("click", () => {
-      const url = window.location.href;
-      const titleEl = document.querySelector(".article-title");
-      const title = titleEl ? titleEl.innerText : document.title;
+        <label for="details">Additional details (optional):</label>
+        <textarea id="details" name="details" rows="4" placeholder="Describe the issue…"></textarea>
 
-      if (navigator.share) {
-        navigator.share({
-          title: title,
-          url: url
-        }).catch(err => console.error("Share failed:", err));
-      } else {
-        navigator.clipboard.writeText(url).then(() => {
-          alert("Link copied to clipboard!");
-        });
-      }
+        <div class="report-modal-actions">
+          <button type="button" id="closeReport" class="btn btn-light">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Report</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const reportBtn    = document.getElementById("reportBtn");
+  const reportModal  = document.getElementById("reportModal");
+  const closeBtn     = document.getElementById("closeReport");
+  const form         = document.getElementById("reportForm");
+
+  if (!reportBtn || !reportModal) return;
+
+  // Open modal
+  reportBtn.addEventListener("click", () => {
+    reportModal.classList.add("show");
+  });
+
+  // Close modal (cancel button)
+  closeBtn.addEventListener("click", () => {
+    reportModal.classList.remove("show");
+    form.reset();
+  });
+
+  // Close modal if click outside card
+  reportModal.addEventListener("click", (e) => {
+    const card = reportModal.querySelector(".report-modal-card");
+    if (!card.contains(e.target)) {
+      reportModal.classList.remove("show");
+      form.reset();
+    }
+  });
+
+  // Submit report
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const reason    = document.getElementById("reason").value;
+    const details   = document.getElementById("details").value;
+    const articleID = {{ article.articleID }};
+
+    if (!reason) {
+      alert("Please select a reason before submitting.");
+      return;
+    }
+
+    fetch("/subscriber/report_article", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ articleID, reason, details })
+    })
+    .then(res => res.json())
+    .then(data => {
+      alert(data.message || "Report submitted successfully.");
+      reportModal.classList.remove("show");
+      form.reset();
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Failed to submit report.");
     });
-  })();
-  </script>
+  });
+})();
+</script>
+
+
+
+<!-- 🟦 Share Button Script -->
+<script>
+(function() {
+  const shareBtn = document.getElementById("shareBtn");
+  if (!shareBtn) return;
+
+  shareBtn.addEventListener("click", () => {
+    const url = window.location.href;
+    const titleEl = document.querySelector(".article-title");
+    const title = titleEl ? titleEl.innerText : document.title;
+
+    if (navigator.share) {
+      navigator.share({
+        title: title,
+        url: url
+      }).catch(err => console.error("Share failed:", err));
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        alert("Link copied to clipboard!");
+      });
+    }
+  });
+})();
+</script>
 
 </body>
 </html>

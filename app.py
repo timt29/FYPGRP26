@@ -16,7 +16,7 @@ from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 from deep_translator import GoogleTranslator
 from utils.profanity_filter import contains_profanity, censor_text
-
+from typing import Optional
 
 import nltk
 
@@ -370,7 +370,7 @@ def api_articles_create():
         "redirect": url_for("subscriberHomepage")
     })
 
-def _copy_static_file(rel_url: str, dest_dir: str) -> str | None:
+def _copy_static_file(rel_url: str, dest_dir: str) -> Optional[str]:
     """
     rel_url: like '/static/uploads/articles/<batch>/img/file.png'
     dest_dir: absolute filesystem dir for static/img
@@ -1123,6 +1123,41 @@ def subscriber_api_comment_react(comment_id):
     cur.close(); conn.close()
 
     return jsonify(ok=True, likes=likes, dislikes=dislikes, state=None if action=="clear" else action)
+
+@app.route("/subscriber/report_article", methods=["POST"])
+def report_article():
+    data = request.get_json()
+    article_id = data.get("articleID")
+    reason = data.get("reason")
+    details = data.get("details", "")
+    
+    # Assuming session['user_id'] holds the subscriber's user ID
+    reporter_id = session.get("userID")
+    if not reporter_id:
+        return jsonify({"message": "User not logged in."}), 401
+
+    if not article_id or not reason:
+        return jsonify({"message": "Article ID and reason are required."}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO article_reports (article_id, reporter_id, reason, details)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (article_id, reporter_id, reason, details)
+        )
+        conn.commit()
+        return jsonify({"message": "Report submitted successfully."})
+    except mysql.connector.Error as err:
+        print("Database error:", err)
+        return jsonify({"message": "An error occurred while submitting your report."}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 
 # (MW) --------------Profile page----------------
 def save_profile_image(file_storage):
