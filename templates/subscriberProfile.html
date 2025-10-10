@@ -2,214 +2,186 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>EchoPress — Subscriber Home</title>
+  <title>Edit Profile — EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
 </head>
 <body>
 
-  <!-- Top Bar -->
+  <!-- Top Bar (optional: keep consistent with your site) -->
   <header class="topbar">
     <div class="left">
-      <a href="/" class="brand">
-        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
-      </a>
-      <!-- Search sits to the RIGHT of the logo -->
-      <form class="search" action="#" method="get" role="search">
-        <input type="text" placeholder="Searching for… ?" aria-label="Search" />
-        <button type="submit" aria-label="Search">Search</button>
-      </form>
+      <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" height="28">
+      </button>
     </div>
-
-    <!-- User name then menu button; panel anchored to the RIGHT -->
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user', 'Subscriber') }} !</span>
+      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
-        <a href="{{ url_for('my_articles') }}">View My Articles</a>
-        <a href="/bookmarks">View Bookmark</a>
-        <a href="/analytics">View Analytics</a>
-        <a href="/profile">Edit Profile</a>
-        <a href="#" class="logout-link">Log Out</a>
+        <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
+        <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
+        <span class="menu-item">View Analytics</span>
+        <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
+        <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
       </div>
-    </div>
   </header>
 
-  <!-- Tabs -->
-  <nav class="tabs">
-    <div class="tabs-inner">
-      <a href="#" class="tab">For you</a>
-      <a href="#" class="tab active">Trending</a>
-      <a href="#" class="tab">Politics</a>
-      <a href="#" class="tab">Sports</a>
-      <a href="#" class="tab">Technology</a>
-      <a href="#" class="tab">Economic</a>
-      <a href="#" class="tab">AsiaNews</a>
-      <a href="#" class="tab">WorldNews</a>
-    </div>
-  </nav>
-
-  <!-- Page Layout -->
   <main class="page">
-    <!-- LEFT column -->
+    <!-- Main column -->
     <section class="feed">
-
-      <!-- ABOUT card -->
       <div class="article-card detail">
-        <div class="card-header">About {{ profile.display_name }}</div>
+        <div class="card-header">Edit Profile</div>
 
-        <div class="article-body">
-          <div class="text" style="display:flex; gap:16px; align-items:flex-start;">
-            <div class="avatar" style="width:96px;height:96px;border-radius:50%;background:#eee;overflow:hidden;display:flex;align-items:center;justify-content:center;font-weight:700;color:#666;">
-              {% if profile.avatar_url %}
-                <img src="{{ profile.avatar_url }}" alt="{{ profile.display_name }}" style="width:100%;height:100%;object-fit:cover;display:block;">
-              {% else %}
-                {{ profile.display_name[:1] or 'U' }}
-              {% endif %}
+        <!-- Flash messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="alerts">
+              {% for category, msg in messages %}
+                <div class="alert {{ category }}">{{ msg }}</div>
+              {% endfor %}
             </div>
+          {% endif %}
+        {% endwith %}
 
-            <div>
-              <h2 style="margin:0 0 6px 0;">{{ profile.display_name }}</h2>
+        <form class="create-form" action="{{ url_for('profile_update') }}" method="post" enctype="multipart/form-data">
+          <input type="hidden" id="nextField" name="next" value="{{ request.referrer or url_for('profile') }}">
 
-              <!-- Short bio -->
-              <p style="margin:0 0 8px 0;color:#555;">
-                {% if profile.bio and profile.bio.strip() %}
-                  {{ profile.bio }}
+          <div class="form-grid">
+            <!-- Avatar -->
+            <label>Current avatar</label>
+              <div class="avatar">
+                {% set raw_name = (user.name if user is defined else profile.display_name) or 'User' %}
+                {% set initial = raw_name[0]|upper %}
+                {% set current_img = (user.image if user is defined else profile.avatar_url) or '' %}
+                {% set show_img = current_img.replace('../static','/static').replace('./static','/static') if current_img else '' %}
+
+                {% if show_img %}
+                  <img id="avatarPreview" src="{{ show_img }}" alt="Profile picture">
                 {% else %}
-                  No bio yet. Tell people about yourself!
+                  <div id="avatarPreview" class="avatar-initial" aria-label="Avatar">{{ initial }}</div>
                 {% endif %}
-              </p>
-
-              <!-- Longer “About you” -->
-              <p style="margin:0;color:#444;white-space:pre-wrap;">
-                {% if profile.about and profile.about.strip() %}
-                  {{ profile.about }}
-                {% endif %}
-              </p>
-
-              <a href="{{ url_for('profile_edit') }}" class="btn btn-primary" style="margin-top:12px;">Edit Profile</a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- PINNED -->
-      <div class="article-card detail">
-        <div class="card-header">Pinned by {{ profile.display_name }}</div>
-
-        {% if not pinned %}
-          <div style="padding:12px;color:#666;">No pinned articles yet.</div>
-        {% else %}
-          <div style="display:flex; flex-direction:column; gap:14px; padding:10px;">
-            {% for p in pinned %}
-              {% set link = None %}
-              {% if p.id == 'article1' %}{% set link = url_for('subscriberArticle1') %}
-              {% elif p.id == 'article2' %}{% set link = url_for('subscriberArticle2') %}
-              {% elif p.id == 'article3' %}{% set link = url_for('subscriberArticle3') %}
-              {% elif p.id == 'article4' %}{% set link = url_for('subscriberArticle4') %}
-              {% endif %}
-
-              <a href="{{ link if link else '#' }}"
-                 class="list-item" style="text-decoration:none;color:inherit;">
-                {% if p.thumb %}
-                  <img class="thumb" src="{{ p.thumb }}" alt="">
-                {% else %}
-                  <div class="no-thumb">No Image</div>
-                {% endif %}
-                <div class="item-info">
-                  <div class="item-title">{{ p.title }}</div>
-                  {% if p.summary %}
-                    <div class="item-desc">{{ p.summary }}</div>
-                  {% endif %}
-                </div>
-              </a>
-            {% endfor %}
-          </div>
-        {% endif %}
-      </div>
-
-      <!-- MY ARTICLES -->
-      <div class="article-card detail">
-        <div class="row-between card-header">
-          <span>{{ profile.display_name }}’s articles</span>
-          <div class="sort-wrap">
-            <select aria-label="Sort">
-              <option selected>sort by</option>
-              <option>newest</option>
-              <option>oldest</option>
-            </select>
-          </div>
-        </div>
-
-        {% if not articles %}
-          <div style="padding:12px;color:#666;">No articles yet.</div>
-        {% else %}
-          <div style="padding:10px;">
-            {% for a in articles %}
-              <div class="list-item">
-                {% if a.image_url %}
-                  <img class="thumb" src="{{ a.image_url }}" alt="">
-                {% else %}
-                  <div class="no-thumb">No Image</div>
-                {% endif %}
-                <div class="item-info">
-                  <div class="item-title">{{ a.title }}</div>
-                  <div class="item-desc">{{ (a.content or '')[:200] }}{% if a.content and a.content|length > 200 %}…{% endif %}</div>
-                  <div class="item-meta">
-                    <span class="pill">{{ a.category or 'Uncategorised' }}</span>
-                    <span class="pill">{{ a.status|default('draft') }}</span>
-                  </div>
-                </div>
               </div>
-            {% endfor %}
+
+
+            <!-- Name (editable) -->
+            <label for="name">Name</label>
+            <input id="name" name="name" type="text" value="{{ (user.name if user is defined else profile.display_name) or '' }}" required>
+
+            <!-- Email (locked) -->
+            <label for="email">Email</label>
+            <input id="email" type="email" value="{{ (user.email if user is defined else profile.email) or '' }}" readonly disabled>
+
+            <!-- Role (locked) -->
+            <label for="usertype">Role</label>
+            <input id="usertype" type="text" value="{{ (user.usertype if user is defined else profile.usertype) or '' }}" readonly disabled>
+
+            <!-- Bio (editable) -->
+            <label for="bio">Bio</label>
+            <textarea id="bio" name="bio" rows="5">{{ (user.bio if user is defined else profile.bio) or "" }}</textarea>
+
+            <!-- Avatar upload -->
+            <label for="avatar">Upload new avatar</label>
+            <input id="avatar" name="avatar" type="file" accept="image/*">
           </div>
-        {% endif %}
-      </div>
+
+          <div class="form-buttons">
+            <button type="button" class="btn btn-light" id="btnCancel">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save changes</button>
+          </div>
+        </form>
+
+        <div id="profileToast" class="toast" role="status" aria-live="polite"></div>
+
     </section>
 
-    <!-- RIGHT column -->
+    <!-- Right sidebar -->
     <aside class="sidebar">
-      <a href="{{ url_for('create_article') }}" class="btn btn-primary">+ Create Your Story</a>
+      <a href="{{ url_for('subscriberCreateArticle') }}" class="btn btn-primary">Create Your Story</a>
       <div class="ads">Ads</div>
     </aside>
   </main>
 
-  <!-- Menu & logout JS -->
-  <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const $ = (s) => document.querySelector(s);
+  <!-- Minimal JS: live preview for avatar -->
+    <script>
+      (function () {
+        // Keep "next" accurate
+        const nextField = document.getElementById('nextField');
+        if (document.referrer && nextField && !nextField.value) nextField.value = document.referrer;
 
-    // menu
-    const menuBtn = $('#menuBtn');
-    const menuPanel = $('#menuPanel');
-    if (menuBtn && menuPanel) {
-      const toggle = () => menuPanel.style.display = (menuPanel.style.display === 'block') ? 'none' : 'block';
-      const close  = () => menuPanel.style.display = 'none';
-      menuBtn.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
-      document.addEventListener('click', (e) => { if (!menuPanel.contains(e.target) && e.target !== menuBtn) close(); });
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-    }
+        // Cancel -> back to last page (fallback)
+        const cancel = document.getElementById('btnCancel');
+        if (cancel) cancel.addEventListener('click', function () {
+          if (document.referrer) history.back();
+          else window.location.href = "{{ url_for('subscriberHomepage') }}";
+        });
 
-    // logout modal
-    const logoutLink  = $('#logoutLink');
-    const logoutModal = $('#logoutModal');
-    const logoutYes   = $('#logoutYes');
-    const logoutNo    = $('#logoutNo');
-    const show = () => logoutModal.classList.add('show');
-    const hide = () => logoutModal.classList.remove('show');
+        // Live avatar preview
+        const input = document.getElementById('avatar');
+        const preview = document.getElementById('avatarPreview');
+        if (input && preview) {
+          input.addEventListener('change', function (e) {
+            const f = e.target.files && e.target.files[0];
+            if (!f) return;
+            const r = new FileReader();
+            r.onload = ev => {
+              if (preview.tagName === 'IMG') {
+                preview.src = ev.target.result;
+              } else {
+                const img = document.createElement('img');
+                img.id = 'avatarPreview';
+                img.src = ev.target.result;
+                img.className = preview.className;
+                preview.replaceWith(img);
+              }
+            };
+            r.readAsDataURL(f);
+          });
+        }
 
-    if (logoutLink && logoutModal) {
-      logoutLink.addEventListener('click', (e) => { e.preventDefault(); show(); });
-      logoutNo && logoutNo.addEventListener('click', hide);
-      logoutModal.addEventListener('click', (e) => { if (e.target === logoutModal) hide(); });
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
-      logoutYes && logoutYes.addEventListener('click', () => {
-        const href = logoutLink.getAttribute('data-href') || "{{ url_for('logout') }}";
-        window.location.href = href;
-      });
-    }
-  });
-  </script>
+        // 🔒 Client-side required fields check before submit
+        const form = document.querySelector('form.create-form');
+        const nameInput = document.getElementById('name');
+        const bioInput  = document.getElementById('bio');
+        const toast = document.getElementById('profileToast');
+
+        function showToast(msg, ms=2000) {
+          if (!toast) return;
+          toast.textContent = msg;
+          toast.classList.add('show');
+          setTimeout(() => toast.classList.remove('show'), ms);
+        }
+
+        if (form && nameInput && bioInput) {
+          form.addEventListener('submit', function (e) {
+            const name = (nameInput.value || '').trim();
+            const bio  = (bioInput.value  || '').trim();
+            if (!name || !bio) {
+              e.preventDefault(); // don’t submit
+              showToast('Name and Bio are required.');
+              if (!name) nameInput.focus();
+              else bioInput.focus();
+            }
+          });
+        }
+
+        // Toast on redirect query flags (?updated=1 | ?error=1&msg=... | ?nochange=1), then go back after 2s
+        const params   = new URLSearchParams(location.search);
+        const updated  = params.get('updated') === '1';
+        const isError  = params.get('error') === '1';
+        const nochange = params.get('nochange') === '1';
+        const msg      = params.get('msg') || '';
+        const next     = params.get('next');
+
+        if (updated || isError || nochange) {
+          if (isError)       showToast(msg ? `Error updating profile: ${msg}` : 'Error updating profile. Please try again.');
+          else if (nochange) showToast('No changes — redirecting back…');
+          else               showToast('Profile updated');
+
+          setTimeout(() => { if (next) location.href = next; }, 2000);
+        }
+      })();
+      </script>
 </body>
 </html>

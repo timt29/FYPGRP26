@@ -20,7 +20,7 @@
     <button onclick="toggleReports()">Reports ▸</button>
     <div class="submenu" id="reports-submenu">
         <a href="/newUsers">New Users</a>
-        <a href="/articleSubmissions">Article Submissions</a>
+        <a href="/articleSubmission">Published Articles</a>
         <a href="/loginActivity">Log in Activity</a>
     </div>
     <a href="#">Setting</a>
@@ -33,7 +33,7 @@
       <div class="admin-menu">
         <button class="admin-btn" onclick="toggleDropdown()">Admin ▼</button>
         <div class="dropdown" id="admin-dropdown">
-          <a href="/logout">Logout</a>
+          <a class="logout-link" href="/logout">Logout</a>
         </div>
       </div>
     </div>
@@ -87,25 +87,78 @@
     </div>
   </div>
 
-  <script>
-    function toggleDropdown() {
-      document.getElementById("admin-dropdown").style.display =
-        document.getElementById("admin-dropdown").style.display === "block"
-          ? "none"
-          : "block";
-    }
+    <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h2>Log out?</h2>
+      <div class="buttons">
+        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+      </div>
+    </div>
+  </div>
 
-    function toggleReports() {
-      const submenu = document.getElementById("reports-submenu");
-      submenu.style.display = submenu.style.display === "flex" ? "none" : "flex";
-    }
+    <script>
+        function toggleDropdown() {
+            document.getElementById("admin-dropdown").style.display =
+                document.getElementById("admin-dropdown").style.display === "block"
+                    ? "none"
+                    : "block";
+        }
 
-    window.onclick = function (event) {
-      if (!event.target.matches('.admin-btn')) {
-        document.getElementById("admin-dropdown").style.display = "none";
+        function toggleReports() {
+            const submenu = document.getElementById("reports-submenu");
+            submenu.style.display = submenu.style.display === "flex" ? "none" : "flex";
+        }
+
+        // Close dropdown if clicked outside
+        window.onclick = function (event) {
+            if (!event.target.matches('.admin-btn')) {
+                document.getElementById("admin-dropdown").style.display = "none";
+            }
+        }
+
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+            window.location.reload();
+            }
+        });
+
+        (function () {
+      const modal = document.getElementById('logoutModal');
+      const confirm = document.getElementById('logoutConfirm');
+      const cancel = document.getElementById('logoutCancel');
+
+      document.querySelectorAll('.logout-link').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          modal.dataset.href = a.getAttribute('href');
+          modal.classList.add('show');
+          modal.setAttribute('aria-hidden', 'false');
+        });
+      });
+
+      function closeModal() {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        delete modal.dataset.href;
       }
-    }
-  </script>
+
+      if (cancel) cancel.addEventListener('click', closeModal);
+      if (confirm) confirm.addEventListener('click', () => {
+        const href = modal.dataset.href || "/logout";
+        window.location.href = href;
+      });
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+      });
+    })();
+
+    </script>
 </body>
 </html>
 

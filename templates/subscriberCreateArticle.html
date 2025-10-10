@@ -12,11 +12,9 @@
   <!-- Top Bar -->
   <header class="topbar">
     <div class="left">
-      <!-- Logo goes back to subscriberHomepage -->
       <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </button>
-
       <div class="search">
         <input type="text" placeholder="Searching for… ?" aria-label="Search" />
         <button type="button">Search</button>
@@ -30,20 +28,87 @@
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
         <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
         <span class="menu-item">View Analytics</span>
-        <span class="menu-item">Edit Profile</span>
+        <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
         <a class="menu-item" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
-  </header> <!-- ✅ missing closing tag added -->
+  </header>
 
   <!-- Layout -->
   <main class="page">
-    <!-- Left -->
-    <section class="feed">
+    <!-- Method choice -->
+    <section class="method-choice card" id="methodChoice">
+      <h3 style="margin:0 0 8px;">How do you want to create?</h3>
+      <p style="margin:0 0 12px;">Pick one to continue.</p>
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-primary" id="chooseManual">Enter Manually</button>
+        <button type="button" class="btn btn-light" id="chooseImport">Import from .txt/.pdf/.doc/.docx</button>
+      </div>
+    </section>
+
+    <!-- Import flow -->
+    <section class="feed" id="importPane" style="display:none;">
+      <div class="article-card detail">
+        <div class="card-header">Import Your Story</div>
+        <form id="importForm" enctype="multipart/form-data" class="create-form">
+          <div>
+            <label for="importFile">Upload document:</label>
+            <input type="file" id="importFile" name="file" accept=".txt,.pdf,.doc,.docx" required>
+          </div>
+
+          <div>
+            <label for="importCover">Upload cover image (optional):</label>
+            <input type="file" id="importCover" name="image" accept="image/*">
+          </div>
+
+          <!-- hidden fields submitted on final upload -->
+          <input type="hidden" id="autoTitle"     name="title">
+          <input type="hidden" id="autoCatID"     name="category_id">
+          <input type="hidden" id="autoContent"   name="content">
+          <input type="hidden" id="cover_url"     name="cover_url">
+          <input type="hidden" id="import_images" name="import_images">  <!-- JSON array -->
+          <input type="hidden" id="import_batch"  name="import_batch">   <!-- optional -->
+
+          <!-- (optional) tiny summary you can keep or remove -->
+          <div id="aiPreview" class="note" style="display:none; margin-top:8px;"></div>
+
+          <!-- Editable meta -->
+          <div id="editMeta" style="display:none; gap:10px; margin:8px 0;">
+            <div style="margin-bottom:8px;">
+              <label for="editTitle" style="display:block; margin-bottom:4px;">Title:</label>
+              <input id="editTitle" type="text" style="width:100%;" placeholder="Suggested title">
+            </div>
+            <div>
+              <label for="editCategory" style="display:block; margin-bottom:4px;">Category:</label>
+              <select id="editCategory" style="width:100%;">
+                <option value="" disabled selected>Loading categories…</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Images preview -->
+          <div id="imagePreview" class="image-grid" style="display:none;"></div>
+
+          <!-- Editable content -->
+          <div id="reviewBlock" style="display:none; margin-top:10px;">
+            <label for="reviewText" style="display:block; margin-bottom:4px;">Imported text (you can edit):</label>
+            <textarea id="reviewText" rows="12" style="width:100%;"></textarea>
+          </div>
+
+          <div class="form-buttons">
+            <button type="button" class="btn btn-light" id="btnAnalyze">Analyze & Review</button>
+            <button type="button" class="btn btn-primary" id="btnImportPublish" style="display:none;" disabled>Upload Article</button>
+            <button type="button" class="btn" onclick="history.back()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Manual flow -->
+    <section class="feed" id="manualPane" style="display:none;">
       <div class="article-card detail">
         <div class="card-header">{{ 'Edit Article' if article else 'Create Your Story' }}</div>
 
-        <!-- Editor form -->
         <form id="editorForm" method="POST" action="#" enctype="multipart/form-data" class="create-form">
           <input type="hidden" name="id" value="{{ article.id if article else '' }}">
 
@@ -88,6 +153,11 @@
 
     <!-- Right -->
     <aside class="sidebar">
+      <button type="button"
+              class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
+        Back to Home
+      </button>
       <div class="ads">Ads</div>
     </aside>
   </main>
@@ -96,6 +166,183 @@
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
     <span id="toastMsg">Done.</span>
   </div>
+
+  <!-- Import flow script -->
+  <script>
+  (function () {
+    // Panels & choice
+    const choice       = document.getElementById('methodChoice');
+    const importPane   = document.getElementById('importPane');
+    const manualPane   = document.getElementById('manualPane');
+    const chooseManual = document.getElementById('chooseManual');
+    const chooseImport = document.getElementById('chooseImport');
+
+    // Toast
+    const toastEl = document.getElementById('toast');
+    const toastMsgEl = document.getElementById('toastMsg');
+    function showToast(msg){ if(!toastEl||!toastMsgEl) return; toastMsgEl.textContent=msg||'Done.'; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),1400); }
+
+    function showManual(){ choice.style.display='none'; manualPane.style.display=''; importPane.style.display='none'; }
+    function showImport(){ choice.style.display='none'; manualPane.style.display='none'; importPane.style.display=''; }
+    chooseManual?.addEventListener('click', showManual);
+    chooseImport?.addEventListener('click', showImport);
+
+    // Import wiring
+    const btnAnalyze   = document.getElementById('btnAnalyze');
+    const btnUploadImp = document.getElementById('btnImportPublish');
+    const fileDoc      = document.getElementById('importFile');
+    const fileCover    = document.getElementById('importCover');
+
+    const autoTitle    = document.getElementById('autoTitle');
+    const autoCatID    = document.getElementById('autoCatID');
+    const autoContent  = document.getElementById('autoContent');
+    const coverUrl     = document.getElementById('cover_url');
+    const hiddenImgs   = document.getElementById('import_images');
+    const hiddenBatch  = document.getElementById('import_batch');
+
+    const aiPreview    = document.getElementById('aiPreview');
+    const editMeta     = document.getElementById('editMeta');
+    const editTitle    = document.getElementById('editTitle');
+    const editCategory = document.getElementById('editCategory');
+
+    const imagePreview = document.getElementById('imagePreview');
+    const reviewBlock  = document.getElementById('reviewBlock');
+    const reviewText   = document.getElementById('reviewText');
+
+    let importCategoriesLoaded = false;
+    async function loadImportCategories(){
+      if (importCategoriesLoaded) return;
+      try{
+        const res = await fetch("{{ url_for('api_categories') }}", { headers:{'X-Requested-With':'XMLHttpRequest'} });
+        if (!res.ok) throw new Error('HTTP '+res.status);
+        const rows = await res.json(); // [{categoryID,name}]
+        editCategory.innerHTML = '<option value="" disabled selected>Select a category…</option>';
+        rows.forEach(r=>{
+          const o=document.createElement('option'); o.value=r.categoryID; o.textContent=r.name; editCategory.appendChild(o);
+        });
+        importCategoriesLoaded = true;
+      }catch(e){
+        editCategory.innerHTML = '<option value="" disabled selected>Could not load categories</option>';
+      }
+    }
+
+    // User-uploaded cover preview
+    fileCover?.addEventListener('change', ()=>{
+      if (!fileCover.files || !fileCover.files[0]) return;
+      const url = URL.createObjectURL(fileCover.files[0]);
+      imagePreview.style.display=''; imagePreview.insertAdjacentHTML('afterbegin', `<img src="${url}" alt="cover preview">`);
+      coverUrl.value = ''; // uploaded file takes priority over cover_url
+    });
+
+    async function analyzeAndReview(){
+      if(!fileDoc?.files?.[0]){ showToast('Choose a document first.'); return; }
+
+      btnAnalyze.disabled = true;
+      btnUploadImp.style.display='none'; btnUploadImp.disabled = true;
+      aiPreview.style.display='none'; editMeta.style.display='none';
+      imagePreview.style.display='none'; reviewBlock.style.display='none';
+
+      try{
+        // 1) Extract text + images
+        const fd = new FormData(); fd.append('file', fileDoc.files[0]);
+        const impRes = await fetch("{{ url_for('api_import_article') }}", { method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'} });
+        const impData = await impRes.json();
+        if(!impRes.ok || !impData.ok) throw new Error(impData.message || 'Import failed');
+
+        const importedText = impData.text || '';
+        const importedImgs = Array.isArray(impData.images) ? impData.images : [];
+        hiddenImgs.value   = JSON.stringify(importedImgs || []);
+        hiddenBatch.value  = impData.batch_id || '';
+
+        if (!fileCover?.files?.length && importedImgs.length) coverUrl.value = importedImgs[0];
+
+        // 2) AI suggest (title/category/correct)
+        const aiRes = await fetch("{{ url_for('api_ai_suggest') }}", {
+          method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+          body: JSON.stringify({ text: importedText })
+        });
+        const aiData = await aiRes.json();
+        if(!aiRes.ok || !aiData.ok) throw new Error(aiData.message || 'AI suggestion failed');
+
+        autoTitle.value   = aiData.title || '';
+        autoCatID.value   = aiData.category_id || '';
+        autoContent.value = aiData.corrected_text || importedText || '';
+
+        // (Optional) summary
+        aiPreview.style.display='';
+        aiPreview.innerHTML = `
+          <div><strong>Suggested Title:</strong> ${autoTitle.value || '<em>(empty)</em>'}</div>
+          <div><strong>Suggested Category:</strong> ${aiData.category_name || aiData.category_id || '-'}</div>
+          <hr style="margin:8px 0;">
+        `;
+
+        // Title + category (editable)
+        await loadImportCategories();
+        editTitle.value = autoTitle.value || '';
+        if (autoCatID.value){
+          const opt=[...editCategory.options].find(o=>o.value==String(autoCatID.value));
+          if (opt) editCategory.value = opt.value;
+        }
+        editMeta.style.display='block';
+        editTitle.addEventListener('input', ()=>{ autoTitle.value = editTitle.value; });
+        editCategory.addEventListener('change', ()=>{ autoCatID.value = editCategory.value; });
+
+        // Images preview
+        imagePreview.innerHTML = '';
+        const thumbs=[];
+        if(fileCover?.files?.[0]) thumbs.push(URL.createObjectURL(fileCover.files[0]));
+        for(const src of importedImgs) thumbs.push(src);
+        if(thumbs.length){ imagePreview.style.display=''; imagePreview.innerHTML = thumbs.map(src=>`<img src="${src}" alt="preview image">`).join(''); }
+
+        // Editable text
+        reviewText.value = autoContent.value;
+        reviewBlock.style.display=''; reviewText.addEventListener('input', ()=>{ autoContent.value = reviewText.value; });
+
+        // Enable final upload
+        btnUploadImp.style.display=''; btnUploadImp.disabled=false;
+        showToast('Analyze complete. Review & Upload when ready.');
+      }catch(e){
+        showToast(e.message || 'Analyze error');
+      }finally{
+        btnAnalyze.disabled = false;
+      }
+    }
+
+    async function uploadArticle(){
+      const out = new FormData();
+      out.set('action','publish');
+      out.set('title',       autoTitle.value);
+      out.set('category_id', autoCatID.value);
+      out.set('content',     autoContent.value);
+
+      // pass import images and batch so backend can copy/persist them
+      out.set('import_images', hiddenImgs.value || '[]');
+      out.set('import_batch',  hiddenBatch.value || '');
+
+      if(fileCover?.files?.[0]) {
+        out.set('image', fileCover.files[0]);
+      } else if(coverUrl?.value) {
+        out.set('cover_url', coverUrl.value);
+      }
+
+      try{
+        const res  = await fetch("{{ url_for('api_articles') }}", { method:'POST', body:out, headers:{'X-Requested-With':'XMLHttpRequest'} });
+        const data = await res.json().catch(()=>({}));
+        if(!res.ok || !data.ok) throw new Error(data.message || 'Upload failed');
+        showToast('Article uploaded.');
+        setTimeout(()=>{ if(data.redirect) window.location.href=data.redirect; },800);
+      }catch(e){
+        showToast(e.message || 'Upload error');
+      }
+    }
+
+    btnAnalyze?.addEventListener('click', analyzeAndReview);
+    btnUploadImp?.addEventListener('click', uploadArticle);
+
+    // Default view
+    choice && (choice.style.display='');
+  })();
+  </script>
 
   <!-- Simple menu toggle -->
   <script>
@@ -111,7 +358,7 @@
     })();
   </script>
 
-  <!-- Load categories + handle Draft/Publish -->
+  <!-- Manual: categories + draft/publish -->
   <script>
     (function(){
       const select  = document.getElementById('category');
@@ -121,53 +368,35 @@
       const btnDraft   = document.getElementById('btnDraft');
       const btnPublish = document.getElementById('btnPublish');
 
-      const showToast = (m) => {
-        msgEl.textContent = m || 'Done.';
-        toast.classList.add('show');
-        setTimeout(()=> toast.classList.remove('show'), 1400);
-      };
+      const showToast = (m) => { if(!toast||!msgEl) return; msgEl.textContent=m||'Done.'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1400); };
 
-      // Populate categories from API
       async function loadCategories() {
+        if (!select) return;
         try {
-          const res = await fetch("{{ url_for('api_categories') }}", { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+          const res = await fetch("{{ url_for('api_categories') }}", { headers:{'X-Requested-With':'XMLHttpRequest'} });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const rows = await res.json(); // [{categoryID, name}]
-          // clear options except placeholder
           [...select.querySelectorAll('option')].forEach((o,i)=>{ if(i>0) o.remove(); });
-          rows.forEach(r => {
-            const opt = document.createElement('option');
-            opt.value = r.categoryID;  // submit ID
-            opt.textContent = r.name;
-            select.appendChild(opt);
-          });
+          rows.forEach(r => { const opt=document.createElement('option'); opt.value=r.categoryID; opt.textContent=r.name; select.appendChild(opt); });
         } catch (e) {
           showToast('Failed to load categories');
         }
       }
 
-      // Submit helper
-      async function submitArticle(action) {
-        const fd = new FormData(form);
-        fd.set('action', action); // "draft" | "publish"
-        try {
-          const res = await fetch("{{ url_for('api_articles') }}", {
-            method: 'POST',
-            body: fd,
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-          });
+      async function submitArticle(action){
+        if (!form) return;
+        const fd = new FormData(form); fd.set('action', action);
+        try{
+          const res = await fetch("{{ url_for('api_articles') }}", { method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'} });
           const data = await res.json().catch(()=>({}));
           if (!res.ok || !data.ok) throw new Error(data.message || 'Failed');
-          showToast(data.message || (action === 'draft' ? 'Draft saved.' : 'Article uploaded.'));
-          setTimeout(()=> { if (data.redirect) window.location.href = data.redirect; }, 900);
-        } catch (err) {
-          showToast(err.message || 'Error');
-        }
+          showToast(data.message || (action==='draft'?'Draft saved.':'Article uploaded.'));
+          setTimeout(()=>{ if(data.redirect) window.location.href=data.redirect; },900);
+        }catch(err){ showToast(err.message || 'Error'); }
       }
 
-      // Wire buttons
-      if (btnDraft)   btnDraft.addEventListener('click',   () => submitArticle('draft'));
-      if (btnPublish) btnPublish.addEventListener('click', () => submitArticle('publish'));
+      btnDraft?.addEventListener('click', () => submitArticle('draft'));
+      btnPublish?.addEventListener('click', () => submitArticle('publish'));
 
       loadCategories();
     })();

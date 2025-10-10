@@ -30,7 +30,7 @@
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
         <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
         <span class="menu-item">View Analytics</span>
-        <span class="menu-item">Edit Profile</span>
+        <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
         <a class="menu-item" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
@@ -83,6 +83,18 @@
           {% if article.category %}<span>• {{ article.category }}</span>{% endif %}
           {% if article.published_at %}<span>• Published {{ article.published_at }}</span>{% endif %}
           {% if article.updated_at %}<span>• Updated {{ article.updated_at }}</span>{% endif %}
+        </div>
+
+        <div class="action-buttons">
+          <button id="reportBtn" class="btn btn-ghost" title="Report">
+            <img src="{{ url_for('static', filename='img/report.jpg') }}" alt="Report" style="width:20px; vertical-align:middle;" />
+            <span>Report</span>
+          </button>
+
+          <button id="shareBtn" class="btn btn-ghost" title="Share">
+            <img src="{{ url_for('static', filename='img/share.png') }}" alt="Share" style="width:20px; vertical-align:middle;" />
+            <span>Share</span>
+          </button>
         </div>
       </article>
 
@@ -344,44 +356,54 @@
     })();
   </script>
 
-  <!-- Comments logic -->
-  <script>
-  (function(){
-    const ARTICLE_ID = {{ article.articleID }};
-    const LIST   = document.getElementById('cList');
-    const FORM   = document.getElementById('cForm');
-    const INPUT  = document.getElementById('cInput');
+  
+<!-- Comments logic (REPLACE existing block) -->
+<script>
+(function(){
+  const ARTICLE_ID = {{ article.articleID }};
+  const LIST   = document.getElementById('cList');
+  const FORM   = document.getElementById('cForm');
+  const INPUT  = document.getElementById('cInput');
 
-    const API_LIST   = "{{ url_for('subscriber_api_comments') }}";
-    const API_CREATE = "{{ url_for('subscriber_api_comment_create') }}";
-    const API_EDIT   = (id)=> `/subscriber/api/comments/${id}`;
-    const API_REACT  = (id)=> `/subscriber/api/comments/${id}/react`;
+  const API_LIST   = "{{ url_for('subscriber_api_comments') }}";
+  const API_CREATE = "{{ url_for('subscriber_api_comment_create') }}";
+  const API_EDIT   = (id)=> `/subscriber/api/comments/${id}`;
+  const API_REACT  = (id)=> `/subscriber/api/comments/${id}/react`;
 
-    const esc = s => (s||"").replace(/[&<>]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+  const AVATAR_SRC = "{{ url_for('static', filename='img/avatar.png') }}";
 
-    function commentHTML(c){
-      // Map common field names
-      const id    = c.commentID ?? c.id;
-      const body  = c.text ?? c.body ?? '';
-      const user  = c.author ?? c.user_name ?? 'User';
-      const when  = c.time_ago ?? c.created_at ?? '';
-      const mine  = !!c.mine;
-      const likes = Number(c.likes ?? 0);
-      const dislikes = Number(c.dislikes ?? 0);
-      const myReact = c.my_reaction; // 1, -1, or 0
+  const esc = s => (s||"").replace(/[&<>]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
 
-      return `
-      <article class="comment-card" data-id="${id}">
+  // Render single comment (recursive render expects children HTML appended)
+  function renderComment(c, depth = 0){
+    const indentClass = depth > 0 ? 'reply' : '';
+    // reaction aria-pressed states
+    const likePressed = c.my_reaction === 'like' ? 'true' : 'false';
+    const dislikePressed = c.my_reaction === 'dislike' ? 'true' : 'false';
+
+    // comment wrapper includes data-id and data-parent for convenience
+    return `
+      <article class="comment-card ${indentClass}" data-id="${c.commentID}" data-parent="${c.parent_id || ''}" style="margin-left:${Math.min(depth*20, 160)}px;">
         <div class="comment-meta">
-          <img src="{{ url_for('static', filename='img/avatar.png') }}" alt="" class="avatar">
-          <span class="comment-name">${esc(user)}</span>
-          <span class="comment-time">${esc(when)}</span>
+          <img src="${AVATAR_SRC}" alt="" class="avatar">
+          <span class="comment-name">${esc(c.author)}</span>
+          <span class="comment-time">${esc(c.created_at ? new Date(c.created_at).toLocaleString() : '')}</span>
         </div>
 
         <div class="c-body">
-          <p class="c-text">${esc(body)}</p>
-          ${mine ? `
-            <div class="c-edit">
+          <p class="c-text">${esc(c.text)}</p>
+
+          <!-- Inline reply box (hidden by default) -->
+          <div class="c-reply-box" style="display:none; margin-top:8px;">
+            <textarea class="c-reply-input" rows="2" placeholder="Write a reply…"></textarea>
+            <div style="margin-top:6px;">
+              <button class="btn btn-light c-reply-cancel" type="button">Cancel</button>
+              <button class="btn btn-primary c-reply-send" type="button">Reply</button>
+            </div>
+          </div>
+
+          ${c.mine ? `
+            <div class="c-edit" style="display:none;">
               <textarea class="c-edit-input" rows="3"></textarea>
               <div class="c-edit-actions">
                 <button class="btn btn-light c-edit-cancel" type="button">Cancel</button>
@@ -391,121 +413,347 @@
         </div>
 
         <div class="c-actions">
-          <button class="c-like btn btn-ghost" data-val="1" aria-pressed="${myReact===1?'true':'false'}">
-            👍 <span class="c-like-count">${likes}</span>
+          <button class="c-like btn btn-ghost" data-val="1" aria-pressed="${likePressed}">
+            👍 <span class="c-like-count">${c.likes}</span>
           </button>
-          <button class="c-dislike btn btn-ghost" data-val="-1" aria-pressed="${myReact===-1?'true':'false'}">
-            👎 <span class="c-dislike-count">${dislikes}</span>
+          <button class="c-dislike btn btn-ghost" data-val="-1" aria-pressed="${dislikePressed}">
+            👎 <span class="c-dislike-count">${c.dislikes}</span>
           </button>
-          ${mine ? `
+
+          <button class="c-reply-btn btn btn-ghost" type="button">Reply</button>
+
+          ${c.mine ? `
             <button class="c-edit-btn btn btn-ghost" type="button">Edit</button>
             <button class="c-del-btn btn btn-ghost" type="button" style="color:#b00;">Delete</button>` : ``}
         </div>
-      </article>`;
-    }
 
-    async function loadComments(){
-      LIST.innerHTML = '';
-      try{
-        const res = await fetch(`${API_LIST}?article_id=${ARTICLE_ID}`);
-        const rows = res.ok ? await res.json() : [];
-        LIST.innerHTML = rows.length ? rows.map(commentHTML).join('') : '<p class="c-empty">Be the first to comment.</p>';
-      }catch(e){
-        console.error(e);
-        LIST.innerHTML = '<p class="c-empty">Failed to load comments.</p>';
+        <!-- children placeholder -->
+        <div class="c-children"></div>
+      </article>
+    `;
+  }
+
+  function buildTree(flat) {
+  const map = new Map();
+  flat.forEach(r => {
+    map.set(r.commentID, Object.assign({}, r, { children: [] }));
+  });
+
+  const roots = [];
+  map.forEach(node => {
+    const pid = node.parent_id || null;
+    if (pid && map.has(pid)) {
+      map.get(pid).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  // sort: newest-first for roots, oldest-first for replies
+  function sortRec(arr, depth = 0) {
+    arr.sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return depth === 0 ? tb - ta : ta - tb;
+    });
+    arr.forEach(n => sortRec(n.children, depth + 1));
+  }
+
+  sortRec(roots);
+  return roots;  // <-- required
+}
+
+
+  // Render tree to HTML
+  function renderTree(nodes, depth=0){
+    return nodes.map(n => {
+      const html = renderComment(n, depth);
+      // render children and wrap after the article
+      const childrenHtml = n.children && n.children.length ? renderTree(n.children, depth+1).join('') : '';
+      return html + childrenHtml;
+    });
+  }
+
+  async function loadComments(){
+    LIST.innerHTML = '';
+    try{
+      const res = await fetch(`${API_LIST}?article_id=${ARTICLE_ID}`);
+      const rows = res.ok ? await res.json() : [];
+      if (!rows.length){
+        LIST.innerHTML = '<p class="c-empty">Be the first to comment.</p>';
+        return;
       }
+      const tree = buildTree(rows);
+      const html = renderTree(tree).join('');
+      LIST.innerHTML = html;
+    }catch(e){
+      console.error(e);
+      LIST.innerHTML = '<p class="c-empty">Failed to load comments.</p>';
+    }
+  }
+
+  // Create top-level comment
+  FORM?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const text = (INPUT.value||'').trim();
+    if (!text) return;
+    const fd = new FormData();
+    fd.set('articleID', ARTICLE_ID);
+    fd.set('text', text);
+    try{
+      const res = await fetch(API_CREATE, { method:'POST', body: fd });
+      const data = res.ok ? await res.json() : null;
+      if (res.ok && data?.ok){
+        INPUT.value='';
+        await loadComments();
+      } else {
+        console.error('Create failed', data);
+      }
+    }catch(err){ console.error(err); }
+  });
+
+  // Delegated actions
+  LIST.addEventListener('click', async (e)=>{
+    const card = e.target.closest('.comment-card');
+    if (!card) return;
+    const id = card.dataset.id;
+
+    // Like/Dislike
+    if (e.target.closest('.c-like') || e.target.closest('.c-dislike')){
+      const isLike = !!e.target.closest('.c-like');
+      const action = isLike ? 'like' : 'dislike';
+      try{
+        const res = await fetch(API_REACT(id), {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ action })
+        });
+        const data = res.ok ? await res.json() : null;
+        if (data?.ok){
+          const likeEl = card.querySelector('.c-like-count');
+          const disEl  = card.querySelector('.c-dislike-count');
+          if (likeEl) likeEl.textContent = data.likes;
+          if (disEl)  disEl.textContent  = data.dislikes;
+          const likeBtn = card.querySelector('.c-like');
+          const disBtn  = card.querySelector('.c-dislike');
+          if (likeBtn) likeBtn.setAttribute('aria-pressed', data.state==='like' ? 'true':'false');
+          if (disBtn)  disBtn.setAttribute('aria-pressed', data.state==='dislike' ? 'true':'false');
+        }
+      }catch(err){ console.error(err); }
+      return;
     }
 
-    // Create
-    FORM?.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const text = (INPUT.value||'').trim();
+    // Reply button toggles inline reply box
+    if (e.target.closest('.c-reply-btn')){
+      const replyBox = card.querySelector('.c-reply-box');
+      if (!replyBox) return;
+      replyBox.style.display = replyBox.style.display === 'none' ? 'block' : 'none';
+      const ta = replyBox.querySelector('.c-reply-input');
+      if (ta) { 
+        const author = card.querySelector('.comment-name')?.textContent || '';
+        ta.value = `@${author} `;   // pre-fill with @username
+        ta.focus();
+        // Optional: move cursor to end
+        ta.selectionStart = ta.selectionEnd = ta.value.length;
+      }
+      return;
+    }
+
+    // Cancel inline reply
+    if (e.target.closest('.c-reply-cancel')){
+      const replyBox = card.querySelector('.c-reply-box');
+      if (replyBox) replyBox.style.display = 'none';
+      return;
+    }
+
+    // Send inline reply
+    if (e.target.closest('.c-reply-send')){
+      const replyBox = card.querySelector('.c-reply-box');
+      if (!replyBox) return;
+      const ta = replyBox.querySelector('.c-reply-input');
+      const text = (ta.value || '').trim();
       if (!text) return;
       const fd = new FormData();
       fd.set('articleID', ARTICLE_ID);
       fd.set('text', text);
+      fd.set('parent_id', id);
       try{
         const res = await fetch(API_CREATE, { method:'POST', body: fd });
-        if (res.ok){ INPUT.value=''; loadComments(); }
+        const data = res.ok ? await res.json() : null;
+        if (res.ok && data?.ok){
+          // Option: expand and reload comments
+          await loadComments();
+        } else {
+          console.error('Reply failed', data);
+        }
       }catch(err){ console.error(err); }
+      return;
+    }
+
+    // Enter edit mode
+    if (e.target.closest('.c-edit-btn')){
+      const bodyEl   = card.querySelector('.c-text');
+      const editWrap = card.querySelector('.c-edit');
+      const input    = card.querySelector('.c-edit-input');
+      if (!editWrap || !bodyEl || !input) return;
+      editWrap.style.display = 'block';
+      bodyEl.style.display = 'none';
+      input.value = bodyEl.textContent;
+      input.focus();
+      return;
+    }
+
+    // Cancel edit
+    if (e.target.closest('.c-edit-cancel')){
+      const bodyEl   = card.querySelector('.c-text');
+      const editWrap = card.querySelector('.c-edit');
+      if (editWrap) editWrap.style.display = 'none';
+      if (bodyEl) bodyEl.style.display = 'block';
+      return;
+    }
+
+    // Save edit
+    if (e.target.closest('.c-edit-save')){
+      const input = card.querySelector('.c-edit-input');
+      const newText = (input.value||'').trim();
+      if (!newText) return;
+      try{
+        const res = await fetch(API_EDIT(id), {
+          method:'PUT', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ text: newText })
+        });
+        if (res.ok) loadComments();
+      }catch(err){ console.error(err); }
+      return;
+    }
+
+    // Delete
+    if (e.target.closest('.c-del-btn')){
+      if (!confirm('Delete this comment?')) return;
+      try{
+        const res = await fetch(API_EDIT(id), { method:'DELETE' });
+        if (res.ok) loadComments();
+      }catch(err){ console.error(err); }
+      return;
+    }
+  });
+
+  // initial load
+  loadComments();
+})();
+</script>
+
+<div id="reportModal" class="report-modal-overlay">
+  <div class="report-modal-card">
+    <h2 class="report-modal-title">Report Article</h2>
+    <div class="report-modal-body">
+      <form id="reportForm">
+        <label for="reason">Reason:</label>
+        <select id="reason" name="reason" required>
+          <option value="">-- Select a reason --</option>
+          <option value="spam">Spam or misleading</option>
+          <option value="inappropriate">Inappropriate content</option>
+          <option value="plagiarism">Plagiarism</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label for="details">Additional details (optional):</label>
+        <textarea id="details" name="details" rows="4" placeholder="Describe the issue…"></textarea>
+
+        <div class="report-modal-actions">
+          <button type="button" id="closeReport" class="btn btn-light">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit Report</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const reportBtn    = document.getElementById("reportBtn");
+  const reportModal  = document.getElementById("reportModal");
+  const closeBtn     = document.getElementById("closeReport");
+  const form         = document.getElementById("reportForm");
+
+  if (!reportBtn || !reportModal) return;
+
+  // Open modal
+  reportBtn.addEventListener("click", () => {
+    reportModal.classList.add("show");
+  });
+
+  // Close modal (cancel button)
+  closeBtn.addEventListener("click", () => {
+    reportModal.classList.remove("show");
+    form.reset();
+  });
+
+  // Close modal if click outside card
+  reportModal.addEventListener("click", (e) => {
+    const card = reportModal.querySelector(".report-modal-card");
+    if (!card.contains(e.target)) {
+      reportModal.classList.remove("show");
+      form.reset();
+    }
+  });
+
+  // Submit report
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const reason    = document.getElementById("reason").value;
+    const details   = document.getElementById("details").value;
+    const articleID = {{ article.articleID }};
+
+    if (!reason) {
+      alert("Please select a reason before submitting.");
+      return;
+    }
+
+    fetch("/subscriber/report_article", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ articleID, reason, details })
+    })
+    .then(res => res.json())
+    .then(data => {
+      alert(data.message || "Report submitted successfully.");
+      reportModal.classList.remove("show");
+      form.reset();
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Failed to submit report.");
     });
+  });
+})();
+</script>
 
-    // Delegated actions
-    LIST.addEventListener('click', async (e)=>{
-      const card = e.target.closest('.comment-card');
-      if (!card) return;
-      const id = card.dataset.id;
 
-      // Like/Dislike
-      if (e.target.closest('.c-like') || e.target.closest('.c-dislike')){
-        const isLike = !!e.target.closest('.c-like');
-        const action = isLike ? 'like' : 'dislike';
-        try{
-          const res = await fetch(API_REACT(id), {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ action })
-          });
-          const data = res.ok ? await res.json() : null;
-          if (data?.ok){
-            card.querySelector('.c-like-count').textContent    = data.likes;
-            card.querySelector('.c-dislike-count').textContent = data.dislikes;
-            card.querySelector('.c-like').setAttribute('aria-pressed', data.state==='like' ? 'true':'false');
-            card.querySelector('.c-dislike').setAttribute('aria-pressed', data.state==='dislike' ? 'true':'false');
-          }
-        }catch(err){ console.error(err); }
-        return;
-      }
 
-      // Enter edit mode
-      if (e.target.closest('.c-edit-btn')){
-        const bodyEl   = card.querySelector('.c-text');
-        const editWrap = card.querySelector('.c-edit');
-        const input    = card.querySelector('.c-edit-input');
-        editWrap.classList.add('show');
-        bodyEl.classList.add('hidden');
-        input.value = bodyEl.textContent;
-        input.focus();
-        return;
-      }
+<!-- 🟦 Share Button Script -->
+<script>
+(function() {
+  const shareBtn = document.getElementById("shareBtn");
+  if (!shareBtn) return;
 
-      // Cancel edit
-      if (e.target.closest('.c-edit-cancel')){
-        const bodyEl   = card.querySelector('.c-text');
-        const editWrap = card.querySelector('.c-edit');
-        editWrap.classList.remove('show');
-        bodyEl.classList.remove('hidden');
-        return;
-      }
+  shareBtn.addEventListener("click", () => {
+    const url = window.location.href;
+    const titleEl = document.querySelector(".article-title");
+    const title = titleEl ? titleEl.innerText : document.title;
 
-      // Save edit
-      if (e.target.closest('.c-edit-save')){
-        const input = card.querySelector('.c-edit-input');
-        const newText = (input.value||'').trim();
-        if (!newText) return;
-        try{
-          const res = await fetch(API_EDIT(id), {
-            method:'PUT', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ text: newText })
-          });
-          if (res.ok) loadComments();
-        }catch(err){ console.error(err); }
-        return;
-      }
-
-      // Delete
-      if (e.target.closest('.c-del-btn')){
-        if (!confirm('Delete this comment?')) return;
-        try{
-          const res = await fetch(API_EDIT(id), { method:'DELETE' });
-          if (res.ok) loadComments();
-        }catch(err){ console.error(err); }
-        return;
-      }
-    });
-
-    loadComments();
-  })();
-  </script>
+    if (navigator.share) {
+      navigator.share({
+        title: title,
+        url: url
+      }).catch(err => console.error("Share failed:", err));
+    } else {
+      navigator.clipboard.writeText(url).then(() => {
+        alert("Link copied to clipboard!");
+      });
+    }
+  });
+})();
+</script>
 
 </body>
 </html>

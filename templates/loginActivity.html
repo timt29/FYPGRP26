@@ -21,7 +21,7 @@
         <button onclick="toggleReports()">Reports ▸</button>
         <div class="submenu" id="reports-submenu">
             <a href="/newUsers">New Users</a>
-            <a href="/articleSubmissions">Article Submissions</a>
+            <a href="/articleSubmission">Published Articles</a>
             <a href="/loginActivity">Log in Activity</a>
         </div>
         <a href="#">Setting</a>
@@ -35,47 +35,63 @@
             <div class="admin-menu">
                 <button class="admin-btn" onclick="toggleDropdown()">Admin ▼</button>
                 <div class="dropdown" id="admin-dropdown">
-                    <a href="/logout">Logout</a>
+                    <a class="logout-link" href="/logout">Logout</a>
                 </div>
             </div>
         </div>
 
         <!-- Content -->
         <div class="content">
-            <h2>Recent Login Activities</h2>
-            {% if activities %}
-            <table class="users-table">
+            <h2>User Login Activity</h2>
+              {% if users %}
+              <table class="users-table">
                 <thead>
-                    <tr>
-                        <th>Activity ID</th>
-                        <th>User ID</th>
-                        <th>Email</th>
-                        <th>Login Time</th>
-                        <th>IP Address</th>
-                    </tr>
+                  <tr>
+                    <th>User ID</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Last Active</th>
+                  </tr>
                 </thead>
                 <tbody>
-                    {% for activity in activities %}
-                    <tr>
-                        <td>{{ activity.activityID }}</td>
-                        <td>{{ activity.userID }}</td>
-                        <td>{{ activity.email }}</td>
-                        <td>{{ activity.login_time }}</td>
-                        <td>{{ activity.ip_address }}</td>
-                    </tr>
-                    {% endfor %}
+                  {% for user in users %}
+                  <tr>
+                    <td>{{ user.userID }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                      {% if user.is_logged_in %}
+                        <span class="status active">🟢 Active</span>
+                      {% else %}
+                        <span class="status inactive">🔴 Inactive</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ user.last_seen }}</td>
+                  </tr>
+                  {% endfor %}
                 </tbody>
-            </table>
-            {% else %}
-            <p>No login activities recorded yet.</p>
-            {% endif %}
+              </table>
+              {% else %}
+              <p>No user activity recorded yet.</p>
+              {% endif %}
         </div>
     </div>
+    
+    <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h2>Log out?</h2>
+      <div class="buttons">
+        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+      </div>
+    </div>
+  </div>
 
     <script>
         function toggleDropdown() {
             document.getElementById("admin-dropdown").style.display =
-                document.getElementById("admin-dropdown").style.display === "block" ? "none" : "block";
+                document.getElementById("admin-dropdown").style.display === "block"
+                    ? "none"
+                    : "block";
         }
 
         function toggleReports() {
@@ -83,11 +99,54 @@
             submenu.style.display = submenu.style.display === "flex" ? "none" : "flex";
         }
 
+        // Close dropdown if clicked outside
         window.onclick = function (event) {
             if (!event.target.matches('.admin-btn')) {
                 document.getElementById("admin-dropdown").style.display = "none";
             }
         }
+
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+            window.location.reload();
+            }
+        });
+
+        (function () {
+      const modal = document.getElementById('logoutModal');
+      const confirm = document.getElementById('logoutConfirm');
+      const cancel = document.getElementById('logoutCancel');
+
+      document.querySelectorAll('.logout-link').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          modal.dataset.href = a.getAttribute('href');
+          modal.classList.add('show');
+          modal.setAttribute('aria-hidden', 'false');
+        });
+      });
+
+      function closeModal() {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        delete modal.dataset.href;
+      }
+
+      if (cancel) cancel.addEventListener('click', closeModal);
+      if (confirm) confirm.addEventListener('click', () => {
+        const href = modal.dataset.href || "/logout";
+        window.location.href = href;
+      });
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+      });
+    })();
+
     </script>
 </body>
 </html>

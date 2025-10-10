@@ -1,18 +1,22 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort, make_response
-import os, time
-import uuid
+import os, io, re, time, uuid, time, zipfile, shutil, secrets
 from functools import wraps
 import webbrowser
 import threading
 import mysql.connector
+import json
 from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
+from rapidfuzz import process, fuzz
+import fitz
+from pathlib import Path
+from docx import Document
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 from deep_translator import GoogleTranslator
 from utils.profanity_filter import contains_profanity, censor_text
-
+from typing import Optional
 
 import nltk
 
@@ -291,10 +295,10 @@ def api_categories():
     cur.close(); conn.close()
     return jsonify(rows)
 
-@app.route("/api/articles", methods=["POST"])
+@app.route("/api/articles", methods=["POST"], endpoint="api_articles_post")
 @login_required("Subscriber")
 def api_articles_create():
-    action  = request.form.get("action", "publish").lower()
+    action  = (request.form.get("action") or "publish").lower()
     title   = (request.form.get("title") or "").strip()
     content = (request.form.get("content") or "").strip()
     cat_id  = request.form.get("category_id")
@@ -303,23 +307,44 @@ def api_articles_create():
     if not title or not content or not cat_id:
         return jsonify({"ok": False, "message": "Title, content, and category are required."}), 400
 
-    # profanity blocking
-    if contains_profanity(title) or contains_profanity(content):
-        return jsonify({
-            "ok": False,
-            "message": "Your article contains blocked words. Please revise and try again."
-        }), 400
+    # basic profanity gate (keep your own functions if you have them)
+    try:
+        if contains_profanity(title) or contains_profanity(content):
+            return jsonify({"ok": False, "message": "Your article contains blocked words. Please revise and try again."}), 400
+    except Exception:
+        # if the profanity lib fails, don't hard block publishing
+        pass
 
     image_rel = None
-    file = request.files.get("image")
-    if file and file.filename:
-        img_dir = os.path.join(app.root_path, "static", "img")
-        os.makedirs(img_dir, exist_ok=True)
-        safe = secure_filename(file.filename)
+    img_dir_fs = os.path.join(app.root_path, "static", "img")
+
+    # 1) Directly uploaded file has highest priority
+    up = request.files.get("image")
+    if up and up.filename:
+        os.makedirs(img_dir_fs, exist_ok=True)
+        safe = secure_filename(up.filename)
         name, ext = os.path.splitext(safe)
         unique = f"{name}_{int(time.time())}{ext}"
-        file.save(os.path.join(img_dir, unique))
+        up.save(os.path.join(img_dir_fs, unique))
         image_rel = f"/static/img/{unique}"
+    else:
+        # 2) Else, cover_url from importer (points to /static/uploads/articles/...)
+        cover_url = request.form.get("cover_url")
+        if cover_url:
+            copied = _copy_static_file(cover_url, img_dir_fs)
+            if copied:
+                image_rel = copied
+
+    # 3) (Optional) also persist any other extracted images if provided (not used by DB image field)
+    #    frontend sends JSON array in 'import_images'; we copy them into static/img for permanence.
+    try:
+        import_images_json = request.form.get("import_images", "[]")
+        import_images = json.loads(import_images_json) if import_images_json else []
+        if isinstance(import_images, list):
+            for rel in import_images:
+                _copy_static_file(rel, img_dir_fs)
+    except Exception:
+        pass  # non-fatal
 
     publish = (action == "publish")
     conn = get_db_connection()
@@ -344,6 +369,247 @@ def api_articles_create():
         "message": "Article uploaded." if publish else "Draft saved.",
         "redirect": url_for("subscriberHomepage")
     })
+
+def _copy_static_file(rel_url: str, dest_dir: str) -> Optional[str]:
+    """
+    rel_url: like '/static/uploads/articles/<batch>/img/file.png'
+    dest_dir: absolute filesystem dir for static/img
+    Returns a new web path '/static/img/<unique>' or None.
+    """
+    if not rel_url or not rel_url.startswith("/static/"):
+        return None
+
+    src_path = Path(app.root_path, rel_url.lstrip("/")).resolve()
+    if not src_path.exists() or not src_path.is_file():
+        return None
+
+    dest_dir_path = Path(dest_dir)
+    dest_dir_path.mkdir(parents=True, exist_ok=True)
+
+    stem = src_path.stem
+    ext  = src_path.suffix
+    unique = f"{stem}_{int(time.time())}{ext}"
+    dest_path = dest_dir_path / unique
+
+    shutil.copy2(src_path, dest_path)
+    return f"/static/img/{unique}"
+
+# (MW) --------Import document, extract text & images--------
+@app.post("/subscriber/api/import-article")
+@login_required("Subscriber")
+def api_import_article():
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify(ok=False, message="No file provided"), 400
+
+    ext = os.path.splitext(file.filename.lower())[1]
+    if ext not in {".txt", ".pdf", ".doc", ".docx"}:
+        return jsonify(ok=False, message="Unsupported file type"), 400
+
+    raw = file.read()
+    if not raw:
+        return jsonify(ok=False, message="Empty file"), 400
+
+    base_id = uuid.uuid4().hex[:12]
+    base_dir = os.path.join(app.static_folder, "uploads", "articles", base_id)
+    img_dir  = os.path.join(base_dir, "img")
+    os.makedirs(img_dir, exist_ok=True)
+
+    text = ""
+    img_names = []
+
+    try:
+        if ext == ".txt":
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                text = raw.decode("latin-1", errors="ignore")
+        elif ext == ".pdf":
+            text, img_names = _extract_from_pdf(raw, img_dir, base_id)
+        elif ext == ".docx":
+            text = _extract_text_docx(raw)
+            img_names = _extract_images_docx(raw, img_dir, base_id)
+        elif ext == ".doc":
+            try:
+                docx_bytes = _convert_doc_to_docx(raw)
+            except Exception as e:
+                return jsonify(ok=False, message=f".doc conversion failed: {e}"), 400
+            text = _extract_text_docx(docx_bytes)
+            img_names = _extract_images_docx(docx_bytes, img_dir, base_id)
+    except Exception as e:
+        return jsonify(ok=False, message=f"Import failed: {e}"), 500
+
+    _save_text_file(text, base_dir, base_id)  # optional
+
+    base_url = f"/static/uploads/articles/{base_id}/img"
+    img_urls = [f"{base_url}/{name}" for name in img_names]
+
+    return jsonify(ok=True, text=text, images=img_urls)
+
+def _extract_from_pdf(raw_bytes: bytes, img_dir: str, base_id: str):
+    os.makedirs(img_dir, exist_ok=True)
+    text_parts = []
+    image_names = []
+
+    doc = fitz.open(stream=raw_bytes, filetype="pdf")
+    try:
+        for page_index in range(len(doc)):
+            page = doc[page_index]
+            # text
+            text_parts.append(page.get_text())
+
+            # images
+            for img in page.get_images(full=True):
+                xref = img[0]
+                pix = fitz.Pixmap(doc, xref)
+                try:
+                    if pix.alpha:  # remove alpha for consistent PNGs
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    fname = f"p{page_index+1:03d}-{xref}.png"
+                    out_path = os.path.join(img_dir, fname)
+                    pix.save(out_path)
+                    image_names.append(fname)
+                finally:
+                    pix = None
+        full_text = "\n".join(text_parts).strip()
+        return full_text, image_names
+    finally:
+        doc.close()
+
+
+def _extract_text_docx(raw_bytes: bytes) -> str:
+    doc = Document(io.BytesIO(raw_bytes))
+    parts = [p.text for p in doc.paragraphs if p.text]
+    # also consider tables (optional)
+    for tbl in doc.tables:
+        for row in tbl.rows:
+            for cell in row.cells:
+                if cell.text:
+                    parts.append(cell.text)
+    text = "\n".join(parts)
+    # normalize a bit
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text).strip()
+    return text
+
+
+def _extract_images_docx(raw_bytes: bytes, img_dir: str, base_id: str):
+    os.makedirs(img_dir, exist_ok=True)
+    image_names = []
+    with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
+        for name in zf.namelist():
+            # embedded images live under word/media/
+            if name.startswith("word/media/") and not name.endswith("/"):
+                data = zf.read(name)
+                fname = os.path.basename(name)
+                out_path = os.path.join(img_dir, fname)
+                with open(out_path, "wb") as f:
+                    f.write(data)
+                image_names.append(fname)
+    return image_names
+
+
+def _convert_doc_to_docx(raw_bytes: bytes) -> bytes:
+    import tempfile, win32com.client as win32
+    with tempfile.TemporaryDirectory() as td:
+        src = os.path.join(td, "in.doc")
+        dst = os.path.join(td, "out.docx")
+        with open(src, "wb") as f: f.write(raw_bytes)
+
+        word = win32.gencache.EnsureDispatch('Word.Application')
+        word.Visible = False
+        doc = word.Documents.Open(src)
+        try:
+            wdFormatXMLDocument = 12
+            doc.SaveAs(dst, FileFormat=wdFormatXMLDocument)
+        finally:
+            doc.Close(False)
+            word.Quit()
+
+        with open(dst, "rb") as f:
+            return f.read()
+
+
+def _save_text_file(text: str, base_dir: str, base_id: str):
+    os.makedirs(base_dir, exist_ok=True)
+    out_path = os.path.join(base_dir, "extracted.txt")
+    try:
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(text or "")
+    except Exception:
+        # Non-fatal; ignore disk errors here
+        pass
+
+
+# (MW) ------AI: suggest title, clean up text, pick category------
+@app.post("/subscriber/api/ai-suggest")
+@login_required("Subscriber")
+def api_ai_suggest():
+    # Read JSON
+    try:
+        data = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify(ok=False, message="Invalid JSON"), 400
+
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify(ok=False, message="No text provided"), 400
+
+    # Fetch categories via MySQL
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("SELECT categoryID, name FROM categories ORDER BY name")
+    categories = cur.fetchall()
+    cur.close(); conn.close()
+    if not categories:
+        return jsonify(ok=False, message="No categories configured"), 500
+
+    # Heuristic title & cleanup
+    def simple_title(t: str) -> str:
+        for line in t.splitlines():
+            s = line.strip()
+            if len(s) >= 8:
+                return s[:90].rstrip(" .!?:;")
+        t = t.strip()
+        return (t[:80] + "…") if len(t) > 80 else (t or "Untitled")
+
+    def basic_cleanup(t: str) -> str:
+        t = re.sub(r"[ \t]+", " ", t or "")
+        t = re.sub(r"\n{3,}", "\n\n", t)
+        return t.strip()
+
+    title = simple_title(text)
+    corrected = basic_cleanup(text)
+
+    # Pick category by fuzzy match across full text
+    choices = [c["name"] for c in categories]
+    STOP = set("""
+    a an the and or of for to in on with as at by from this that those these is are was were be been being
+    it its they them their we our you your i me my he she his her which who whom whose will would should could
+    """.split())
+
+    words = re.findall(r"[A-Za-z]{3,}", corrected.lower())
+    words = [w for w in words if w not in STOP and len(w) >= 4]
+
+    from collections import Counter
+    top_terms = [w for w, _n in Counter(words).most_common(30)] or ["general"]
+    query = " ".join(top_terms)
+
+    match = process.extractOne(query, choices, scorer=fuzz.WRatio)
+    if match:
+        cat_name, score, idx = match
+        cat_id = categories[idx]["categoryID"]
+    else:
+        cat_id  = categories[0]["categoryID"]
+        cat_name= categories[0]["name"]
+
+    return jsonify(
+        ok=True,
+        title=title,
+        corrected_text=corrected,
+        category_id=cat_id,
+        category_name=cat_name
+    )
 
 # (MW)
 @app.route("/subscriber/api/articles", endpoint="subscriber_search_api")
@@ -635,7 +901,7 @@ def _timeago(ts):
     return f"{delta//86400}d ago"
 
 @app.get("/subscriber/api/comments")
-@login_required()
+@login_required("Subscriber")
 def subscriber_api_comments():
     from flask import jsonify, request, session
 
@@ -645,7 +911,7 @@ def subscriber_api_comments():
     conn = get_db_connection()
     cur = conn.cursor(dictionary=True)
 
-    # 1) Load comments for this article
+    # 1) Load comments for this article (include parent fields)
     cur.execute("""
         SELECT
             c.commentID,
@@ -654,6 +920,8 @@ def subscriber_api_comments():
             c.dislikes,
             c.created_at,
             c.userID,
+            c.is_reply,
+            c.reply_to_comment_id,
             u.name AS author,
             (c.userID = %s) AS mine
         FROM comments c
@@ -667,22 +935,19 @@ def subscriber_api_comments():
     my_reaction_map = {}
     if rows:
         comment_ids = [str(r["commentID"]) for r in rows]
-        # Build a safe IN (...) list; since these come from DB rows, it’s fine to join
         in_clause = ",".join(comment_ids)
-
         cur.execute(f"""
             SELECT commentID, reaction
             FROM comment_reactions
             WHERE userID = %s AND commentID IN ({in_clause})
         """, (uid,))
         for r in cur.fetchall():
-            # if both existed somehow, last write wins; normally there’s a UNIQUE(userID, commentID)
             my_reaction_map[r["commentID"]] = r["reaction"]
 
     cur.close()
     conn.close()
 
-    # 3) Shape API payload
+    # Helper to ISO-date
     def to_iso(dt):
         try:
             return dt.isoformat()
@@ -697,10 +962,11 @@ def subscriber_api_comments():
             "likes": int(r["likes"] or 0),
             "dislikes": int(r["dislikes"] or 0),
             "created_at": to_iso(r["created_at"]),
-            "time_ago": "",  # optional: compute on server or format on client
             "author": r["author"] or "Anonymous",
             "mine": bool(r["mine"]),
-            "my_reaction": my_reaction_map.get(r["commentID"])  # "like" | "dislike" | None
+            "my_reaction": my_reaction_map.get(r["commentID"]),  # "like" | "dislike" | None
+            "is_reply": bool(r.get("is_reply")),
+            "parent_id": r.get("reply_to_comment_id")  # null or int
         })
 
     return jsonify(out)
@@ -709,24 +975,47 @@ def subscriber_api_comments():
 @app.post("/subscriber/api/comments")
 @login_required("Subscriber")
 def subscriber_api_comment_create():
+    from flask import request, jsonify, session
     uid = session.get("userID")
-    article_id = request.form.get("articleID", type=int)
-    text = (request.form.get("text") or "").strip()
-    parent_id = request.form.get("parent_id", type=int)
+    article_id = request.form.get("articleID")
+    text = request.form.get("text", "").strip()
+    parent_id = request.form.get("parent_id")
 
-    if not article_id or not text:
-        return jsonify(ok=False, message="articleID and text required"), 400
+    if not text:
+        return jsonify({"ok": False, "error": "Empty comment."}), 400
 
     conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    # ✅ Ensure 1-level replies only (reply to top-level)
+    top_parent_id = None
+    if parent_id:
+        try:
+            pid = int(parent_id)
+            cur.execute("SELECT reply_to_comment_id FROM comments WHERE commentID=%s", (pid,))
+            row = cur.fetchone()
+            if row:
+                # if the parent already has a parent, use that (force top-level)
+                top_parent_id = row["reply_to_comment_id"] or pid
+            else:
+                top_parent_id = pid
+        except Exception:
+            top_parent_id = None
+
+    cur.close()
     cur = conn.cursor()
+
     cur.execute("""
         INSERT INTO comments (articleID, userID, comment_text, is_reply, reply_to_comment_id)
         VALUES (%s, %s, %s, %s, %s)
-    """, (article_id, uid, text, 1 if parent_id else 0, parent_id))
+    """, (article_id, uid, text, bool(top_parent_id), top_parent_id))
+
     conn.commit()
-    new_id = cur.lastrowid
-    cur.close(); conn.close()
-    return jsonify(ok=True, commentID=new_id)
+    cur.close()
+    conn.close()
+
+    return jsonify({"ok": True})
+
 
 @app.put("/subscriber/api/comments/<int:comment_id>")
 @login_required("Subscriber")
@@ -835,6 +1124,153 @@ def subscriber_api_comment_react(comment_id):
 
     return jsonify(ok=True, likes=likes, dislikes=dislikes, state=None if action=="clear" else action)
 
+@app.route("/subscriber/report_article", methods=["POST"])
+def report_article():
+    data = request.get_json()
+    article_id = data.get("articleID")
+    reason = data.get("reason")
+    details = data.get("details", "")
+    
+    # Assuming session['user_id'] holds the subscriber's user ID
+    reporter_id = session.get("userID")
+    if not reporter_id:
+        return jsonify({"message": "User not logged in."}), 401
+
+    if not article_id or not reason:
+        return jsonify({"message": "Article ID and reason are required."}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            """
+            INSERT INTO article_reports (article_id, reporter_id, reason, details)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (article_id, reporter_id, reason, details)
+        )
+        conn.commit()
+        return jsonify({"message": "Report submitted successfully."})
+    except mysql.connector.Error as err:
+        print("Database error:", err)
+        return jsonify({"message": "An error occurred while submitting your report."}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# (MW) --------------Profile page----------------
+def save_profile_image(file_storage):
+    if not file_storage or not file_storage.filename:
+        return None
+    safe = secure_filename(file_storage.filename)
+    name, ext = os.path.splitext(safe)
+    if ext.lower() not in {".jpg", ".jpeg", ".png", ".webp", ".gif"}:
+        raise ValueError("Unsupported image type")
+    unique = f"{name}_{int(time.time())}{ext}"
+    dest_dir = Path(app.root_path) / "static" / "profilePictures"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    file_storage.save(dest_dir / unique)
+    return f"/static/profilePictures/{unique}"
+
+@app.route("/profile")
+@login_required("Subscriber")
+def profile():
+    uid = session["userID"]
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT userID, name, email, usertype, image, bio
+        FROM users
+        WHERE userID=%s
+        LIMIT 1
+    """, (uid,))
+    u = cur.fetchone()
+    cur.close(); conn.close()
+
+    if not u:
+        flash("User not found.", "error")
+        return redirect(url_for("subscriberHomepage"))
+
+    # Normalize stored image paths so the browser can render them
+    img = (u.get("image") or "")
+    if img.startswith("../static/"):
+        u["image"] = img.replace("../static", "/static")
+    elif img.startswith("./static/"):
+        u["image"] = img.replace("./static", "/static")
+
+    # Optional: also pass a 'profile' dict since the template may use either
+    profile = {
+        "display_name": u["name"],
+        "email": u["email"],
+        "usertype": u["usertype"],
+        "bio": u.get("bio"),
+        "avatar_url": u.get("image"),
+    }
+
+    # Your template expects 'pinned' and 'articles' too; pass empty lists for now
+    return render_template(
+        "subscriberProfile.html",
+        user=u,
+        profile=profile,
+        pinned=[],
+        articles=[]
+    )
+
+@app.route("/profile/update", methods=["POST"])
+@login_required("Subscriber")
+def profile_update():
+    uid = session["userID"]
+    next_url = request.form.get("next") or request.referrer or url_for("subscriberHomepage")
+
+    name = (request.form.get("name") or "").strip()
+    bio  = (request.form.get("bio")  or "").strip()
+    avatar_file = request.files.get("avatar")
+
+    # --- fetch current user values for change detection ---
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("SELECT name, bio, image FROM users WHERE userID=%s LIMIT 1", (uid,))
+    row = cur.fetchone()
+    cur.close()
+
+    current_name = (row.get("name") or "").strip() if row else ""
+    current_bio  = (row.get("bio") or "").strip() if row else ""
+    # NOTE: we only treat avatar as changed if a file is uploaded
+
+    no_text_change = (name == current_name and bio == current_bio)
+    no_avatar_upload = not (avatar_file and avatar_file.filename)
+
+    if no_text_change and no_avatar_upload:
+        # nothing to do → show "No changes" toast on profile for 2s, then return to last page
+        return redirect(url_for("profile", nochange=1, next=next_url))
+
+    # --- if we reach here, at least one field changed ---
+    new_img = None
+    if avatar_file and avatar_file.filename:
+        new_img = save_profile_image(avatar_file)
+
+    try:
+        cur = conn.cursor()
+        if new_img:
+            cur.execute("UPDATE users SET name=%s, bio=%s, image=%s WHERE userID=%s",
+                        (name, bio, new_img, uid))
+        else:
+            cur.execute("UPDATE users SET name=%s, bio=%s WHERE userID=%s",
+                        (name, bio, uid))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        err = str(e)
+        return redirect(url_for("profile", error=1, msg=err, next=next_url))
+    finally:
+        cur.close(); conn.close()
+
+    # success → show toast on profile for 2s, then return to last page
+    return redirect(url_for("profile", updated=1, next=next_url))
+
+
 # (YY)
 # ---------- Auth ----------
 @app.route("/login", methods=["GET", "POST"])
@@ -844,23 +1280,38 @@ def login():
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
-        remember = request.form.get("remember")  # Checkbox returns "on" if checked, None if not
+        remember = request.form.get("remember")
 
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
-        cursor.close()
-        conn.close()
 
         if user:
-            if password == user["password"]:
-                # Block suspended BEFORE setting session
+            # Replace this if you store plain text passwords (not recommended)
+            # if password == user["password"]:
+            if password == user["password"]:  # or use check_password_hash(user["password"], password)
+                # Check if suspended
                 if user["usertype"].lower() == "suspended":
                     flash("Your account has been suspended. Please contact support.")
                     return redirect(url_for("login"))
 
-                # Set session
+                # ✅ Mark user as logged in and update last active time
+                cursor.execute("""
+                    UPDATE users
+                    SET is_logged_in = TRUE, last_active = NOW()
+                    WHERE userID = %s
+                """, (user["userID"],))
+
+                # ✅ Record login activity (optional but useful)
+                cursor.execute("""
+                    INSERT INTO login_activity (userID, email, login_time, ip_address)
+                    VALUES (%s, %s, NOW(), %s)
+                """, (user["userID"], user["email"], request.remote_addr))
+
+                conn.commit()
+
+                # ✅ Set session data
                 session["userID"] = user["userID"]
                 session["usertype"] = user["usertype"]
                 session["user"] = user["name"]
@@ -873,14 +1324,12 @@ def login():
                 }
 
                 redirect_route = role_redirects.get(user["usertype"])
-                resp = redirect(url_for(redirect_route) if redirect_route else url_for("login"))
+                resp = make_response(redirect(url_for(redirect_route) if redirect_route else url_for("login")))
 
-                # Handle "Remember Me"
+                # ✅ Handle "Remember Me" cookie
                 if remember:
-                    # Save email in a cookie for 30 days
-                    resp.set_cookie("remembered_email", email, max_age=30*24*60*60)
+                    resp.set_cookie("remembered_email", email, max_age=30 * 24 * 60 * 60)
                 else:
-                    # Remove cookie if unchecked
                     resp.delete_cookie("remembered_email")
 
                 if not redirect_route:
@@ -894,6 +1343,7 @@ def login():
             flash("User not found.")
             return redirect(url_for("login"))
 
+    # On GET, render login page with remembered email if any
     return render_template("login.html", remembered_email=remembered_email)
 
 @app.route("/register", methods=["GET", "POST"])
@@ -922,11 +1372,40 @@ def register():
 
 @app.route("/logout")
 def logout():
+    # Update database to mark user inactive before clearing session
+    if "userID" in session:
+        user_id = session["userID"]
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users 
+            SET is_logged_in = FALSE, last_active = NOW()
+            WHERE userID = %s
+        """, (user_id,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+    # Destroy session and clear cookie
     session.clear()
     resp = redirect(url_for("login"))
-    resp.delete_cookie("session")  # kill session cookie
+    resp.delete_cookie("session")  # remove Flask session cookie
     flash("You have been logged out successfully.")
     return resp
+
+@app.before_request
+def update_last_active():
+    if "userID" in session:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users
+            SET last_active = NOW()
+            WHERE userID = %s
+        """, (session["userID"],))
+        conn.commit()
+        cursor.close()
+        conn.close()
 
 @app.after_request
 def add_no_cache_headers(response):
@@ -934,6 +1413,7 @@ def add_no_cache_headers(response):
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "-1"
     return response
+
 
 # ---------- Moderator: manage users ----------
 @app.route("/manageUsers")
@@ -1246,9 +1726,10 @@ def report_new_users():
 
     return render_template("newUsers.html", users=new_users)
 
-@app.route("/articleSubmissions")
+@app.route("/articleSubmission")
 @login_required("Admin")
-def report_article_submissions():
+def article_submission():
+    # Ensure only Admins can access
     if "userID" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
@@ -1256,14 +1737,26 @@ def report_article_submissions():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Example: fetch articles submitted in the last 7 days
+    # Fetch only articles created by valid users (exclude system/orphan articles)
     cursor.execute("""
-        SELECT articleID, title, author, created_at
-        FROM articles
-        WHERE created_at >= NOW() - INTERVAL 7 DAY
-        ORDER BY created_at DESC
+    SELECT 
+        a.articleID,
+        a.title,
+        a.content,
+        a.author,
+        a.published_at,
+        a.updated_at,
+        a.image,
+        a.catID,
+        a.draft
+    FROM articles a
+    INNER JOIN users u ON a.author = u.name
+    WHERE u.usertype IN ('Author', 'Subscriber')
+    ORDER BY a.published_at DESC
     """)
+
     articles = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
@@ -1279,18 +1772,38 @@ def login_activity():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Fetch last 100 login activities (most recent first)
     cursor.execute("""
-        SELECT activityID, userID, email, login_time, ip_address
-        FROM login_activity
-        ORDER BY login_time DESC
-        LIMIT 100
+        SELECT 
+            userID, 
+            email,
+            is_logged_in,
+            last_active
+        FROM users
+        ORDER BY last_active DESC
     """)
-    activities = cursor.fetchall()
+    users = cursor.fetchall()
+
+    # Calculate "x hours ago"
+    now = datetime.now()
+    for user in users:
+        if user["last_active"]:
+            diff = now - user["last_active"]
+            seconds = diff.total_seconds()
+            if seconds < 60:
+                user["last_seen"] = "Just Now"
+            elif seconds < 3600:
+                user["last_seen"] = f"{int(seconds // 60)} min ago"
+            elif seconds < 86400:
+                user["last_seen"] = f"{int(seconds // 3600)} hrs ago"
+            else:
+                user["last_seen"] = f"{int(seconds // 86400)} days ago"
+        else:
+            user["last_seen"] = "N/A"
+
     cursor.close()
     conn.close()
 
-    return render_template("loginActivity.html", activities=activities)
+    return render_template("loginActivity.html", users=users)
 
 @app.route("/flaggedArticles")
 @login_required("Moderator")

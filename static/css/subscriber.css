@@ -275,6 +275,76 @@ html,body{ background:var(--bg); color:var(--ink); font-family:Arial,Helvetica,s
 .modal-actions{ display:flex; gap:10px; justify-content:center; }
 
 
+/* Report Modal Overlay */
+.report-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: none;           /* hidden by default */
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.report-modal-overlay.show {
+  display: flex;           /* show when .show is added */
+}
+
+/* Report Modal Card */
+.report-modal-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px 30px;
+  width: 500px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow-y: auto;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+}
+
+.report-modal-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.report-modal-body {
+  margin-bottom: 20px;
+}
+
+.report-modal-body label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.report-modal-body select,
+.report-modal-body textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-sizing: border-box;
+  resize: vertical;
+  margin-bottom: 12px;
+}
+
+.report-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.report-modal-actions button {
+  padding: 10px 18px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+
 /* =========================
    My Articles (shared)
    ========================= */
@@ -848,3 +918,69 @@ html,body{ background:var(--bg); color:var(--ink); font-family:Arial,Helvetica,s
 .c-replybox { margin-top: 8px; display: flex; gap: 8px; }
 .c-replybox textarea { flex: 1; border: 1px solid #ccc; border-radius: 8px; padding: 8px; }
 .c-empty { color: #666; }
+
+.article-card.detail {
+  position: relative;
+  padding-bottom: 60px; /* ensures space so button doesn’t overlap text */
+}
+
+.action-buttons {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+.action-buttons button {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Profile page */
+/* Avatar circle + letter fallback */
+.avatar { display: inline-flex; align-items: center; justify-content: center; }
+.avatar img,
+.avatar-initial {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+.avatar-initial {
+  background: #e8eef5;            
+  color: #2a4365;                 
+  font-weight: 700;
+  font-size: 36px;
+  line-height: 96px;             
+  text-align: center;
+  user-select: none;
+}
+
+/* Success overlay for profile update */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.35);
+  z-index: 1000;
+}
+.overlay.show { display: flex; }
+.overlay-card {
+  background: #fff;
+  padding: 22px 26px;
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  text-align: center;
+  max-width: 360px;
+  width: calc(100% - 40px);
+}
+.overlay-tick { font-size: 44px; line-height: 1; margin-bottom: 8px; }
+.overlay-title { font-weight: 600; font-size: 18px; margin: 0 0 4px; }
+.overlay-sub { opacity: .7; font-size: 14px; }
