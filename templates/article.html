@@ -64,7 +64,7 @@
               <div style="margin: 15px 20px;">
               <label for="language">Translate to:</label>
               <select id="language" onchange="translateArticle()">
-                <option value="">English (Default)</option>
+                <option value="en">English (Default)</option>
                 <optgroup label="Asian Languages">
                   <option value="zh-CN">Chinese (Simplified)</option>
                   <option value="ms">Malay</option>
@@ -136,32 +136,55 @@
 
     <script>
       // for Multilingual Support
+      // storing original english(default) ver
+      let originalTitle = "";
+      let originalContent = "";
+      let originalSummary = [];
+
+      window.addEventListener("DOMContentLoaded", () => {
+        originalTitle = document.querySelector(".main-title")?.innerText || "";
+        originalContent = document.querySelector(".small-text")?.innerText || "";
+        originalSummary = Array.from(document.querySelectorAll("ul li")).map(li => li.innerText);
+      });
+
       function translateArticle() {
         const lang = document.getElementById("language").value;
         if (!lang) return;
 
-        // take plain text from DOM to avoid html tags inserted by dyslexia mode
-        const titleText = document.querySelector(".main-title").innerText;
-        const contentText = document.querySelector(".small-text").innerText;
-        const summaryItems = Array.from(document.querySelectorAll("ul li")).map(li => li.innerText);
+        // restore original article when user select English
+        if (lang == "en") {
+          console.log("Restoring to original english version..");
+          document.querySelector(".main-title").innerText = originalTitle;
+          document.querySelector(".small-text").innerText = originalContent;
 
+          const summaryList = document.querySelectorAll("ul li");
+          originalSummary.forEach((t, i) => {
+            if (summaryList[i]) summaryList[i].innerText = t;
+          });
+          return;
+        }
+
+        // translating from original english text
         fetch("/translate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: titleText,
-            content: contentText,              
-            summary: summaryItems,
+            title: originalTitle,
+            content: originalContent,              
+            summary: originalSummary,
             target_lang: lang
             }),
         })
         .then((res) => res.json())
         .then((data) => {
-          document.querySelector(".main-title").innerText = data.title;
-          document.querySelector(".small-text").innerText = data.content;
-          
+          console.log("Translated data:", data);
+          if (data.error) throw new Error(data.error);
+
+          document.querySelector(".main-title").innerText = data.title || originalTitle;
+          document.querySelector(".small-text").innerText = data.content || originalContent;
+
           const summaryList = document.querySelectorAll("ul li");
-            data.summary.forEach((t, i) => {
+            data.summary?.forEach((t, i) => {
               if (summaryList[i]) summaryList[i].innerText = t;
             });
           })
