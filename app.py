@@ -1131,7 +1131,6 @@ def report_article():
     reason = data.get("reason")
     details = data.get("details", "")
     
-    # Assuming session['user_id'] holds the subscriber's user ID
     reporter_id = session.get("userID")
     if not reporter_id:
         return jsonify({"message": "User not logged in."}), 401
@@ -1140,8 +1139,22 @@ def report_article():
         return jsonify({"message": "Article ID and reason are required."}), 400
 
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
+
     try:
+        # 🟩 Step 1: Check if this user already reported this article
+        cursor.execute(
+            """
+            SELECT 1 FROM article_reports
+            WHERE article_id = %s AND reporter_id = %s
+            """,
+            (article_id, reporter_id)
+        )
+        existing = cursor.fetchone()
+        if existing:
+            return jsonify({"message": "You have already reported this article."}), 400
+
+        # 🟩 Step 2: Insert new report
         cursor.execute(
             """
             INSERT INTO article_reports (article_id, reporter_id, reason, details)
@@ -1151,6 +1164,7 @@ def report_article():
         )
         conn.commit()
         return jsonify({"message": "Report submitted successfully."})
+
     except mysql.connector.Error as err:
         print("Database error:", err)
         return jsonify({"message": "An error occurred while submitting your report."}), 500

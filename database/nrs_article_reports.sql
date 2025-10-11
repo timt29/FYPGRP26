@@ -32,11 +32,12 @@ CREATE TABLE `article_reports` (
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`report_id`),
+  UNIQUE KEY `unique_report` (`article_id`,`reporter_id`),
   KEY `fk_report_article` (`article_id`),
   KEY `fk_report_user` (`reporter_id`),
   CONSTRAINT `fk_report_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`articleID`) ON DELETE CASCADE,
   CONSTRAINT `fk_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userID`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -45,7 +46,7 @@ CREATE TABLE `article_reports` (
 
 LOCK TABLES `article_reports` WRITE;
 /*!40000 ALTER TABLE `article_reports` DISABLE KEYS */;
-INSERT INTO `article_reports` VALUES (1,5,10,'spam','fake news','pending','2025-10-09 12:02:58','2025-10-09 12:02:58'),(2,5,10,'inappropriate','CNA sucks','pending','2025-10-09 12:04:20','2025-10-09 12:04:20');
+INSERT INTO `article_reports` VALUES (1,5,10,'spam','fake news','pending','2025-10-09 12:02:58','2025-10-09 12:02:58'),(3,5,3,'plagiarism','This article was stolen online','pending','2025-10-11 02:01:52','2025-10-11 02:01:52');
 /*!40000 ALTER TABLE `article_reports` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -58,4 +59,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-09 20:06:24
+-- Dump completed on 2025-10-11 10:05:45
