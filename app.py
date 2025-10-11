@@ -2053,7 +2053,7 @@ def translate():
     try:
         translate_title = GoogleTranslator(source="auto", target=target_lang).translate(title) if title else ""
         translated_content = GoogleTranslator(source="auto", target=target_lang).translate(content)
-        
+
         # traslate in single api call
         if summary:
             full_summary = "\n".join(summary)
