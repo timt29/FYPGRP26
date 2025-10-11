@@ -359,7 +359,9 @@
   
 <!-- Comments logic (REPLACE existing block) -->
 <script>
-(function(){
+document.addEventListener("DOMContentLoaded", initCommentSystem);
+
+function initCommentSystem(){
   const ARTICLE_ID = {{ article.articleID }};
   const LIST   = document.getElementById('cList');
   const FORM   = document.getElementById('cForm');
@@ -424,7 +426,15 @@
 
           ${c.mine ? `
             <button class="c-edit-btn btn btn-ghost" type="button">Edit</button>
-            <button class="c-del-btn btn btn-ghost" type="button" style="color:#b00;">Delete</button>` : ``}
+            <button class="c-del-btn btn btn-ghost" type="button" style="color:#b00;">Delete</button>
+          ` : `
+            <div class="c-more-menu">
+              <button class="c-more-btn btn btn-ghost" type="button">⋯</button>
+              <div class="c-more-dropdown" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; border-radius:6px; padding:6px; z-index:100;">
+                <button class="c-report-btn btn btn-ghost" type="button" style="color:#b00;">Report</button>
+              </div>
+            </div>
+          `}
         </div>
 
         <!-- children placeholder -->
@@ -637,9 +647,58 @@
     }
   });
 
+
+  // Dropdown (⋯) menu toggle + report button handling
+  LIST.addEventListener('click', (e) => {
+    const moreBtn = e.target.closest('.c-more-btn');
+    const reportBtn = e.target.closest('.c-report-btn');
+    const card = e.target.closest('.comment-card');
+    if (!card) return;
+
+    // Toggle dropdown
+    if (moreBtn) {
+      const menu = card.querySelector('.c-more-dropdown');
+      if (menu) {
+        const isVisible = menu.style.display === 'block';
+        // close all other dropdowns
+        document.querySelectorAll('.c-more-dropdown').forEach(m => m.style.display = 'none');
+        menu.style.display = isVisible ? 'none' : 'block';
+      }
+      e.stopPropagation();
+      return;
+    }
+
+      
+  // Report button inside dropdown
+  if (reportBtn) {
+    const commentId = card.dataset.id;
+    const modal = document.getElementById('reportModal');
+    const title = modal.querySelector('.report-modal-title');
+    const form = document.getElementById('reportForm');
+
+    // Change modal to "Report Comment"
+    if (title) title.textContent = 'Report Comment';
+    modal.classList.add('show');
+    modal.dataset.targetType = 'comment';
+    modal.dataset.targetId = commentId;
+
+    // Close dropdown
+    document.querySelectorAll('.c-more-dropdown').forEach(m => m.style.display = 'none');
+    e.stopPropagation();
+  }
+});
+
+// Close dropdown when clicking elsewhere
+document.addEventListener('click', () => {
+  document.querySelectorAll('.c-more-dropdown').forEach(m => m.style.display = 'none');
+});
+
+
   // initial load
   loadComments();
-})();
+
+} // close initCommentSystem
+
 </script>
 
 <div id="reportModal" class="report-modal-overlay">
@@ -702,18 +761,24 @@
     e.preventDefault();
     const reason    = document.getElementById("reason").value;
     const details   = document.getElementById("details").value;
-    const articleID = {{ article.articleID }};
+    // Detect target (article or comment)
+    const modalType = reportModal.dataset.targetType || 'article';
+    const targetId  = reportModal.dataset.targetId || {{ article.articleID }};
+    const endpoint  = modalType === 'comment'
+      ? "/subscriber/report_comment"   // your colleague can later implement this route
+      : "/subscriber/report_article";
 
-    if (!reason) {
-      alert("Please select a reason before submitting.");
-      return;
-    }
-
-    fetch("/subscriber/report_article", {
+    fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ articleID, reason, details })
+      body: JSON.stringify({
+        id: targetId,
+        reason,
+        details,
+        type: modalType
+      })
     })
+
     .then(res => res.json())
     .then(data => {
       alert(data.message || "Report submitted successfully.");
