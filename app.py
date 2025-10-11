@@ -2043,6 +2043,13 @@ def translate():
     summary = data.get("summary", [])
     target_lang = data.get("target_lang", "en")
 
+    if target_lang == "en":
+        return jsonify({
+            "title": title,
+            "content": content,
+            "summary": summary
+        })
+
     try:
         translate_title = GoogleTranslator(source="auto", target=target_lang).translate(title) if title else ""
         translated_content = GoogleTranslator(source="auto", target=target_lang).translate(content)
