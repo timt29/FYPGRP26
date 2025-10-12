@@ -1284,6 +1284,31 @@ def profile_update():
     # success → show toast on profile for 2s, then return to last page
     return redirect(url_for("profile", updated=1, next=next_url))
 
+@app.route("/subscriber/api/articles/<int:article_id>/delete", methods=["DELETE"])
+@login_required("Subscriber")
+def subscriber_delete_article(article_id):
+    username = session.get("user")  # current logged-in subscriber
+
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    # Make sure the article belongs to the logged-in user
+    cur.execute("SELECT * FROM articles WHERE articleID = %s AND author = %s", (article_id, username))
+    article = cur.fetchone()
+
+    if not article:
+        cur.close(); conn.close()
+        return jsonify({"error": "Article not found or access denied"}), 403
+
+    try:
+        cur.execute("DELETE FROM articles WHERE articleID = %s", (article_id,))
+        conn.commit()
+        cur.close(); conn.close()
+        return jsonify({"success": True, "deleted_id": article_id})
+    except Exception as e:
+        conn.rollback()
+        cur.close(); conn.close()
+        return jsonify({"error": str(e)}), 500
 
 # (YY)
 # ---------- Auth ----------

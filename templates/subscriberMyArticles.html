@@ -100,8 +100,7 @@
     function card(a){
       const img = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
       const isDraft = !!a.draft;
-      // Clicking whole card: published -> view; draft -> edit
-      const href = EDIT_TPL.replace(/0$/, a.articleID); // Always go to Edit on My Articles
+      const href = EDIT_TPL.replace(/0$/, a.articleID);
 
       return `
       <article class="article-card my-article" data-id="${a.articleID}">
@@ -119,8 +118,10 @@
           </div>
           <div class="thumb-wrap"><img src="${img}" alt=""></div>
         </a>
+       <button class="article-delete-btn danger" data-id="${a.articleID}" title="Delete this article"> 🗑 Delete </button>
       </article>`;
     }
+
 
     async function loadMyArticles(status, q){
       feedEl.innerHTML = "";
@@ -155,6 +156,39 @@
         loadMyArticles(currentStatus, (searchInput.value || "").trim());
       });
     }
+        // Delete article
+    document.addEventListener("click", async e => {
+      const btn = e.target.closest(".article-delete-btn");
+      if (!btn) return;
+
+      const id = btn.getAttribute("data-id");
+      if (!id) return;
+
+      if (!confirm("Are you sure you want to delete this article?")) return;
+
+      const res = await fetch(`/subscriber/api/articles/${id}/delete`, { method: "DELETE" });
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // remove from DOM
+        const card = btn.closest(".article-card");
+        if (card) card.remove();
+
+        showToast("Article deleted successfully.");
+      } else {
+        showToast(data.error || "Failed to delete article.");
+      }
+    });
+
+    function showToast(msg){
+      const toast = document.getElementById("toast");
+      const span = document.getElementById("toastMsg");
+      if (!toast || !span) return;
+      span.textContent = msg;
+      toast.classList.add("show");
+      setTimeout(() => toast.classList.remove("show"), 2500);
+    }
+
 
     // initial
     loadMyArticles(currentStatus, "");
