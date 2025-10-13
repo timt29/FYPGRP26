@@ -736,8 +736,15 @@ document.addEventListener('click', () => {
 
   if (!reportBtn || !reportModal) return;
 
-  // Open modal
+  // Open modal for article
   reportBtn.addEventListener("click", () => {
+    const title = reportModal.querySelector(".report-modal-title");
+    if (title) title.textContent = "Report Article";
+    
+    // reset dataset to article
+    reportModal.dataset.targetType = "article";
+    reportModal.dataset.targetId = "{{ article.articleID }}";
+
     reportModal.classList.add("show");
   });
 

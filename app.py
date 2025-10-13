@@ -1126,48 +1126,90 @@ def subscriber_api_comment_react(comment_id):
 
 @app.route("/subscriber/report_article", methods=["POST"])
 def report_article():
-    data = request.get_json()
-    article_id = data.get("articleID")
+    data = request.get_json() or {}
+    article_id = data.get("articleID") or data.get("id")
     reason = data.get("reason")
     details = data.get("details", "")
     
     reporter_id = session.get("userID")
     if not reporter_id:
-        return jsonify({"message": "User not logged in."}), 401
+        return jsonify({"ok": False, "message": "User not logged in."}), 401
 
     if not article_id or not reason:
-        return jsonify({"message": "Article ID and reason are required."}), 400
+        return jsonify({"ok": False, "message": "Article ID and reason are required."}), 400
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     try:
-        # 🟩 Step 1: Check if this user already reported this article
+        # Step 1: Prevent duplicate reports
         cursor.execute(
-            """
-            SELECT 1 FROM article_reports
-            WHERE article_id = %s AND reporter_id = %s
-            """,
+            "SELECT 1 FROM article_reports WHERE article_id = %s AND reporter_id = %s",
             (article_id, reporter_id)
         )
-        existing = cursor.fetchone()
-        if existing:
-            return jsonify({"message": "You have already reported this article."}), 400
+        if cursor.fetchone():
+            return jsonify({"ok": False, "message": "You have already reported this article."}), 400
 
-        # 🟩 Step 2: Insert new report
+        # Step 2: Insert new report
         cursor.execute(
             """
-            INSERT INTO article_reports (article_id, reporter_id, reason, details)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO article_reports (article_id, reporter_id, reason, details, created_at)
+            VALUES (%s, %s, %s, %s, NOW())
             """,
             (article_id, reporter_id, reason, details)
         )
         conn.commit()
-        return jsonify({"message": "Report submitted successfully."})
+        return jsonify({"ok": True, "message": "Report submitted successfully."})
 
     except mysql.connector.Error as err:
         print("Database error:", err)
-        return jsonify({"message": "An error occurred while submitting your report."}), 500
+        return jsonify({"ok": False, "message": "An error occurred while submitting your report."}), 500
+
+    finally:
+        cursor.close()
+        conn.close()
+
+@app.route("/subscriber/report_comment", methods=["POST"])
+def report_comment():
+    data = request.get_json() or {}
+    comment_id = data.get("commentID") or data.get("id")
+    reason = data.get("reason")
+    details = data.get("details", "")
+    
+    reporter_id = session.get("userID")
+    if not reporter_id:
+        return jsonify({"ok": False, "message": "User not logged in."}), 401
+
+    if not comment_id or not reason:
+        return jsonify({"ok": False, "message": "Comment ID and reason are required."}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Step 1: Prevent duplicate reports from same user
+        cursor.execute(
+            "SELECT 1 FROM comment_reports WHERE comment_id = %s AND reporter_id = %s",
+            (comment_id, reporter_id)
+        )
+        if cursor.fetchone():
+            return jsonify({"ok": False, "message": "You have already reported this comment."}), 400
+
+        # Step 2: Insert new report
+        cursor.execute(
+            """
+            INSERT INTO comment_reports (comment_id, reporter_id, reason, details, created_at)
+            VALUES (%s, %s, %s, %s, NOW())
+            """,
+            (comment_id, reporter_id, reason, details)
+        )
+        conn.commit()
+        return jsonify({"ok": True, "message": "Report submitted successfully."})
+
+    except mysql.connector.Error as err:
+        print("Database error:", err)
+        return jsonify({"ok": False, "message": "An error occurred while submitting your report."}), 500
+
     finally:
         cursor.close()
         conn.close()

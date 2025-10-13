@@ -16,37 +16,37 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `article_reports`
+-- Table structure for table `comment_reports`
 --
 
-DROP TABLE IF EXISTS `article_reports`;
+DROP TABLE IF EXISTS `comment_reports`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `article_reports` (
+CREATE TABLE `comment_reports` (
   `report_id` int NOT NULL AUTO_INCREMENT,
-  `article_id` int NOT NULL,
+  `comment_id` int NOT NULL,
   `reporter_id` int NOT NULL,
-  `reason` enum('spam','inappropriate','plagiarism','other') NOT NULL,
+  `reason` enum('spam','inappropriate','harassment','other') NOT NULL,
   `details` text,
-  `status` enum('pending','reviewed','dismissed') NOT NULL DEFAULT 'pending',
+  `status` enum('pending','reviewed','dismissed') DEFAULT 'pending',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`report_id`),
-  KEY `fk_report_article` (`article_id`),
-  KEY `fk_report_user` (`reporter_id`),
-  CONSTRAINT `fk_report_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`articleID`) ON DELETE CASCADE,
-  CONSTRAINT `fk_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userID`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `unique_report` (`comment_id`,`reporter_id`),
+  KEY `fk_comment_report_user` (`reporter_id`),
+  CONSTRAINT `fk_comment_report` FOREIGN KEY (`comment_id`) REFERENCES `comments` (`commentID`) ON DELETE CASCADE,
+  CONSTRAINT `fk_comment_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userID`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `article_reports`
+-- Dumping data for table `comment_reports`
 --
 
-LOCK TABLES `article_reports` WRITE;
-/*!40000 ALTER TABLE `article_reports` DISABLE KEYS */;
-INSERT INTO `article_reports` VALUES (1,5,10,'spam','fake news','pending','2025-10-09 12:02:58','2025-10-09 12:02:58');
-/*!40000 ALTER TABLE `article_reports` ENABLE KEYS */;
+LOCK TABLES `comment_reports` WRITE;
+/*!40000 ALTER TABLE `comment_reports` DISABLE KEYS */;
+INSERT INTO `comment_reports` VALUES (1,5,10,'spam','Lies','pending','2025-10-13 19:00:47','2025-10-13 19:00:47');
+/*!40000 ALTER TABLE `comment_reports` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
