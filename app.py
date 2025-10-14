@@ -211,10 +211,41 @@ def adminHomepage():
     )
 
 # (YY)
-@app.route("/modHomepage") 
+@app.route("/modHomepage")
 @login_required("Moderator")
 def modHomepage():
-    return render_template("modHomepage.html")
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        # Count flagged articles (from article_reports)
+        cursor.execute("SELECT COUNT(DISTINCT article_id) AS total FROM article_reports")
+        flagged_articles = cursor.fetchone()["total"]
+
+        # Count flagged comments (from comment_reports)
+        cursor.execute("SELECT COUNT(DISTINCT comment_id) AS total FROM comment_reports")
+        flagged_comments = cursor.fetchone()["total"]
+
+        # Count pending articles (from articles table)
+        # assuming there’s a status column like “pending”, “approved”, “rejected”
+        #cursor.execute("SELECT COUNT(*) AS total FROM articles WHERE status = 'pending'")
+        #pending_articles = cursor.fetchone()["total"]
+
+    except mysql.connector.Error as err:
+        print("Database error:", err)
+        flagged_articles = flagged_comments = 0
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return render_template(
+        "modHomepage.html",
+        flagged_articles=flagged_articles,
+        flagged_comments=flagged_comments
+    )
+
 
 # (YY)
 @app.route("/subscriberHomepage")
@@ -1889,50 +1920,135 @@ def login_activity():
 @app.route("/flaggedArticles")
 @login_required("Moderator")
 def flagged_articles():
-    if "userID" not in session or session.get("usertype") != "Moderator":
-        flash("Access denied.")
-        return redirect(url_for("login"))
-
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Fetch all flagged articles
     cursor.execute("""
-        SELECT articleID, title, author, created_at, flagged_reason, flagged_at
-        FROM articles
-        WHERE is_flagged = TRUE
-        ORDER BY flagged_at DESC
+        SELECT 
+            ar.report_id,
+            ar.article_id AS articleID,
+            a.title,
+            a.author,
+            a.published_at AS article_created,
+            ar.reason AS flagged_reason,
+            ar.details AS flagged_details,
+            ar.created_at AS flagged_at
+        FROM article_reports ar
+        LEFT JOIN articles a ON ar.article_id = a.articleID
+        WHERE ar.status = 'pending'
+        ORDER BY ar.created_at DESC
     """)
     articles = cursor.fetchall()
-
+    print("DEBUG:", articles)  # Add this line
     cursor.close()
     conn.close()
 
     return render_template("flaggedArticles.html", articles=articles)
+
+
+@app.route("/reviewArticle", methods=["POST"])
+@login_required("Moderator")
+def review_article():
+    report_id = request.form.get("report_id")
+    action = request.form.get("action")  # "approve" or "reject"
+
+    if not report_id or action not in ["approve", "reject"]:
+        flash("Invalid action", "danger")
+        return redirect("/flaggedArticles")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        status = "reviewed" if action == "approve" else "dismissed"
+        cursor.execute("UPDATE article_reports SET status=%s WHERE report_id=%s", (status, report_id))
+        conn.commit()
+        flash(f"Report {action}d successfully.", "success")
+    except mysql.connector.Error as err:
+        print(err)
+        flash("Database error occurred.", "danger")
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect("/flaggedArticles")
+
 # (YY)
 @app.route("/flaggedComments")
 @login_required("Moderator")
 def flagged_comments():
-    if "userID" not in session or session.get("usertype") != "Moderator":
-        flash("Access denied.")
-        return redirect(url_for("login"))
-
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    # Fetch all flagged comments
-    cursor.execute("""
-        SELECT commentID, content, author, articleID, created_at, flagged_reason, flagged_at
-        FROM comments
-        WHERE is_flagged = TRUE
-        ORDER BY flagged_at DESC
-    """)
-    comments = cursor.fetchall()
+    try:
+        cursor.execute("""
+            SELECT 
+                cr.report_id,
+                cr.comment_id AS commentID,
+                c.comment_text,
+                u.name AS user,      -- join users to get name
+                cr.reason AS flagged_reason,
+                cr.details AS flagged_details,
+                cr.created_at AS flagged_at
+            FROM comment_reports cr
+            LEFT JOIN comments c ON cr.comment_id = c.commentID
+            LEFT JOIN users u ON c.userID = u.userID   -- get the comment author's name
+            WHERE cr.status = 'pending'
+            ORDER BY cr.created_at DESC
+        """)
+        comments = cursor.fetchall()
+        print("DEBUG flagged comments:", comments)
 
-    cursor.close()
-    conn.close()
+    except mysql.connector.Error as err:
+        print("Database error:", err)
+        comments = []
+
+    finally:
+        cursor.close()
+        conn.close()
 
     return render_template("flaggedComments.html", comments=comments)
+
+@app.route("/reviewComment", methods=["POST"])
+@login_required("Moderator")
+def reviewComment():
+    comment_id = request.form.get("commentID")
+    action = request.form.get("action")  # "approve" or "reject"
+
+    if not comment_id or action not in ("approve", "reject"):
+        flash("Invalid request.", "danger")
+        return redirect("/flaggedComments")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        if action == "approve":
+            # Mark comment report as reviewed
+            cursor.execute(
+                "UPDATE comment_reports SET status = 'reviewed' WHERE comment_id = %s",
+                (comment_id,)
+            )
+        elif action == "reject":
+            # Optionally, you could also delete the comment or mark as dismissed
+            cursor.execute(
+                "UPDATE comment_reports SET status = 'dismissed' WHERE comment_id = %s",
+                (comment_id,)
+            )
+
+        conn.commit()
+        flash(f"Comment {action}d successfully.", "success")
+
+    except mysql.connector.Error as err:
+        print("Database error:", err)
+        flash("An error occurred while reviewing the comment.", "danger")
+
+    finally:
+        cursor.close()
+        conn.close()
+
+    return redirect("/flaggedComments")
+
 # (YY)
 @app.route("/pendingArticles", methods=["GET", "POST"])
 @login_required("Moderator")

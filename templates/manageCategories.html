@@ -6,50 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Categories - EchoPress</title>
     <link rel="stylesheet" href="../static/css/adminHomepage.css" />
-    <style>
-        .action-buttons {
-            margin-bottom: 20px;
-            display: flex;
-            gap: 20px;
-        }
-
-        .action-buttons form {
-            flex: 1;
-        }
-
-        .action-buttons button {
-            width: 100%;
-            padding: 20px;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            transition: background-color 0.3s;
-        }
-
-        .action-buttons button:hover {
-            background-color: #0056b3;
-        }
-
-        .categories-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .categories-table th,
-        .categories-table td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-        }
-
-        .categories-table th {
-            background-color: #f4f4f4;
-        }
-    </style>
 </head>
 
 <body>
@@ -72,7 +28,7 @@
             <div class="admin-menu">
                 <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
                 <div class="dropdown" id="admin-dropdown">
-                    <a href="/logout">Logout</a>
+                    <a class="logout-link" href="/logout">Logout</a>
                 </div>
             </div>
         </div>
@@ -116,17 +72,63 @@
         </div>
     </div>
 
+    <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+        <h2>Log out?</h2>
+        <div class="buttons">
+        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+        </div>
+    </div>
+    </div>
+
     <script>
         function toggleDropdown() {
             document.getElementById("admin-dropdown").style.display =
                 document.getElementById("admin-dropdown").style.display === "block" ? "none" : "block";
         }
 
-        window.onclick = function (event) {
-            if (!event.target.matches('.admin-btn')) {
-                document.getElementById("admin-dropdown").style.display = "none";
+        window.addEventListener('click', function(event) {
+            const dropdown = document.getElementById("admin-dropdown");
+            if (!event.target.closest('.admin-menu')) {
+                dropdown.style.display = "none";
             }
+        });
+
+        (function () {
+        const modal = document.getElementById('logoutModal');
+        const confirm = document.getElementById('logoutConfirm');
+        const cancel = document.getElementById('logoutCancel');
+
+        document.querySelectorAll('.logout-link').forEach(a => {
+            a.addEventListener('click', (e) => {
+            e.preventDefault();
+            modal.dataset.href = a.getAttribute('href');
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+            });
+        });
+
+        function closeModal() {
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+            delete modal.dataset.href;
         }
+
+        if (cancel) cancel.addEventListener('click', closeModal);
+        if (confirm) confirm.addEventListener('click', () => {
+            const href = modal.dataset.href || "/logout";
+            window.location.href = href;
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+        });
+        })();
     </script>
 </body>
 

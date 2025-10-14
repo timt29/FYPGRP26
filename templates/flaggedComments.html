@@ -28,7 +28,7 @@
             <div class="admin-menu">
                 <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
                 <div class="dropdown" id="admin-dropdown">
-                    <a href="/logout">Logout</a>
+                    <a class="logout-link" href="/logout">Logout</a>
                 </div>
             </div>
         </div>
@@ -42,9 +42,7 @@
                     <tr>
                         <th>ID</th>
                         <th>Comment</th>
-                        <th>Author</th>
-                        <th>Article ID</th>
-                        <th>Created At</th>
+                        <th>Author ID</th>
                         <th>Flagged Reason</th>
                         <th>Flagged At</th>
                         <th>Actions</th>
@@ -54,10 +52,8 @@
                     {% for comment in comments %}
                     <tr>
                         <td>{{ comment.commentID }}</td>
-                        <td>{{ comment.content }}</td>
-                        <td>{{ comment.author }}</td>
-                        <td>{{ comment.articleID }}</td>
-                        <td>{{ comment.created_at }}</td>
+                        <td>{{ comment.comment_text }}</td>
+                        <td>{{ comment.user}}</td>
                         <td>{{ comment.flagged_reason }}</td>
                         <td>{{ comment.flagged_at }}</td>
                         <td>
@@ -77,17 +73,64 @@
         </div>
     </div>
 
+    <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+        <h2>Log out?</h2>
+        <div class="buttons">
+        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+        </div>
+    </div>
+    </div>
+
     <script>
         function toggleDropdown() {
             document.getElementById("admin-dropdown").style.display =
                 document.getElementById("admin-dropdown").style.display === "block" ? "none" : "block";
         }
 
-        window.onclick = function(event) {
-            if (!event.target.matches('.admin-btn')) {
-                document.getElementById("admin-dropdown").style.display = "none";
+        window.addEventListener('click', function(event) {
+            const dropdown = document.getElementById("admin-dropdown");
+            if (!event.target.closest('.admin-menu')) {
+                dropdown.style.display = "none";
             }
+        });
+
+        (function () {
+        const modal = document.getElementById('logoutModal');
+        const confirm = document.getElementById('logoutConfirm');
+        const cancel = document.getElementById('logoutCancel');
+
+        document.querySelectorAll('.logout-link').forEach(a => {
+            a.addEventListener('click', (e) => {
+            e.preventDefault();
+            modal.dataset.href = a.getAttribute('href');
+            modal.classList.add('show');
+            modal.setAttribute('aria-hidden', 'false');
+            });
+        });
+
+        function closeModal() {
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+            delete modal.dataset.href;
         }
+
+        if (cancel) cancel.addEventListener('click', closeModal);
+        if (confirm) confirm.addEventListener('click', () => {
+            const href = modal.dataset.href || "/logout";
+            window.location.href = href;
+        });
+
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+        });
+        })();
+
     </script>
 </body>
 
