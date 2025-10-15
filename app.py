@@ -80,7 +80,8 @@ def index():
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
         SELECT articleID, title, content, author, published_at, updated_at, image
-        FROM articles
+        FROM articles 
+        WHERE visible = 1
         ORDER BY published_at DESC
     """)
     articles = cursor.fetchall()
@@ -167,7 +168,7 @@ def category(category_name):
         SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
         FROM articles a
         JOIN categories c ON a.catID = c.categoryID
-        WHERE c.name = %s
+        WHERE c.name = %s AND a.visible = 1
         ORDER BY a.published_at DESC
     """, (category_name,))
     articles = cursor.fetchall()
@@ -214,23 +215,29 @@ def adminHomepage():
 @app.route("/modHomepage")
 @login_required("Moderator")
 def modHomepage():
-
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
     try:
-        # Count flagged articles (from article_reports)
-        cursor.execute("SELECT COUNT(DISTINCT article_id) AS total FROM article_reports")
+        # Count flagged articles with pending status
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM article_reports
+            WHERE status = 'pending'
+        """)
         flagged_articles = cursor.fetchone()["total"]
 
-        # Count flagged comments (from comment_reports)
-        cursor.execute("SELECT COUNT(DISTINCT comment_id) AS total FROM comment_reports")
+        # Count flagged comments with pending status
+        cursor.execute("""
+            SELECT COUNT(*) AS total
+            FROM comment_reports
+            WHERE status = 'pending'
+        """)
         flagged_comments = cursor.fetchone()["total"]
 
-        # Count pending articles (from articles table)
-        # assuming there’s a status column like “pending”, “approved”, “rejected”
-        #cursor.execute("SELECT COUNT(*) AS total FROM articles WHERE status = 'pending'")
-        #pending_articles = cursor.fetchone()["total"]
+        # Optionally: count pending articles
+        # cursor.execute("SELECT COUNT(*) AS total FROM articles WHERE status = 'pending'")
+        # pending_articles = cursor.fetchone()["total"]
 
     except mysql.connector.Error as err:
         print("Database error:", err)
@@ -244,7 +251,9 @@ def modHomepage():
         "modHomepage.html",
         flagged_articles=flagged_articles,
         flagged_comments=flagged_comments
+        # pending_articles=pending_articles
     )
+
 
 
 # (YY)
@@ -957,7 +966,7 @@ def subscriber_api_comments():
             (c.userID = %s) AS mine
         FROM comments c
         JOIN users u ON u.userID = c.userID
-        WHERE c.articleID = %s
+        WHERE c.articleID = %s AND c.visible = 1
         ORDER BY c.created_at DESC
     """, (uid, article_id))
     rows = cur.fetchall()
@@ -1156,6 +1165,7 @@ def subscriber_api_comment_react(comment_id):
     return jsonify(ok=True, likes=likes, dislikes=dislikes, state=None if action=="clear" else action)
 
 @app.route("/subscriber/report_article", methods=["POST"])
+@login_required("Subscriber")
 def report_article():
     data = request.get_json() or {}
     article_id = data.get("articleID") or data.get("id")
@@ -1163,6 +1173,8 @@ def report_article():
     details = data.get("details", "")
     
     reporter_id = session.get("userID")
+    reporter_name = session.get("user") 
+    
     if not reporter_id:
         return jsonify({"ok": False, "message": "User not logged in."}), 401
 
@@ -1173,7 +1185,21 @@ def report_article():
     cursor = conn.cursor(dictionary=True)
 
     try:
-        # Step 1: Prevent duplicate reports
+        # Step 1: Get article author (by name)
+        cursor.execute("SELECT author FROM articles WHERE articleID = %s", (article_id,))
+        article = cursor.fetchone()
+
+        if not article:
+            return jsonify({"ok": False, "message": "Article not found."}), 404
+
+        # Step 2: Check if reporter is the author (by comparing names)
+        if article["author"].strip().lower() == reporter_name.strip().lower():
+            return jsonify({
+                "ok": False,
+                "message": "User cannot report their own published article."
+            }), 403
+
+        # Step 3: Prevent duplicate reports
         cursor.execute(
             "SELECT 1 FROM article_reports WHERE article_id = %s AND reporter_id = %s",
             (article_id, reporter_id)
@@ -1181,7 +1207,7 @@ def report_article():
         if cursor.fetchone():
             return jsonify({"ok": False, "message": "You have already reported this article."}), 400
 
-        # Step 2: Insert new report
+        # Step 4: Insert new report
         cursor.execute(
             """
             INSERT INTO article_reports (article_id, reporter_id, reason, details, created_at)
@@ -1194,13 +1220,17 @@ def report_article():
 
     except mysql.connector.Error as err:
         print("Database error:", err)
-        return jsonify({"ok": False, "message": "An error occurred while submitting your report."}), 500
+        return jsonify({
+            "ok": False,
+            "message": "An internal error occurred while submitting your report."
+        }), 500
 
     finally:
         cursor.close()
         conn.close()
 
 @app.route("/subscriber/report_comment", methods=["POST"])
+@login_required("Subscriber")
 def report_comment():
     data = request.get_json() or {}
     comment_id = data.get("commentID") or data.get("id")
@@ -1939,39 +1969,70 @@ def flagged_articles():
         ORDER BY ar.created_at DESC
     """)
     articles = cursor.fetchall()
-    print("DEBUG:", articles)  # Add this line
     cursor.close()
     conn.close()
 
     return render_template("flaggedArticles.html", articles=articles)
 
-
 @app.route("/reviewArticle", methods=["POST"])
-@login_required("Moderator")
 def review_article():
     report_id = request.form.get("report_id")
-    action = request.form.get("action")  # "approve" or "reject"
+    action = request.form.get("action")
 
-    if not report_id or action not in ["approve", "reject"]:
-        flash("Invalid action", "danger")
+    if not report_id or action not in ("approve", "reject"):
+        flash("Invalid request.", "error")
         return redirect("/flaggedArticles")
 
     conn = get_db_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor(dictionary=True)
 
     try:
-        status = "reviewed" if action == "approve" else "dismissed"
-        cursor.execute("UPDATE article_reports SET status=%s WHERE report_id=%s", (status, report_id))
+        # Fetch the article ID for this report
+        cursor.execute("SELECT article_id FROM article_reports WHERE report_id = %s", (report_id,))
+        report = cursor.fetchone()
+        if not report:
+            flash("Report not found.", "error")
+            return redirect("/flaggedArticles")
+        
+        article_id = report["article_id"]
+
+        if action == "approve":
+            # 1. Mark all reports for this article as reviewed
+            cursor.execute(
+                "UPDATE article_reports SET status = 'reviewed' WHERE article_id = %s",
+                (article_id,)
+            )
+            
+            # 2. Temporarily hide the article from public
+            cursor.execute(
+                "UPDATE articles SET visible = 0 WHERE articleID = %s",
+                (article_id,)
+            )
+        elif action == "reject":
+            # Mark report as dismissed
+            cursor.execute(
+                "UPDATE article_reports SET status = 'dismissed' WHERE report_id = %s",
+                (report_id,)
+            )
+            # Ensure article stays visible
+            cursor.execute(
+                "UPDATE articles SET visible = 1 WHERE articleID = %s",
+                (article_id,)
+            )
+
         conn.commit()
-        flash(f"Report {action}d successfully.", "success")
+        flash("Article has been hidden successfully.", "success")
+
     except mysql.connector.Error as err:
-        print(err)
-        flash("Database error occurred.", "danger")
+        print("Database error:", err)
+        flash("An error occurred.", "error")
+
     finally:
         cursor.close()
         conn.close()
 
     return redirect("/flaggedArticles")
+
 
 # (YY)
 @app.route("/flaggedComments")
@@ -1997,7 +2058,6 @@ def flagged_comments():
             ORDER BY cr.created_at DESC
         """)
         comments = cursor.fetchall()
-        print("DEBUG flagged comments:", comments)
 
     except mysql.connector.Error as err:
         print("Database error:", err)
@@ -2023,16 +2083,33 @@ def reviewComment():
     cursor = conn.cursor()
 
     try:
+        # Get all reports for this comment
+        cursor.execute("SELECT report_id FROM comment_reports WHERE comment_id = %s", (comment_id,))
+        reports = cursor.fetchall()
+        if not reports:
+            flash("No reports found for this comment.", "danger")
+            return redirect("/flaggedComments")
+
         if action == "approve":
-            # Mark comment report as reviewed
+            # Mark all reports as reviewed
             cursor.execute(
                 "UPDATE comment_reports SET status = 'reviewed' WHERE comment_id = %s",
                 (comment_id,)
             )
+            # Hide the comment from public
+            cursor.execute(
+                "UPDATE comments SET visible = 0 WHERE commentID = %s",
+                (comment_id,)
+            )
         elif action == "reject":
-            # Optionally, you could also delete the comment or mark as dismissed
+            # Mark all reports as dismissed
             cursor.execute(
                 "UPDATE comment_reports SET status = 'dismissed' WHERE comment_id = %s",
+                (comment_id,)
+            )
+            # Ensure comment stays visible
+            cursor.execute(
+                "UPDATE comments SET visible = 1 WHERE commentID = %s",
                 (comment_id,)
             )
 
@@ -2048,6 +2125,7 @@ def reviewComment():
         conn.close()
 
     return redirect("/flaggedComments")
+
 
 # (YY)
 @app.route("/pendingArticles", methods=["GET", "POST"])

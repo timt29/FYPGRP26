@@ -34,6 +34,18 @@
         <div class="content">
             <h2>Articles Requiring Review</h2>
 
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                        {{ message }}
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
             {% if articles %}
             <table class="users-table">
                 <thead>
