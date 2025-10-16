@@ -36,7 +36,7 @@ CREATE TABLE `article_reports` (
   KEY `fk_report_user` (`reporter_id`),
   CONSTRAINT `fk_report_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`articleID`) ON DELETE CASCADE,
   CONSTRAINT `fk_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userID`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -45,7 +45,7 @@ CREATE TABLE `article_reports` (
 
 LOCK TABLES `article_reports` WRITE;
 /*!40000 ALTER TABLE `article_reports` DISABLE KEYS */;
-INSERT INTO `article_reports` VALUES (1,5,10,'spam','fake news','pending','2025-10-09 12:02:58','2025-10-09 12:02:58');
+INSERT INTO `article_reports` VALUES (1,5,10,'spam','fake news','pending','2025-10-09 12:02:58','2025-10-09 12:02:58'),(6,45,12,'AI moderation','Toxic or inappropriate content detected.','pending','2025-10-16 14:38:00','2025-10-16 14:38:00'),(7,46,12,'AI moderation','Toxic or inappropriate content detected.','pending','2025-10-16 14:40:58','2025-10-16 14:40:58');
 /*!40000 ALTER TABLE `article_reports` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -58,4 +58,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-16 21:51:07
+-- Dump completed on 2025-10-17  1:01:36

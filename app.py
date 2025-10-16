@@ -33,7 +33,6 @@ app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
 
 # ---------- DB ----------
-
 def get_db_connection():
     return mysql.connector.connect(
         host="localhost",
@@ -336,6 +335,57 @@ def api_categories():
     cur.close(); conn.close()
     return jsonify(rows)
 
+# --- Profanity filter --- # (NICOLE)
+def check_profanity(title, content):
+    try:
+        if contains_profanity(title) or contains_profanity(content):
+            return {
+                "ok": False,
+                "message": "Your article contains blocked words. Please revise and try again."
+            }
+    except Exception as e:
+        print("⚠️ Profanity filter error:", e)
+        # Don’t block upload if profanity detection fails
+        return {"ok": True, "message": None}
+
+    return {"ok": True, "message": None}
+
+# --- AI moderation --- # (NICOLE)
+def moderate_article(cur, title, content):
+    publish = True
+    visible = 1
+    flash_msg = "Article uploaded successfully."
+
+    try:
+        combined_text = f"{title}\n{content}"
+        moderation_result = analyze_content(combined_text)
+
+        if moderation_result['status'] in ("BLOCKED", "FLAGGED"):
+            publish = False
+            visible = 0
+            flash_msg = "Article sent for moderator review due to content issues."
+
+            # --- AI auto-report if flagged or blocked ---
+            try:
+                article_id = cur.lastrowid
+                cur.execute("""
+                    INSERT INTO article_reports (article_id, reporter_id, reason, details, status, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, 'pending', NOW(), NOW())
+                """, (
+                    article_id,
+                    session.get("userID") or 0,
+                    "AI moderation",
+                    moderation_result.get("reason", "")
+                ))
+                print(f"✅ AI auto-report created for article {article_id}")
+            except Exception as e:
+                print("⚠️ AI report insert failed:", e)
+
+    except Exception as e:
+        print("AI moderation error:", e)
+
+    return publish, visible, flash_msg
+
 @app.route("/api/articles", methods=["POST"], endpoint="api_articles_post")
 @login_required("Subscriber")
 def api_articles_create():
@@ -347,33 +397,6 @@ def api_articles_create():
 
     if not title or not content or not cat_id:
         return jsonify({"ok": False, "message": "Title, content, and category are required."}), 400
-
-    # # --- Profanity Filter --- # (NICOLE)
-    try:
-        if contains_profanity(title) or contains_profanity(content):
-            return jsonify({"ok": False, "message": "Your article contains blocked words. Please revise and try again."}), 400
-    except Exception:
-        # if the profanity lib fails, don't hard block publishing
-        pass
-
-   # --- AI moderation --- # (NICOLE)
-    try:
-        combined_text = f"{title}\n{content}"
-        moderation_result = analyze_content(combined_text)
-
-        if moderation_result['status'] in ("BLOCKED", "FLAGGED"):
-            publish = False
-            visible = 0  # hide from public
-            flash_msg = "Article sent for moderator review due to content issues."
-        else:
-            publish = True
-            visible = 1  # safe to show
-            flash_msg = "Article uploaded successfully."
-
-    except Exception as e:
-        print("AI moderation error:", e)
-        publish = True
-        flash_msg = "Article uploaded successfully."
 
     image_rel = None
     img_dir_fs = os.path.join(app.root_path, "static", "img")
@@ -410,6 +433,14 @@ def api_articles_create():
     conn = get_db_connection()
     cur = conn.cursor()
 
+    # --- Profanity Filter --- #
+    profanity_check = check_profanity(title, content)
+    if not profanity_check["ok"]:
+        return jsonify(profanity_check), 400
+    
+    # --- AI Moderation --- #
+    publish, visible, flash_msg = moderate_article(cur, title, content)
+
     if publish:
         cur.execute("""
         INSERT INTO articles 
@@ -422,28 +453,6 @@ def api_articles_create():
         (title, content, author, published_at, updated_at, image, catID, draft, visible)
         VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
         """, (title, content, author, image_rel, cat_id, visible))
-
-    # --- AI auto-report if flagged or blocked --- # (NICOLE)
-    if moderation_result['status'] in ("BLOCKED", "FLAGGED"):
-        try:
-            article_id = cur.lastrowid
-
-            short_reason = "AI moderation"
-            detail_text = moderation_result.get("reason", "")
-
-            cur.execute("""
-                INSERT INTO article_reports (article_id, reporter_id, reason, details, status, created_at, updated_at)
-                VALUES (%s, %s, %s, %s, 'pending', NOW(), NOW())
-            """, (
-                article_id,
-                session.get("userID") or 0,
-                short_reason,
-                detail_text
-            ))
-            #print(f"AI auto-report created for article {article_id}")
-
-        except Exception as e:
-            print("AI report insert failed:", e)
 
     conn.commit()
     cur.close()
@@ -902,6 +911,19 @@ def subscriber_update_article(article_id):
         cur.close(); conn.close()
         return jsonify(ok=False, message="Forbidden"), 403
 
+    # --- Run moderation only when publishing ---
+    if not draft_flag:
+        # Profanity check
+        profanity_check = check_profanity(title, content)
+        if not profanity_check["ok"]:
+            cur.close(); conn.close()
+            return jsonify(profanity_check), 400
+
+        # AI moderation
+        publish, visible, flash_msg = moderate_article(cur, title, content)
+    else:
+        flash_msg = "Draft saved."
+
     image_name = None
     if image_file and image_file.filename:
         image_name = image_file.filename
@@ -925,7 +947,8 @@ def subscriber_update_article(article_id):
     conn.commit()
     cur.close(); conn.close()
 
-    return jsonify(ok=True, message="Saved.", redirect=url_for("subscriber_my_articles"))
+    return jsonify(ok=True, message=flash_msg, redirect=url_for("subscriber_my_articles"))
+
 
 # Bookmarks page
 @app.route("/subscriber/bookmarks")
@@ -2384,3 +2407,4 @@ def open_browser():
 if __name__ == "__main__":
     threading.Timer(1.0, open_browser).start()
     app.run(debug=True)
+
