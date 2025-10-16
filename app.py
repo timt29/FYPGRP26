@@ -417,7 +417,6 @@ def api_articles_create():
         """, (title, content, author, image_rel, cat_id, visible))
     else:
         cur.execute("""
-            INSERT INTO articles (title, content, author, published_at, updated_at, image, catID, draft)
             INSERT INTO articles 
             (title, content, author, published_at, updated_at, image, catID, draft, visible)
             VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
