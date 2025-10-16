@@ -16,6 +16,7 @@ from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lsa import LsaSummarizer
 from deep_translator import GoogleTranslator
 from utils.profanity_filter import contains_profanity, censor_text
+from utils.content_analyzer import analyze_content
 from typing import Optional
 
 import nltk
@@ -292,7 +293,7 @@ def api_articles():
     cur = conn.cursor(dictionary=True)
 
     params = []
-    where  = ["a.draft = FALSE"]  # <-- exclude drafts
+    where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
 
     join   = "LEFT JOIN categories c ON a.catID = c.categoryID"
     if cat:
@@ -347,13 +348,32 @@ def api_articles_create():
     if not title or not content or not cat_id:
         return jsonify({"ok": False, "message": "Title, content, and category are required."}), 400
 
-    # basic profanity gate (keep your own functions if you have them)
+    # # --- Profanity Filter --- # (NICOLE)
     try:
         if contains_profanity(title) or contains_profanity(content):
             return jsonify({"ok": False, "message": "Your article contains blocked words. Please revise and try again."}), 400
     except Exception:
         # if the profanity lib fails, don't hard block publishing
         pass
+
+   # --- AI moderation --- # (NICOLE)
+    try:
+        combined_text = f"{title}\n{content}"
+        moderation_result = analyze_content(combined_text)
+
+        if moderation_result['status'] in ("BLOCKED", "FLAGGED"):
+            publish = False
+            visible = 0  # hide from public
+            flash_msg = "Article sent for moderator review due to content issues."
+        else:
+            publish = True
+            visible = 1  # safe to show
+            flash_msg = "Article uploaded successfully."
+
+    except Exception as e:
+        print("AI moderation error:", e)
+        publish = True
+        flash_msg = "Article uploaded successfully."
 
     image_rel = None
     img_dir_fs = os.path.join(app.root_path, "static", "img")
@@ -392,21 +412,46 @@ def api_articles_create():
 
     if publish:
         cur.execute("""
-            INSERT INTO articles (title, content, author, published_at, updated_at, image, catID, draft)
-            VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE)
-        """, (title, content, author, image_rel, cat_id))
+            (title, content, author, published_at, updated_at, image, catID, draft, visible)
+            VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, %s)
+        """, (title, content, author, image_rel, cat_id, visible))
     else:
         cur.execute("""
             INSERT INTO articles (title, content, author, published_at, updated_at, image, catID, draft)
-            VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE)
-        """, (title, content, author, image_rel, cat_id))
+            INSERT INTO articles 
+            (title, content, author, published_at, updated_at, image, catID, draft, visible)
+            VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
+        """, (title, content, author, image_rel, cat_id, visible))
+
+    # --- AI auto-report if flagged or blocked --- # (NICOLE)
+    if moderation_result['status'] in ("BLOCKED", "FLAGGED"):
+        try:
+            article_id = cur.lastrowid
+
+            short_reason = "AI moderation"
+            detail_text = moderation_result.get("reason", "")
+
+            cur.execute("""
+                INSERT INTO article_reports (article_id, reporter_id, reason, details, status, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, 'pending', NOW(), NOW())
+            """, (
+                article_id,
+                session.get("userID") or 0,
+                short_reason,
+                detail_text
+            ))
+            #print(f"AI auto-report created for article {article_id}")
+
+        except Exception as e:
+            print("AI report insert failed:", e)
 
     conn.commit()
-    cur.close(); conn.close()
+    cur.close()
+    conn.close()
 
     return jsonify({
         "ok": True,
-        "message": "Article uploaded." if publish else "Draft saved.",
+        "message": "📝 Draft saved." if not publish else flash_msg,
         "redirect": url_for("subscriberHomepage")
     })
 
@@ -663,7 +708,7 @@ def subscriber_search_api():
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    where  = ["a.draft = FALSE"]
+    where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
     params = []
 
     if cat:

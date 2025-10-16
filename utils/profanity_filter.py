@@ -1,3 +1,8 @@
+# profanity_filter.py
+# Author: Nicole Chong (8950465)
+# Description: Checks and censors article text against blocked words stored in the database
+# to prevent profanity or inappropriate language in EchoPress.
+
 import re
 import mysql.connector
 
