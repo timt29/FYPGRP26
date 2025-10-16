@@ -412,14 +412,15 @@ def api_articles_create():
 
     if publish:
         cur.execute("""
-            (title, content, author, published_at, updated_at, image, catID, draft, visible)
-            VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, %s)
+        INSERT INTO articles 
+        (title, content, author, published_at, updated_at, image, catID, draft, visible)
+        VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, %s)
         """, (title, content, author, image_rel, cat_id, visible))
     else:
         cur.execute("""
-            INSERT INTO articles 
-            (title, content, author, published_at, updated_at, image, catID, draft, visible)
-            VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
+        INSERT INTO articles 
+        (title, content, author, published_at, updated_at, image, catID, draft, visible)
+        VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
         """, (title, content, author, image_rel, cat_id, visible))
 
     # --- AI auto-report if flagged or blocked --- # (NICOLE)
