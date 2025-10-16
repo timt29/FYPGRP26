@@ -1782,6 +1782,24 @@ body {
   border-color: #e53935;
   box-shadow: 0 2px 8px rgba(229, 57, 53, 0.4);
 }
+/* Create a wrapper spacing class */
+.article-with-delete {
+  padding-top: 42px; /* adjust height to fit your delete button */
+  position: relative;
+}
+
+/* Adjust the delete button to sit above content */
+.article-with-delete .article-delete-btn {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  z-index: 2;
+}
+
+/* Optional: give the image a small top margin for better separation */
+.article-with-delete .thumb-wrap {
+  margin-top: 8px;
+}
 
 /* Make sure the card is positioned to contain absolute elements */
 .article-card {

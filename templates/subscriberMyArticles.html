@@ -103,23 +103,23 @@
       const href = EDIT_TPL.replace(/0$/, a.articleID);
 
       return `
-      <article class="article-card my-article" data-id="${a.articleID}">
-        <a class="card-link" href="${href}" aria-label="${esc(a.title)}">
-          <div class="text">
-            <div class="card-top">
-              ${statusBadge(isDraft)}
-              ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
+        <article class="article-card my-article article-with-delete" data-id="${a.articleID}">
+          <a class="card-link" href="${href}" aria-label="${esc(a.title)}">
+            <div class="text">
+              <div class="card-top">
+                ${statusBadge(isDraft)}
+                ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
+              </div>
+              <h3>${esc(a.title)}</h3>
+              <p class="desc">${esc(truncate(a.content))}</p>
+              <div class="meta-line">
+                ${a.published_at ? `<span>${isDraft ? 'Updated' : 'Published'}: ${esc(a.published_at || a.updated_at || '')}</span>` : ""}
+              </div>
             </div>
-            <h3>${esc(a.title)}</h3>
-            <p class="desc">${esc(truncate(a.content))}</p>
-            <div class="meta-line">
-              ${a.published_at ? `<span>${isDraft ? 'Updated' : 'Published'}: ${esc(a.published_at || a.updated_at || '')}</span>` : ""}
-            </div>
-          </div>
-          <div class="thumb-wrap"><img src="${img}" alt=""></div>
-        </a>
-       <button class="article-delete-btn danger" data-id="${a.articleID}" title="Delete this article"> 🗑 Delete </button>
-      </article>`;
+            <div class="thumb-wrap"><img src="${img}" alt=""></div>
+          </a>
+          <button class="article-delete-btn danger" data-id="${a.articleID}" title="Delete this article">🗑 Delete</button>
+        </article>`;
     }
 
 
