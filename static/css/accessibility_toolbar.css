@@ -1,0 +1,190 @@
+/* =======================================================
+   EchoPress Accessibility Toolbar
+   Shared across Reader / Subscriber / Author article pages
+   ======================================================= */
+
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('/static/fonts/OpenDyslexic-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Toolbar container */
+.accessibility-toolbar {
+  margin: 15px 0 25px;
+  padding: 12px 18px;
+  background: #f4f4f4;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  border: 1px solid #ddd;
+  color: #000;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Label styling */
+.accessibility-toolbar label {
+  font-weight: bold;
+  color: inherit;
+}
+
+/* Dropdowns and sliders */
+.accessibility-toolbar select,
+.accessibility-toolbar input[type="range"] {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #bbb;
+  background: white;
+  cursor: pointer;
+  color: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.accessibility-toolbar select:hover,
+.accessibility-toolbar input[type="range"]:hover {
+  border-color: #f39c12;
+}
+
+/* Font size display */
+#size-display {
+  font-weight: bold;
+  color: #555;
+}
+
+/* Reset button */
+.reset-btn {
+  background: #e0e0e0;
+  color: #222;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.reset-btn:hover {
+  background: #dcdcdc;
+  color: #000;
+}
+
+.reset-btn::before {
+  content: "↺";
+  display: inline-block;
+  transition: transform 0.4s ease;
+  font-size: 1.1em;
+}
+
+.reset-btn:hover::before {
+  transform: rotate(-360deg);
+}
+
+/* --- Theme overrides --- */
+
+/* Default Theme */
+.article-card.detail.article-view.theme-default,
+.article-content.theme-default,
+.text.theme-default {
+  background-color: #ffffff !important;
+  color: #000000;
+}
+
+/* Cream Theme */
+.article-card.detail.article-view.theme-cream,
+.article-content.theme-cream,
+.text.theme-cream {
+  background-color: #fff8dc !important;
+  color: #000000;
+}
+
+/* Pastel Blue Theme */
+.article-card.detail.article-view.theme-pastelblue,
+.article-content.theme-pastelblue,
+.text.theme-pastelblue {
+  background-color: #d6eaff !important;
+  color: #000000;
+}
+
+/* Dark Mode */
+.article-card.detail.article-view.theme-darkmode,
+.article-content.theme-darkmode,
+.text.theme-darkmode {
+  background-color: #121212 !important;
+  color: #f1f1f1;
+}
+
+/* Inner text color inheritance for dark mode */
+.article-card.detail.article-view.theme-darkmode *,
+.article-content.theme-darkmode *,
+.text.theme-darkmode * {
+  color: #f1f1f1 !important;
+}
+
+/* Toolbar theming to match selected background */
+.theme-cream .accessibility-toolbar {
+  background-color: #fff4cc !important;
+  border-color: #e6d999;
+}
+
+.theme-pastelblue .accessibility-toolbar {
+  background-color: #cce3ff !important;
+  border-color: #a8c9ff;
+}
+
+.theme-darkmode .accessibility-toolbar {
+  background-color: #1f1f1f !important;
+  color: #f1f1f1 !important;
+  border-color: #333;
+}
+
+.theme-default .accessibility-toolbar {
+  background-color: #f4f4f4 !important;
+  color: #000000 !important;
+  border-color: #ddd;
+}
+
+/* --- Font class definitions --- */
+.font-opendyslexic { font-family: 'OpenDyslexic', Arial, Helvetica, sans-serif !important; }
+.font-arial { font-family: Arial, Helvetica, sans-serif !important; }
+.font-comic { font-family: 'Comic Sans MS', cursive, sans-serif !important; }
+
+/* --- Overwrite fonts within article content --- */
+.article-content,
+.article-content *,
+.text,
+.text * {
+  transition: all 0.25s ease-in-out;
+  font-family: inherit;
+}
+
+/* Apply when user selects OpenDyslexic */
+.article-content.font-opendyslexic,
+.article-content.font-opendyslexic *,
+.text.font-opendyslexic,
+.text.font-opendyslexic * {
+  font-family: 'OpenDyslexic', Arial, Helvetica, sans-serif !important;
+}
+
+/* Apply when user selects Arial */
+.article-content.font-arial,
+.article-content.font-arial *,
+.text.font-arial,
+.text.font-arial * {
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+/* Apply when user selects Comic Sans */
+.article-content.font-comic,
+.article-content.font-comic *,
+.text.font-comic,
+.text.font-comic * {
+  font-family: 'Comic Sans MS', cursive, sans-serif !important;
+}

@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <title>EchoPress</title>
     <link rel="stylesheet" href="../static/css/style.css" />
+    <link rel="stylesheet" href="../static/css/accessibility_toolbar.css" />
     <link rel="icon" href="../static/img/favicon.png" type="image/png" />
   </head>
 
@@ -36,28 +37,7 @@
           <div class="text">
             <h1 class="main-title">{{ article['title'] }}</h1>
 
-            <div class="accessibility-toolbar">
-              <label for="font-select">Font:</label>
-              <select id="font-select">
-                <option value="font-arial">Arial</option>
-                <option value="font-opendyslexic">OpenDyslexic</option>
-                <option value="font-comic">Comic Sans</option>
-              </select>
-
-              <label for="theme-select">Theme:</label>
-              <select id="theme-select">
-                <option value="theme-default">Default</option>
-                <option value="theme-cream">Cream</option>
-                <option value="theme-pastelblue">Pastel Blue</option>
-                <option value="theme-darkmode">Dark</option>
-              </select>
-
-              <label for="font-size">Text Size:</label>
-              <input type="range" id="font-size" min="14" max="26" value="18" />
-              <span id="font-size-display">18 px</span>
-
-              <button id="reset-btn" type="button" class="reset-btn">Default</button>
-            </div>
+            {% include 'partials/accessibility_toolbar.html' %}
 
             {% if article['image'] %}
 
@@ -210,73 +190,7 @@
           });
         }
       }
-
-      //for dyslexia support
-      const articleText = document.querySelector('.article.sel-article .text');
-      const fontSelect = document.getElementById('font-select');
-      const themeSelect = document.getElementById('theme-select');
-      const sizeSlider = document.getElementById('font-size');
-      const sizeDisplay = document.getElementById('font-size-display');
-      const resetBtn = document.getElementById('reset-btn');
-
-      // Restore saved settings
-      window.addEventListener('load', () => {
-        const savedFont = localStorage.getItem('fontChoice') || 'font-arial';
-        const savedTheme = localStorage.getItem('themeChoice') || 'theme-default';
-        fontSelect.value = savedFont;
-        themeSelect.value = savedTheme;
-        applyStyles(savedFont, savedTheme);
-      });
-
-      fontSelect.addEventListener('change', () => {
-        const font = fontSelect.value;
-        const theme = themeSelect.value;
-        localStorage.setItem('fontChoice', font);
-        applyStyles(font, theme);
-      });
-
-      themeSelect.addEventListener('change', () => {
-        const font = fontSelect.value;
-        const theme = themeSelect.value;
-        localStorage.setItem('themeChoice', theme);
-        applyStyles(font, theme);
-      });
-
-      // restore saved font size
-      window.addEventListener('load', () => {
-        const savedSize = localStorage.getItem('fontSize') || '18';
-        sizeSlider.value = savedSize;
-        sizeDisplay.textContent = `${savedSize}px`;
-        articleText.style.fontSize = `${savedSize}px`;
-      });
-
-      // live update + save
-      sizeSlider.addEventListener('input', () => {
-        const size = sizeSlider.value;
-        sizeDisplay.textContent = `${size}px`;
-        articleText.style.fontSize = `${size}px`;
-        localStorage.setItem('fontSize', size);
-      });
-
-      // Reset to default font and theme
-      resetBtn.addEventListener('click', () => {
-        fontSelect.value = 'font-arial';
-          themeSelect.value = 'theme-default';
-          sizeSlider.value = 18;
-          sizeDisplay.textContent = '18px';
-          
-          // Apply defaults
-          localStorage.setItem('fontChoice', 'font-arial');
-          localStorage.setItem('themeChoice', 'theme-default');
-          localStorage.setItem('fontSize', '18');
-          
-          applyStyles('font-arial', 'theme-default');
-          articleText.style.fontSize = '18px';
-      });
-
-      function applyStyles(font, theme) {
-        articleText.className = `text ${font} ${theme}`;
-      }
     </script>
+    <script src="{{ url_for('static', filename='js/accessibility_toolbar.js') }}"></script>
   </body>
 </html>
