@@ -1480,6 +1480,94 @@ def subscriber_delete_article(article_id):
         conn.rollback()
         cur.close(); conn.close()
         return jsonify({"error": str(e)}), 500
+    
+# (MW) ---------- SubscriberAnalytics ----------
+
+@app.route("/subscriber/analytics")
+@login_required("Subscriber")
+def subscriber_analytics():
+    return render_template("subscriberAnalytics.html")
+
+@app.route("/subscriber/api/analytics/overview")
+@login_required("Subscriber")
+def subscriber_analytics_overview():
+    user_id = session.get("userID")
+    conn = get_db_connection()
+    cur  = conn.cursor()
+
+    # Bookmarks BY ME (how many articles I've bookmarked)
+    cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userID = %s", (user_id,))
+    total_bookmarks_me = (cur.fetchone() or [0])[0] or 0
+
+    # Comment reactions BY ME
+    try:
+        cur.execute("""
+            SELECT
+              COALESCE(SUM(reaction='like'),0)    AS likes_by_me,
+              COALESCE(SUM(reaction='dislike'),0) AS dislikes_by_me
+            FROM comment_reactions
+            WHERE userID = %s
+        """, (user_id,))
+        row = cur.fetchone() or [0, 0]
+        likes_by_me, dislikes_by_me = int(row[0] or 0), int(row[1] or 0)
+    except Exception:
+        # If reaction table is not available, fall back to 0
+        likes_by_me, dislikes_by_me = 0, 0
+
+    cur.close(); conn.close()
+
+    # Views & Shares not tracked yet → 0 for now
+    return jsonify({
+        "total_views": 0,
+        "total_shares": 0,
+        "total_bookmarks": int(total_bookmarks_me),
+        "comment_likes": likes_by_me,
+        "comment_dislikes": dislikes_by_me,
+    })
+
+@app.route("/subscriber/api/analytics/my-articles")
+@login_required("Subscriber")
+def subscriber_analytics_my_articles():
+    # We match articles to the logged-in author's display name (as stored in articles.author)
+    author_name = session.get("user", "")  # adjust if you store userID in the articles table
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    # Per-article: bookmarks count (all users) + total number of comments
+    cur.execute("""
+        SELECT
+            a.articleID,
+            a.title,
+            a.published_at,
+            COALESCE(bm.bookmarks, 0) AS bookmarks,
+            COALESCE(cc.comment_count, 0) AS comment_count
+        FROM articles a
+        LEFT JOIN (
+            SELECT articleID, COUNT(*) AS bookmarks
+            FROM subscriber_pins
+            GROUP BY articleID
+        ) bm ON bm.articleID = a.articleID
+        LEFT JOIN (
+            SELECT articleID, COUNT(*) AS comment_count
+            FROM comments
+            GROUP BY articleID
+        ) cc ON cc.articleID = a.articleID
+        WHERE a.draft = 0
+          AND a.visible = 1
+          AND a.author = %s
+        ORDER BY a.published_at DESC
+    """, (author_name,))
+
+    rows = cur.fetchall() or []
+    cur.close(); conn.close()
+
+    # Views/Shares not tracked yet
+    for r in rows:
+        r["views"] = 0
+        r["shares"] = 0
+
+    return jsonify(rows)
 
 # (YY)
 # ---------- Auth ----------

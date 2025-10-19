@@ -2,153 +2,220 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Analytics — EchoPress</title>
+  <title>EchoPress — Analytics</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+  <link rel="icon" href="{{ url_for('static', filename='img/EchoPressLogo.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
 </head>
 <body>
 
-  <!-- Top Bar -->
-  <header class="topbar">
-    <div class="left">
-      <a href="{{ url_for('subscriberHomepage') }}" class="brand">
-        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress">
-      </a>
-      <div class="search">
-        <input type="text" placeholder="Searching for… ?" aria-label="Search">
-        <button>Search</button>
-      </div>
+<header class="topbar">
+  <div class="left">
+    <div class="brand">
+      <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
     </div>
-
+  </div>
+  <!-- User name then menu button; panel anchored to the RIGHT -->
     <div class="right">
       <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
-        <a href="{{ url_for('bookmarks') }}">View Bookmarks</a>
-        <a href="{{ url_for('my_articles') }}">View My Articles</a>
-        <a href="{{ url_for('analytics') }}" class="active">View Analytics</a>
-        <a href="/profile">Edit Profile</a>
-        <a href="#" class="logout-link logout">Log Out</a>
+        <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
+        <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
+        <a class="menu-item" href="{{ url_for('subscriber_analytics') }}">View Analytics</a>
+        <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
+        <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
-  </header>
+</header>
 
-  <!-- Tabs row (optional for consistency) -->
-  <nav class="tabs">
-    <div class="tabs-inner">
-      <a href="#" class="tab">For you</a>
-      <a href="#" class="tab active">Trending</a>
-      <a href="#" class="tab">Politics</a>
-      <a href="#" class="tab">Sports</a>
-      <a href="#" class="tab">Technology</a>
-      <a href="#" class="tab">Economic</a>
-      <a href="#" class="tab">AsiaNews</a>
-      <a href="#" class="tab">WorldNews</a>
-    </div>
-  </nav>
-
-  <!-- Page -->
-  <main class="page">
-    <!-- LEFT -->
-    <section class="feed">
-
-      <!-- Overall Analytics tiles -->
-      <div class="article-card detail">
-        <div class="card-header">Overall Analytics</div>
-        <div class="stats-grid">
-          <div class="stat-box">
-            <div class="stat-num">{{ (stats.views if stats else 100) }}</div>
-            <div class="stat-label">Views</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-num">{{ (stats.likes if stats else 20) }}</div>
-            <div class="stat-label">Likes</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-num">{{ (stats.dislikes if stats else 3) }}</div>
-            <div class="stat-label">Dislikes</div>
-          </div>
-          <div class="stat-box">
-            <div class="stat-num">{{ (stats.shares if stats else 9) }}</div>
-            <div class="stat-label">Share</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Articles from this subscriber -->
-      <div class="article-card detail" style="margin-top:16px;">
-  <div class="card-header" style="margin-bottom:8px;">Articles</div>
-  {% if not articles %}
-    <p>No articles yet.</p>
-  {% else %}
-    <ul style="list-style:none;margin:0;padding:0;">
-      {% for a in articles %}
-        <li style="border-top:1px solid #eee;padding:10px 0;">
-          <a href="{{ url_for('analytics_detail', aid=a.id) }}" 
-             style="text-decoration:none;color:#111;font-weight:600;display:block;">
-            {{ a.title }}
-          </a>
-        </li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-</div>
-
-    </section>
-
-    <!-- RIGHT: Ads column -->
-    <aside class="sidebar">
-      <div class="ads">Ads</div>
-    </aside>
-  </main>
-
-  <!-- Logout Confirmation Modal (shared across pages) -->
-  <div id="logoutModal" class="modal-overlay">
-    <div class="modal">
-      <h2>Log Out?</h2>
+<!-- Logout Confirmation Modal -->
+  <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h2>Log out?</h2>
       <div class="buttons">
-        <button class="yes" id="confirmLogout">Yes</button>
-        <button class="no" id="cancelLogout">No</button>
+        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
       </div>
     </div>
   </div>
 
-  <!-- JS (menu toggle, article search, logout modal) -->
-  <script>
-    (function () {
-      // menu
-      const btn = document.getElementById('menuBtn');
-      const panel = document.getElementById('menuPanel');
-      function closePanel(){ panel.style.display='none'; }
-      function togglePanel(){ panel.style.display = panel.style.display==='block' ? 'none' : 'block'; }
-      btn.addEventListener('click', e => { e.stopPropagation(); togglePanel(); });
-      document.addEventListener('click', e => { if(panel && !panel.contains(e.target) && e.target!==btn) closePanel(); });
-      document.addEventListener('keydown', e => { if(e.key==='Escape') closePanel(); });
+<main class="page analytics">
+  <!-- Overview cards -->
+  <section class="analytics-cards" id="overview">
+    <div class="card kpi">
+      <div class="kpi-label">Total Views</div>
+      <div class="kpi-value" id="kViews">0</div>
+      <div class="kpi-note">(*not tracked yet)</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-label">Total Shares</div>
+      <div class="kpi-value" id="kShares">0</div>
+      <div class="kpi-note">(*not tracked yet)</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-label">My Bookmarks</div>
+      <div class="kpi-value" id="kBookmarks">—</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-label">My Comment Likes</div>
+      <div class="kpi-value" id="kLike">—</div>
+    </div>
+    <div class="card kpi">
+      <div class="kpi-label">My Comment Dislikes</div>
+      <div class="kpi-value" id="kDislike">—</div>
+    </div>
+  </section>
 
-      // search filter
-      const search = document.getElementById('articleSearch');
-      if (search) {
-        search.addEventListener('input', () => {
-          const q = search.value.trim().toLowerCase();
-          document.querySelectorAll('.article-row').forEach(row => {
-            const t = row.getAttribute('data-title') || '';
-            row.style.display = t.includes(q) ? '' : 'none';
-          });
+  <!-- Per-article table -->
+  <section class="analytics-table card">
+    <div class="table-head">
+      <h2>My Articles Performance</h2>
+      <input id="filterQ" class="input" type="search" placeholder="Filter by title…" />
+    </div>
+    <div class="table-responsive">
+      <table class="table" id="tbl">
+        <thead>
+          <tr>
+            <th style="width:48%">Title</th>
+            <th>Views*</th>
+            <th>Shares*</th>
+            <th>Bookmarks</th>
+            <th>Comments</th>
+            <th>Published</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"><tr><td colspan="7">Loading…</td></tr></tbody>
+      </table>
+    </div>
+    <div class="muted small" style="margin-top:6px;">*Views & Shares not tracked yet — will update once SQL tables are added.</div>
+  </section>
+</main>
+
+<!-- Menu toggle -->
+<script>
+(function(){
+  const btn = document.getElementById('menuBtn');
+  const panel = document.getElementById('menuPanel');
+  if(!btn || !panel) return;
+  const closeP  = () => panel.style.display='none';
+  const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
+  btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
+  document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
+})();
+</script>
+
+<!-- Analytics loader -->
+<script>
+(async function () {
+  const $ = sel => document.querySelector(sel);
+  const kViews = $("#kViews"), kShares = $("#kShares"),
+        kBookmarks = $("#kBookmarks"), kLike = $("#kLike"), kDislike = $("#kDislike");
+  const tbody = $("#tbody"), filterQ = $("#filterQ");
+
+  const URL_OVERVIEW = "{{ url_for('subscriber_analytics_overview') }}";
+  const URL_MYART    = "{{ url_for('subscriber_analytics_my_articles') }}";
+  const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
+
+  function fmt(n){ return (n||0).toLocaleString(); }
+  function esc(s){ return (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+  async function loadOverview(){
+    try {
+      const r = await fetch(URL_OVERVIEW);
+      if(!r.ok) throw 0;
+      const j = await r.json();
+      kViews.textContent     = fmt(j.total_views);
+      kShares.textContent    = fmt(j.total_shares);
+      kBookmarks.textContent = fmt(j.total_bookmarks);
+      kLike.textContent      = fmt(j.comment_likes);
+      kDislike.textContent   = fmt(j.comment_dislikes);
+    } catch { /* leave placeholders */ }
+  }
+
+  let rows = [];
+  function paintTable(filtered){
+    if (!filtered.length){
+      tbody.innerHTML = `<tr><td colspan="7">No data.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = filtered.map(a => {
+      const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+      return `<tr>
+        <td>${esc(a.title)}</td>
+        <td>${fmt(a.views)}</td>
+        <td>${fmt(a.shares)}</td>
+        <td>${fmt(a.bookmarks)}</td>
+        <td>${fmt(a.comment_count)}</td>
+        <td>${esc(a.published_at || '')}</td>
+        <td><a class="btn btn-light" href="${href}">View</a></td>
+      </tr>`;
+    }).join("");
+  }
+
+  async function loadMyArticles(){
+    try {
+      const r = await fetch(URL_MYART);
+      if(!r.ok) throw 0;
+      rows = await r.json();
+      paintTable(rows);
+    } catch {
+      tbody.innerHTML = `<tr><td colspan="7">Failed to load.</td></tr>`;
+    }
+  }
+
+  filterQ?.addEventListener("input", () => {
+    const q = (filterQ.value || "").toLowerCase();
+    if (!q) { paintTable(rows); return; }
+    paintTable(rows.filter(a => (a.title||"").toLowerCase().includes(q)));
+  });
+
+  await Promise.all([loadOverview(), loadMyArticles()]);
+})();
+</script>
+
+<script>
+    (function () {
+      const modal   = document.getElementById('logoutModal');
+      const confirm = document.getElementById('logoutConfirm');
+      const cancel  = document.getElementById('logoutCancel');
+
+      document.querySelectorAll('.logout-link').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          modal.dataset.href = a.getAttribute('href');
+          modal.classList.add('show');
+          modal.setAttribute('aria-hidden', 'false');
         });
+      });
+
+      function closeModal() {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        delete modal.dataset.href;
       }
 
-      // logout modal
-      const modal = document.getElementById("logoutModal");
-      const confirmBtn = document.getElementById("confirmLogout");
-      const cancelBtn = document.getElementById("cancelLogout");
-      document.querySelectorAll(".logout-link").forEach(link=>{
-        link.addEventListener("click", e => { e.preventDefault(); modal.style.display="flex"; });
+      if (cancel)  cancel.addEventListener('click', closeModal);
+      if (confirm) confirm.addEventListener('click', () => {
+        const href = modal.dataset.href || "{{ url_for('logout') }}";
+        window.location.href = href;
       });
-      confirmBtn.addEventListener("click", () => { window.location.href = "{{ url_for('logout') }}"; });
-      cancelBtn.addEventListener("click", () => { modal.style.display="none"; });
-      document.addEventListener("keydown", e => { if(e.key==="Escape") modal.style.display="none"; });
+
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+      });
     })();
+
+    // Fix back/forward cache so the page refreshes correctly
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
   </script>
+
 </body>
 </html>
