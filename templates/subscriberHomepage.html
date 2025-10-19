@@ -15,7 +15,6 @@
       <div class="brand">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
       </div>
-
       <!-- Search sits to the RIGHT of the logo -->
       <form id="searchForm" class="search" action="#" method="get" role="search">
         <input id="searchQ" name="q" type="text" placeholder="Searching for… ?" aria-label="Search" />
@@ -51,8 +50,17 @@
 
   <!-- Main two-column layout -->
   <main class="page">
-    <!-- LEFT: Feed (dynamic) -->
-    <section class="feed" id="feed"></section>
+    <!-- LEFT: Content -->
+    <section class="feed" id="feed">
+      <!-- Latest (hero) -->
+      <article id="hero" class="hero hidden" aria-live="polite"></article>
+
+      <!-- Divider -->
+      <hr class="hr hr-spaced hidden" id="heroDivider"/>
+
+      <!-- Older grouped rows (2 items per row) -->
+      <div id="rows" class="rows" aria-live="polite"></div>
+    </section>
 
     <!-- RIGHT: Sidebar -->
     <aside class="sidebar">
@@ -65,10 +73,10 @@
     </aside>
   </main>
 
-  <!-- Logout Confirmation Modal (place BEFORE its script) -->
+  <!-- Logout Confirmation Modal -->
   <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal" role="document">
-      <h2 style="margin-top:0;">Log out?</h2>
+      <h2>Log out?</h2>
       <div class="buttons">
         <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
         <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
@@ -90,53 +98,122 @@
     })();
   </script>
 
-  <!-- Articles + Search (single, consolidated block) -->
+  <!-- Articles + Search (hero + grouped rows) -->
   <script>
   (async function () {
-    const feedEl  = document.getElementById("feed");
-    const API_URL = "{{ url_for('subscriber_search_api') }}";
+    const heroEl   = document.getElementById("hero");
+    const heroDivider = document.getElementById("heroDivider");
+    const rowsEl   = document.getElementById("rows");
+    const API_URL  = "{{ url_for('subscriber_search_api') }}";
     const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
-    const ACTIVE_CAT = "{{ active_category|default('Trending') }}";
-    const tabAll   = document.getElementById("tabAll");
-    const searchForm  = document.getElementById("searchForm");
-    const searchInput = document.getElementById("searchQ");
+    const ACTIVE_CAT   = "{{ active_category|default('Trending') }}";
+    const tabAll       = document.getElementById("tabAll");
+    const searchForm   = document.getElementById("searchForm");
+    const searchInput  = document.getElementById("searchQ");
 
     let lastCategory = ACTIVE_CAT;
-
-    const truncate = (t, n=220) => (!t ? "" : (t=t.trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
+    const placeholder = "{{ url_for('static', filename='img/placeholder.png') }}";
     const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const truncate = (t, n=240) => (!t ? "" : (t=t.trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
 
-    function setActiveTab(btn){
-      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
-      if (btn) btn.classList.add("active");
+    function normImage(img) {
+      if (!img) return placeholder;
+      if (img.startsWith("http")) return img;
+      if (img.startsWith("/static/")) return img;
+      if (img.startsWith("../static/")) return img.replace("../static", "/static");
+      if (img.startsWith("./static/"))  return img.replace("./static",  "/static");
+      return "/static/img/" + img; // bare filename fallback
     }
 
-    function card(a){
-      const img = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
-      return `<article class="article-card open-article" data-id="${a.articleID}" role="button" tabindex="0">
-        <div class="text">
-          <h3>${esc(a.title)}</h3>
-          <p class="desc">${esc(truncate(a.content))}</p>
-        </div>
-        <div class="thumb-wrap"><img src="${img}" alt=""></div>
-      </article>`;
+    function heroCard(a) {
+      const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+      const img  = normImage(a.image);
+      return `
+        <a class="hero-link" href="${href}">
+          <div class="hero-text">
+            <h1 class="hero-title">${esc(a.title)}</h1>
+            <p class="hero-desc">${esc(truncate(a.content || ""))}</p>
+          </div>
+          <div class="hero-media">
+            <img src="${img}" alt="">
+          </div>
+        </a>`;
+    }
+
+    // One cell inside a 2-up row (title left, photo right)
+    function cell(a) {
+      const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+      const img  = normImage(a.image);
+      return `
+        <a class="cell" href="${href}">
+          <div class="cell-text">
+            <h3 class="cell-title">${esc(a.title)}</h3>
+          </div>
+          <div class="cell-media"><img src="${img}" alt=""></div>
+        </a>`;
+    }
+
+    // Group older items into rows of 2; add separators between rows
+    function renderRows(items) {
+      if (!items.length) return "";
+      const chunks = [];
+      for (let i = 0; i < items.length; i += 2) {
+        const a = items[i];
+        const b = items[i+1];
+        chunks.push(`
+          <div class="row-group">
+            ${cell(a)}
+            ${b ? cell(b) : '<div class="cell cell-empty"></div>'}
+          </div>
+          <hr class="hr">
+        `);
+      }
+      // remove last trailing hr for neatness
+      if (chunks.length) chunks[chunks.length-1] = chunks[chunks.length-1].replace(/<hr class="hr">\s*$/, "");
+      return chunks.join("");
     }
 
     async function loadArticles(cat, q){
-      feedEl.innerHTML = "";
+      heroEl.classList.add("hidden");
+      heroEl.innerHTML = "";
+      heroDivider.classList.add("hidden");
+      rowsEl.innerHTML = "";
+
       const p = new URLSearchParams();
       if (cat) p.set("cat", cat);
       if (q)   p.set("q", q);
-      p.set("limit","10");
+      p.set("limit","30");
 
-      const res = await fetch(`${API_URL}?${p.toString()}`);
-      if(!res.ok){
-        feedEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`;
+      try {
+        const res = await fetch(`${API_URL}?${p.toString()}`);
+        if(!res.ok){
+          rowsEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`;
+          return {rows:[]};
+        }
+        let rows = await res.json();
+        if (!Array.isArray(rows)) rows = [];
+
+        if (rows.length === 0){
+          rowsEl.innerHTML = "<p>No articles found.</p>";
+          return {rows};
+        }
+
+        const latest = rows[0];
+        const older  = rows.slice(1);
+
+        // Render hero
+        heroEl.innerHTML = heroCard(latest);
+        heroEl.classList.remove("hidden");
+        heroDivider.classList.remove("hidden");
+
+        // Render grouped rows
+        rowsEl.innerHTML = renderRows(older);
+
+        return {rows};
+      } catch (e) {
+        rowsEl.innerHTML = `<p style="color:#b00">Failed to load.</p>`;
         return {rows:[]};
       }
-      const rows = await res.json();
-      feedEl.innerHTML = rows.length ? rows.map(card).join("") : "<p>No articles found.</p>";
-      return {rows};
     }
 
     // Initial load (no search): All tab stays hidden
@@ -149,15 +226,13 @@
 
       const cat = btn.getAttribute("data-cat"); // empty string means All
       const q   = (searchInput?.value || "").trim();
-
       if (cat) lastCategory = cat;
 
       const {rows} = await loadArticles(cat, q);
+      if (btn === tabAll && rows.length === 0 && !q) tabAll.classList.add("hidden");
 
-      if (btn === tabAll && rows.length === 0 && !q) {
-        tabAll.classList.add("hidden");
-      }
-      setActiveTab(btn);
+      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+      btn.classList.add("active");
     });
 
     // SEARCH: show All tab when there are results across categories
@@ -165,18 +240,21 @@
       searchForm.addEventListener("submit", async e => {
         e.preventDefault();
         const q = (searchInput.value || "").trim();
-
         if (!q){
           tabAll.classList.add("hidden");
           const lastBtn = [...document.querySelectorAll(".tab[data-cat]")].find(b => b.getAttribute("data-cat") === lastCategory);
           await loadArticles(lastCategory, "");
-          setActiveTab(lastBtn);
+          if (lastBtn) {
+            document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+            lastBtn.classList.add("active");
+          }
           return;
         }
         const {rows} = await loadArticles("", q); // all categories
         if (rows.length > 0){
           tabAll.classList.remove("hidden");
-          setActiveTab(tabAll);
+          document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+          tabAll.classList.add("active");
         } else {
           tabAll.classList.add("hidden");
         }
@@ -189,23 +267,11 @@
         tabAll.classList.add("hidden");
         const lastBtn = [...document.querySelectorAll(".tab[data-cat]")].find(b => b.getAttribute("data-cat") === lastCategory);
         await loadArticles(lastCategory, "");
-        setActiveTab(lastBtn);
+        if (lastBtn) {
+          document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+          lastBtn.classList.add("active");
+        }
       }
-    });
-
-    // OPEN ARTICLE: click / Enter key (kept inside this IIFE so feedEl & VIEW_URL_TPL exist)
-    feedEl.addEventListener("click", (e) => {
-      const el = e.target.closest(".open-article");
-      if (!el) return;
-      const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
-      window.location.href = url;
-    });
-    feedEl.addEventListener("keydown", (e) => {
-      if (e.key !== "Enter") return;
-      const el = e.target.closest(".open-article");
-      if (!el) return;
-      const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
-      window.location.href = url;
     });
   })();
   </script>
@@ -244,11 +310,12 @@
       });
     })();
 
+    // Fix back/forward cache so the page refreshes correctly
     window.addEventListener('pageshow', function(event) {
-            if (event.persisted) {
-            window.location.reload();
-            }
-        });
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
   </script>
 
 </body>
