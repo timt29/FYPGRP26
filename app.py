@@ -1482,6 +1482,47 @@ def subscriber_delete_article(article_id):
         cur.close(); conn.close()
         return jsonify({"error": str(e)}), 500
     
+# (MW) --- Ads API: random visible ad for sidebar rotation ---
+@app.route("/api/ads/random")
+@login_required("Subscriber")
+def api_random_ad():
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    # Random 1 where visible=1
+    cur.execute("""
+        SELECT adsID, adsTitle, adsDescription, adsImage, adsWebsite
+        FROM advertisement
+        WHERE visible = 1
+        ORDER BY RAND()
+        LIMIT 1
+    """)
+    row = cur.fetchone()
+    cur.close(); conn.close()
+
+    if not row:
+        return jsonify({"ok": False, "message": "No ads available"}), 404
+
+    def norm_image(p: str) -> str:
+        if not p: return "/static/img/placeholder.png"
+        if p.startswith("http"): return p
+        # your dump already stores absolute /static paths; keep them
+        if p.startswith("/static/"): return p
+        if p.startswith("../static/"): return p.replace("../static", "/static")
+        if p.startswith("./static/"): return p.replace("./static", "/static")
+        # fallback: assume it lives under /static/ads/
+        return "/static/ads/" + p.lstrip("/")
+
+    return jsonify({
+        "ok": True,
+        "ad": {
+            "id":        row["adsID"],
+            "title":     row["adsTitle"],
+            "desc":      row.get("adsDescription") or "",
+            "image":     norm_image(row["adsImage"]),
+            "website":   row["adsWebsite"]
+        }
+    })
+    
 # (MW) ---------- SubscriberAnalytics ----------
 
 @app.route("/subscriber/analytics")
