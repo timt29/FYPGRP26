@@ -43,20 +43,23 @@
 
   <!-- Layout -->
   <main class="page">
-    <!-- Method choice -->
-    <section class="method-choice card" id="methodChoice">
-      <h3 style="margin:0 0 8px;">How do you want to create?</h3>
-      <p style="margin:0 0 12px;">Pick one to continue.</p>
-      <div style="display:flex; gap:12px; flex-wrap:wrap;">
-        <button type="button" class="btn btn-primary" id="chooseManual">Enter Manually</button>
-        <button type="button" class="btn btn-light" id="chooseImport">Import from .txt/.pdf/.doc/.docx</button>
+    <!-- Method choice (left column) -->
+    <section class="feed">
+      <div class="card method-choice" id="methodChoice">
+        <h3 class="card-title">How do you want to create?</h3>
+        <p class="card-sub">Pick one to continue.</p>
+        <div class="method-actions">
+          <button type="button" class="btn btn-primary" id="chooseManual">Enter Manually</button>
+          <button type="button" class="btn btn-light" id="chooseImport">Import from .txt/.pdf/.doc/.docx</button>
+        </div>
       </div>
     </section>
 
-    <!-- Import flow -->
-    <section class="feed" id="importPane" style="display:none;">
+    <!-- Import flow (left column) -->
+    <section class="feed hidden" id="importPane">
       <div class="article-card detail">
         <div class="card-header">Import Your Story</div>
+
         <form id="importForm" enctype="multipart/form-data" class="create-form">
           <div>
             <label for="importFile">Upload document:</label>
@@ -76,43 +79,43 @@
           <input type="hidden" id="import_images" name="import_images">  <!-- JSON array -->
           <input type="hidden" id="import_batch"  name="import_batch">   <!-- optional -->
 
-          <!-- (optional) tiny summary you can keep or remove -->
-          <div id="aiPreview" class="note" style="display:none; margin-top:8px;"></div>
+          <!-- Optional AI preview note -->
+          <div id="aiPreview" class="note hidden"></div>
 
           <!-- Editable meta -->
-          <div id="editMeta" style="display:none; gap:10px; margin:8px 0;">
-            <div style="margin-bottom:8px;">
-              <label for="editTitle" style="display:block; margin-bottom:4px;">Title:</label>
-              <input id="editTitle" type="text" style="width:100%;" placeholder="Suggested title">
+          <div id="editMeta" class="meta-grid hidden">
+            <div>
+              <label for="editTitle" class="field-label">Title:</label>
+              <input id="editTitle" type="text" placeholder="Suggested title">
             </div>
             <div>
-              <label for="editCategory" style="display:block; margin-bottom:4px;">Category:</label>
-              <select id="editCategory" style="width:100%;">
+              <label for="editCategory" class="field-label">Category:</label>
+              <select id="editCategory">
                 <option value="" disabled selected>Loading categories…</option>
               </select>
             </div>
           </div>
 
           <!-- Images preview -->
-          <div id="imagePreview" class="image-grid" style="display:none;"></div>
+          <div id="imagePreview" class="image-grid hidden"></div>
 
           <!-- Editable content -->
-          <div id="reviewBlock" style="display:none; margin-top:10px;">
-            <label for="reviewText" style="display:block; margin-bottom:4px;">Imported text (you can edit):</label>
-            <textarea id="reviewText" rows="12" style="width:100%;"></textarea>
+          <div id="reviewBlock" class="review-block hidden">
+            <label for="reviewText" class="field-label">Imported text (you can edit):</label>
+            <textarea id="reviewText" rows="12"></textarea>
           </div>
 
           <div class="form-buttons">
             <button type="button" class="btn btn-light" id="btnAnalyze">Analyze & Review</button>
-            <button type="button" class="btn btn-primary" id="btnImportPublish" style="display:none;" disabled>Upload Article</button>
+            <button type="button" class="btn btn-primary hidden" id="btnImportPublish" disabled>Upload Article</button>
             <button type="button" class="btn" onclick="history.back()">Cancel</button>
           </div>
         </form>
       </div>
     </section>
 
-    <!-- Manual flow -->
-    <section class="feed" id="manualPane" style="display:none;">
+    <!-- Manual flow (left column) -->
+    <section class="feed hidden" id="manualPane">
       <div class="article-card detail">
         <div class="card-header">{{ 'Edit Article' if article else 'Create Your Story' }}</div>
 
@@ -158,7 +161,7 @@
       </div>
     </section>
 
-    <!-- Right -->
+    <!-- Right column -->
     <aside class="sidebar">
       <button type="button"
               class="btn btn-primary"
@@ -184,13 +187,22 @@
     const chooseManual = document.getElementById('chooseManual');
     const chooseImport = document.getElementById('chooseImport');
 
+    // Helpers
+    const show = el => el && el.classList.remove('hidden');
+    const hide = el => el && el.classList.add('hidden');
+
     // Toast
     const toastEl = document.getElementById('toast');
     const toastMsgEl = document.getElementById('toastMsg');
-    function showToast(msg){ if(!toastEl||!toastMsgEl) return; toastMsgEl.textContent=msg||'Done.'; toastEl.classList.add('show'); setTimeout(()=>toastEl.classList.remove('show'),1400); }
+    function showToast(msg){
+      if(!toastEl||!toastMsgEl) return;
+      toastMsgEl.textContent = msg || 'Done.';
+      toastEl.classList.add('show');
+      setTimeout(()=>toastEl.classList.remove('show'), 1400);
+    }
 
-    function showManual(){ choice.style.display='none'; manualPane.style.display=''; importPane.style.display='none'; }
-    function showImport(){ choice.style.display='none'; manualPane.style.display='none'; importPane.style.display=''; }
+    function showManual(){ hide(choice); show(manualPane); hide(importPane); }
+    function showImport(){ hide(choice); hide(manualPane); show(importPane); }
     chooseManual?.addEventListener('click', showManual);
     chooseImport?.addEventListener('click', showImport);
 
@@ -237,7 +249,8 @@
     fileCover?.addEventListener('change', ()=>{
       if (!fileCover.files || !fileCover.files[0]) return;
       const url = URL.createObjectURL(fileCover.files[0]);
-      imagePreview.style.display=''; imagePreview.insertAdjacentHTML('afterbegin', `<img src="${url}" alt="cover preview">`);
+      show(imagePreview);
+      imagePreview.insertAdjacentHTML('afterbegin', `<img src="${url}" alt="cover preview">`);
       coverUrl.value = ''; // uploaded file takes priority over cover_url
     });
 
@@ -245,9 +258,8 @@
       if(!fileDoc?.files?.[0]){ showToast('Choose a document first.'); return; }
 
       btnAnalyze.disabled = true;
-      btnUploadImp.style.display='none'; btnUploadImp.disabled = true;
-      aiPreview.style.display='none'; editMeta.style.display='none';
-      imagePreview.style.display='none'; reviewBlock.style.display='none';
+      hide(btnUploadImp); btnUploadImp.disabled = true;
+      hide(aiPreview); hide(editMeta); hide(imagePreview); hide(reviewBlock);
 
       try{
         // 1) Extract text + images
@@ -276,11 +288,11 @@
         autoContent.value = aiData.corrected_text || importedText || '';
 
         // (Optional) summary
-        aiPreview.style.display='';
+        show(aiPreview);
         aiPreview.innerHTML = `
           <div><strong>Suggested Title:</strong> ${autoTitle.value || '<em>(empty)</em>'}</div>
           <div><strong>Suggested Category:</strong> ${aiData.category_name || aiData.category_id || '-'}</div>
-          <hr style="margin:8px 0;">
+          <hr class="hr-compact">
         `;
 
         // Title + category (editable)
@@ -290,7 +302,7 @@
           const opt=[...editCategory.options].find(o=>o.value==String(autoCatID.value));
           if (opt) editCategory.value = opt.value;
         }
-        editMeta.style.display='block';
+        show(editMeta);
         editTitle.addEventListener('input', ()=>{ autoTitle.value = editTitle.value; });
         editCategory.addEventListener('change', ()=>{ autoCatID.value = editCategory.value; });
 
@@ -299,14 +311,19 @@
         const thumbs=[];
         if(fileCover?.files?.[0]) thumbs.push(URL.createObjectURL(fileCover.files[0]));
         for(const src of importedImgs) thumbs.push(src);
-        if(thumbs.length){ imagePreview.style.display=''; imagePreview.innerHTML = thumbs.map(src=>`<img src="${src}" alt="preview image">`).join(''); }
+        if(thumbs.length){
+          show(imagePreview);
+          imagePreview.innerHTML = thumbs.map(src=>`<img src="${src}" alt="preview image">`).join('');
+        }
 
         // Editable text
         reviewText.value = autoContent.value;
-        reviewBlock.style.display=''; reviewText.addEventListener('input', ()=>{ autoContent.value = reviewText.value; });
+        show(reviewBlock);
+        reviewText.addEventListener('input', ()=>{ autoContent.value = reviewText.value; });
 
         // Enable final upload
-        btnUploadImp.style.display=''; btnUploadImp.disabled=false;
+        btnUploadImp.classList.remove('hidden');
+        btnUploadImp.disabled=false;
         showToast('Analyze complete. Review & Upload when ready.');
       }catch(e){
         showToast(e.message || 'Analyze error');
@@ -343,11 +360,11 @@
       }
     }
 
-    btnAnalyze?.addEventListener('click', analyzeAndReview);
-    btnUploadImp?.addEventListener('click', uploadArticle);
+    document.getElementById('btnAnalyze')?.addEventListener('click', analyzeAndReview);
+    document.getElementById('btnImportPublish')?.addEventListener('click', uploadArticle);
 
     // Default view
-    choice && (choice.style.display='');
+    show(choice);
   })();
   </script>
 
@@ -409,7 +426,7 @@
     })();
   </script>
 
-  <!-- Ads Box Functions -->
+  <!-- Ads (right column) -->
   <script>
   (function(){
     const adsBox   = document.getElementById('adsBox');
@@ -437,11 +454,11 @@
     }
 
     loadAd();
-    setInterval(loadAd, 10_000); // your 10s rotation
+    setInterval(loadAd, 10_000); // rotate every 10s
   })();
   </script>
 
-  <!-- Logout modal wiring (AFTER modal element) -->
+  <!-- Logout modal wiring -->
   <script>
     (function () {
       const modal   = document.getElementById('logoutModal');
