@@ -132,7 +132,14 @@
     <script>
     function toggleChatbot() {
       const popup = document.getElementById("chatbot-popup");
-      popup.style.display = popup.style.display === "block" ? "none" : "block";
+      const input = document.getElementById("userMessage");
+
+      if (popup.style.display === "block") {
+        popup.style.display = "none";
+      } else {
+        popup.style.display = "block";
+        input.focus();
+      }
     }
 
     async function sendMessage() {
