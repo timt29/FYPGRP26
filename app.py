@@ -18,6 +18,7 @@ from deep_translator import GoogleTranslator
 from utils.profanity_filter import contains_profanity, censor_text
 from utils.content_analyzer import analyze_content
 from typing import Optional
+from utils.chatbot import getChatbotResponse
 
 import nltk
 
@@ -2487,6 +2488,13 @@ def translate():
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+    
+# ---------- chatbot support ----------
+@app.route("/chat", methods=["POST"])
+def chat():
+    user_input = request.json.get("message", "")
+    return getChatbotResponse(user_input)
+
 
 # ---------- Dev helper ----------
 def open_browser():
