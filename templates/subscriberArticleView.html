@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>{{ article.title }} — EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+  <link rel="icon" href="{{ url_for('static', filename='img/EchoPressLogo.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/accessibility_toolbar.css') }}">
 
@@ -20,7 +20,7 @@
 
       <!-- In-page subscriber search -->
       <form id="subSearchForm" class="search" action="#" method="get" role="search">
-        <input id="subSearchQ" type="text" name="q" placeholder="Searching for… ?" aria-label="Search" />
+        <input id="subSearchQ" type="text" name="q" placeholder="Search article keywords" aria-label="Search" />
         <button type="submit" aria-label="Search">Search</button>
       </form>
     </div>
@@ -31,9 +31,9 @@
       <div id="menuPanel" class="menu-panel">
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
         <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
-        <span class="menu-item">View Analytics</span>
+        <a class="menu-item" href="{{ url_for('subscriber_analytics') }}">View Analytics</a>
         <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
-        <a class="menu-item" href="{{ url_for('logout') }}">Log Out</a>
+        <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
   </header>
@@ -131,7 +131,7 @@
       <button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">
         Create Your Story
       </button>
-      <div class="ads">Ads</div>
+      <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </main>
 
@@ -830,6 +830,80 @@ document.addEventListener('click', () => {
   });
 })();
 </script>
+
+<!-- Ads Box Functions -->
+  <script>
+  (function(){
+    const adsBox   = document.getElementById('adsBox');
+    const ADS_API  = "{{ url_for('api_random_ad') }}";
+    const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+    function renderAd(ad){
+      if(!adsBox) return;
+      adsBox.innerHTML = `
+        <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+          <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+          ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
+          ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
+        </a>
+      `;
+    }
+
+    async function loadAd(){
+      try{
+        const res = await fetch(ADS_API, {cache:'no-store'});
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data?.ok && data.ad) renderAd(data.ad);
+      }catch(_){}
+    }
+
+    loadAd();
+    setInterval(loadAd, 10_000); // your 10s rotation
+  })();
+  </script>
+
+  <!-- Logout modal wiring (AFTER modal element) -->
+  <script>
+    (function () {
+      const modal   = document.getElementById('logoutModal');
+      const confirm = document.getElementById('logoutConfirm');
+      const cancel  = document.getElementById('logoutCancel');
+
+      document.querySelectorAll('.logout-link').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          modal.dataset.href = a.getAttribute('href');
+          modal.classList.add('show');
+          modal.setAttribute('aria-hidden', 'false');
+        });
+      });
+
+      function closeModal() {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        delete modal.dataset.href;
+      }
+
+      if (cancel)  cancel.addEventListener('click', closeModal);
+      if (confirm) confirm.addEventListener('click', () => {
+        const href = modal.dataset.href || "{{ url_for('logout') }}";
+        window.location.href = href;
+      });
+
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+      });
+    })();
+
+    // Fix back/forward cache so the page refreshes correctly
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+  </script>
 
 <script src="{{ url_for('static', filename='js/accessibility_toolbar.js') }}"></script>
 

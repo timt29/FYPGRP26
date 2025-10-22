@@ -51,12 +51,12 @@ body {
 /* Search bar sits to the RIGHT of the logo */
 .search {
   display: flex;
-  align-items: center;
+  align-items: left;
   gap: 6px;
 }
 
 .search input {
-  padding: 6px 10px;
+  padding: 6px 30px;
   border: 1px solid #ccc;
   border-radius: 6px;
 }
