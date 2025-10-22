@@ -112,5 +112,52 @@
         {% endif %}
       });
     </script>
+
+    <!-- chatbot floating button -->
+    <div id="chatbot-button" onclick="toggleChatbot()">🤖</div>
+
+    <!-- chatbot popup -->
+    <div id="chatbot-popup">
+      <div id="chatbot-header">
+        EchoBot
+        <span id="chatbot-close" onclick="toggleChatbot()">&times;</span>
+      </div>
+      <div id="chatbot-messages"></div>
+      <div id="chatbot-input">
+        <input type="text" id="userMessage" placeholder="Ask me something..." />
+        <button onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+
+    <script>
+    function toggleChatbot() {
+      const popup = document.getElementById("chatbot-popup");
+      popup.style.display = popup.style.display === "block" ? "none" : "block";
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById("userMessage");
+      const message = input.value.trim();
+      if (!message) return;
+
+      // display user message
+      const chatBox = document.getElementById("chatbot-messages");
+      chatBox.innerHTML += `<p class="user"><b>You:</b> ${message}</p>`;
+
+      // send to Flask backend
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
+
+      const data = await response.json();
+
+      // display bot response
+      chatBox.innerHTML += `<p class="bot"><b>EchoBot:</b> ${data.response}</p>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+      input.value = "";
+    }
+    </script>
   </body>
 </html>
