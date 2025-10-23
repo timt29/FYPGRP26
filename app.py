@@ -113,6 +113,36 @@ def article(article_id):
 
     return render_template("article.html", article=article, summary_points=summary_points)
 
+#(MW) ----- Increment views (+1 once per session per article)
+@app.route("/api/article/<int:article_id>/view", methods=["POST"])
+def api_article_view_beacon(article_id: int):
+    from flask import session, jsonify
+
+    # Track which article IDs this session has viewed
+    viewed_key = "viewed_articles"
+    try:
+        already = set(int(x) for x in session.get(viewed_key, []))
+    except Exception:
+        already = set()
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    updated = False
+    if article_id not in already:
+        cur.execute("UPDATE articles SET views = views + 1 WHERE articleID = %s", (article_id,))
+        conn.commit()
+        already.add(article_id)
+        session[viewed_key] = list(already)
+        updated = True
+
+    # (Optional) return up-to-date views
+    cur.execute("SELECT COALESCE(views,0) AS views FROM articles WHERE articleID = %s", (article_id,))
+    row = cur.fetchone() or {"views": 0}
+    cur.close(); conn.close()
+
+    return jsonify({"ok": True, "updated": updated, "views": int(row["views"])})
+
 @app.route("/search")
 def search():
     query = request.args.get("q", "")
@@ -753,6 +783,7 @@ def subscriber_article_view(article_id):
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
+    # Fetch article (visible, not draft)
     cur.execute("""
         SELECT a.articleID, a.title, a.content, a.author,
                a.published_at, a.updated_at,
@@ -775,13 +806,26 @@ def subscriber_article_view(article_id):
         cur.close(); conn.close()
         abort(404)
 
-    # pin state...
-    cur.execute("SELECT 1 FROM subscriber_pins WHERE userID=%s AND articleID=%s LIMIT 1",
-                (session["userID"], article_id))
+    # --- Views: +1 per session per article ---
+    viewed_key = "viewed_articles"
+    # session might store strings; coerce to int
+    already_viewed = set(int(x) for x in session.get(viewed_key, []))
+    if article_id not in already_viewed:
+        cur.execute("UPDATE articles SET views = views + 1 WHERE articleID = %s", (article_id,))
+        conn.commit()
+        already_viewed.add(article_id)
+        session[viewed_key] = list(already_viewed)
+
+    # Pin state
+    cur.execute(
+        "SELECT 1 FROM subscriber_pins WHERE userID=%s AND articleID=%s LIMIT 1",
+        (session["userID"], article_id)
+    )
     is_pinned = cur.fetchone() is not None
 
     cur.close(); conn.close()
     return render_template("subscriberArticleView.html", article=article, is_pinned=is_pinned)
+
 
 @app.route("/subscriber/api/pin", methods=["POST"])
 @login_required("Subscriber")
@@ -1533,13 +1577,23 @@ def subscriber_analytics():
 @app.route("/subscriber/api/analytics/overview")
 @login_required("Subscriber")
 def subscriber_analytics_overview():
-    user_id = session.get("userID")
+    user_id     = session.get("userID")
+    author_name = session.get("user", "")
+
     conn = get_db_connection()
     cur  = conn.cursor()
 
-    # Bookmarks BY ME (how many articles I've bookmarked)
+    # Total views for my published & visible articles
+    cur.execute("""
+        SELECT COALESCE(SUM(views), 0)
+        FROM articles
+        WHERE author = %s AND draft = 0 AND visible = 1
+    """, (author_name,))
+    total_views_me = int((cur.fetchone() or [0])[0] or 0)
+
+    # Bookmarks BY ME (how many I bookmarked)
     cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userID = %s", (user_id,))
-    total_bookmarks_me = (cur.fetchone() or [0])[0] or 0
+    total_bookmarks_me = int((cur.fetchone() or [0])[0] or 0)
 
     # Comment reactions BY ME
     try:
@@ -1553,16 +1607,14 @@ def subscriber_analytics_overview():
         row = cur.fetchone() or [0, 0]
         likes_by_me, dislikes_by_me = int(row[0] or 0), int(row[1] or 0)
     except Exception:
-        # If reaction table is not available, fall back to 0
         likes_by_me, dislikes_by_me = 0, 0
 
     cur.close(); conn.close()
 
-    # Views & Shares not tracked yet → 0 for now
     return jsonify({
-        "total_views": 0,
-        "total_shares": 0,
-        "total_bookmarks": int(total_bookmarks_me),
+        "total_views": total_views_me,   # 👈 now tracked
+        "total_shares": 0,               # (not tracked yet)
+        "total_bookmarks": total_bookmarks_me,
         "comment_likes": likes_by_me,
         "comment_dislikes": dislikes_by_me,
     })
@@ -1570,20 +1622,19 @@ def subscriber_analytics_overview():
 @app.route("/subscriber/api/analytics/my-articles")
 @login_required("Subscriber")
 def subscriber_analytics_my_articles():
-    # We match articles to the logged-in author's display name (as stored in articles.author)
-    author_name = session.get("user", "")  # adjust if you store userID in the articles table
+    author_name = session.get("user", "")
 
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    # Per-article: bookmarks count (all users) + total number of comments
     cur.execute("""
         SELECT
             a.articleID,
             a.title,
             a.published_at,
-            COALESCE(bm.bookmarks, 0) AS bookmarks,
-            COALESCE(cc.comment_count, 0) AS comment_count
+            COALESCE(a.views, 0)                  AS views,
+            COALESCE(bm.bookmarks, 0)             AS bookmarks,
+            COALESCE(cc.comment_count, 0)         AS comment_count
         FROM articles a
         LEFT JOIN (
             SELECT articleID, COUNT(*) AS bookmarks
@@ -1604,12 +1655,12 @@ def subscriber_analytics_my_articles():
     rows = cur.fetchall() or []
     cur.close(); conn.close()
 
-    # Views/Shares not tracked yet
+    # 'shares' not tracked yet — keep 0 to satisfy the table columns
     for r in rows:
-        r["views"] = 0
         r["shares"] = 0
 
     return jsonify(rows)
+
 
 # (YY)
 # ---------- Auth ----------

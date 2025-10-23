@@ -5,7 +5,7 @@
     <title>EchoPress</title>
     <link rel="stylesheet" href="../static/css/style.css" />
     <link rel="stylesheet" href="../static/css/accessibility_toolbar.css" />
-    <link rel="icon" href="../static/img/favicon.png" type="image/png" />
+    <link rel="icon" href="../static/img/EchoPressLogo.png" type="image/png" />
   </head>
 
   <body>
@@ -192,5 +192,20 @@
       }
     </script>
     <script src="{{ url_for('static', filename='js/accessibility_toolbar.js') }}"></script>
+
+    <script>
+      (function () {
+        // Try common keys: articleID or id
+        const ARTICLE_ID = {{ article.get('articleID') or article.get('id') or 0 }};
+        if (!ARTICLE_ID) return;
+
+        // Fire a beacon to increment views once per session
+        fetch(`/api/article/${ARTICLE_ID}/view`, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).catch(() => {/* silent */});
+      })();
+    </script>
+
   </body>
 </html>
