@@ -2293,6 +2293,24 @@ def review_article():
 
     return redirect("/flaggedArticles")
 
+@app.route("/getArticle/<int:article_id>")
+def get_article(article_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT title, content, author, published_at, image
+        FROM articles
+        WHERE articleID = %s
+    """, (article_id,))
+    article = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not article:
+        return jsonify({"error": "Article not found"}), 404
+
+    return jsonify(article)
+
 
 # (YY)
 @app.route("/flaggedComments")
@@ -2386,6 +2404,24 @@ def reviewComment():
 
     return redirect("/flaggedComments")
 
+@app.route("/getComment/<int:comment_id>")
+def get_comment(comment_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT c.commentID, c.comment_text, c.created_at, u.name AS user
+        FROM comments c
+        JOIN users u ON c.userID = u.userID
+        WHERE c.commentID = %s
+    """, (comment_id,))
+    comment = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not comment:
+        return jsonify({"error": "Comment not found"}), 404
+
+    return jsonify(comment)
 
 # (YY)
 @app.route("/pendingArticles", methods=["GET", "POST"])
@@ -2415,6 +2451,7 @@ def pending_articles():
     cursor.close()
     conn.close()
     return render_template("pendingArticles.html", articles=articles)
+
 # (YY)
 @app.route("/manageCategories", methods=["GET"])
 @login_required("Moderator")

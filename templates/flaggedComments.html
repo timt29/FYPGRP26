@@ -15,7 +15,7 @@
         <a href="/modHomepage">Dashboard</a>
         <a href="/flaggedArticles">Flagged Articles</a>
         <a href="/flaggedComments" class="active">Flagged Comments</a>
-        <a href="/pendingArticles" >Pending Articles</a>
+        <a href="/pendingArticles">Pending Articles</a>
         <a href="/manageCategories">Manage Categories</a>
         <a href="/manageUsers">Manage Users</a>
         <a href="#">Setting</a>
@@ -65,15 +65,11 @@
                     <tr>
                         <td>{{ comment.commentID }}</td>
                         <td>{{ comment.comment_text }}</td>
-                        <td>{{ comment.user}}</td>
+                        <td>{{ comment.user }}</td>
                         <td>{{ comment.flagged_reason }}</td>
                         <td>{{ comment.flagged_at }}</td>
                         <td>
-                            <form method="POST" action="/reviewComment" style="display:inline;">
-                                <input type="hidden" name="commentID" value="{{ comment.commentID }}">
-                                <button type="submit" name="action" value="approve">Approve</button>
-                                <button type="submit" name="action" value="reject">Reject</button>
-                            </form>
+                            <button type="button" class="view-btn" onclick="viewComment({{ comment.commentID }})">View</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -85,65 +81,141 @@
         </div>
     </div>
 
+    <!-- Logout Modal -->
     <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
-    <div class="modal" role="document">
-        <h2>Log out?</h2>
-        <div class="buttons">
-        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+        <div class="modal" role="document">
+            <h2>Log out?</h2>
+            <div class="buttons">
+                <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+            </div>
         </div>
     </div>
+
+    <!-- Comment Modal -->
+    <div id="commentModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal article-modal">
+            <h2 id="comment-modal-user">User</h2>
+            <p id="comment-modal-date"></p>
+            <hr>
+            <div id="comment-modal-content" style="max-height: 300px; overflow-y: auto;"></div>
+            <div class="buttons">
+                <button type="button" class="btn btn-primary" id="approveComment">Approve</button>
+                <button type="button" class="btn btn-danger" id="rejectComment">Reject</button>
+                <button type="button" class="btn btn-light" id="closeCommentModal">Close</button>
+            </div>
+        </div>
     </div>
 
     <script>
+        // Sidebar dropdown
         function toggleDropdown() {
-            document.getElementById("admin-dropdown").style.display =
-                document.getElementById("admin-dropdown").style.display === "block" ? "none" : "block";
+            const dd = document.getElementById("admin-dropdown");
+            dd.style.display = dd.style.display === "block" ? "none" : "block";
         }
 
         window.addEventListener('click', function(event) {
             const dropdown = document.getElementById("admin-dropdown");
-            if (!event.target.closest('.admin-menu')) {
-                dropdown.style.display = "none";
-            }
+            if (!event.target.closest('.admin-menu')) dropdown.style.display = "none";
         });
 
+        // Logout modal
         (function () {
-        const modal = document.getElementById('logoutModal');
-        const confirm = document.getElementById('logoutConfirm');
-        const cancel = document.getElementById('logoutCancel');
+            const modal = document.getElementById('logoutModal');
+            const confirm = document.getElementById('logoutConfirm');
+            const cancel = document.getElementById('logoutCancel');
 
-        document.querySelectorAll('.logout-link').forEach(a => {
-            a.addEventListener('click', (e) => {
-            e.preventDefault();
-            modal.dataset.href = a.getAttribute('href');
-            modal.classList.add('show');
-            modal.setAttribute('aria-hidden', 'false');
+            document.querySelectorAll('.logout-link').forEach(a => {
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    modal.dataset.href = a.getAttribute('href');
+                    modal.classList.add('show');
+                    modal.setAttribute('aria-hidden', 'false');
+                });
             });
-        });
 
-        function closeModal() {
-            modal.classList.remove('show');
-            modal.setAttribute('aria-hidden', 'true');
-            delete modal.dataset.href;
-        }
+            function closeModal() {
+                modal.classList.remove('show');
+                modal.setAttribute('aria-hidden', 'true');
+                delete modal.dataset.href;
+            }
 
-        if (cancel) cancel.addEventListener('click', closeModal);
-        if (confirm) confirm.addEventListener('click', () => {
-            const href = modal.dataset.href || "/logout";
-            window.location.href = href;
-        });
+            if (cancel) cancel.addEventListener('click', closeModal);
+            if (confirm) confirm.addEventListener('click', () => {
+                const href = modal.dataset.href || "/logout";
+                window.location.href = href;
+            });
 
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
-        });
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('show')) closeModal(); });
         })();
 
-    </script>
-</body>
+        // === Comment Review Logic ===
+        let comments = [{% for c in comments %}{ id: {{ c.commentID }}, rowIndex: {{ loop.index0 }} },{% endfor %}];
+        let currentIndex = 0;
 
+        async function viewComment(commentID) {
+            try {
+                const res = await fetch(`/getComment/${commentID}`);
+                if (!res.ok) throw new Error("Failed to fetch comment.");
+                const comment = await res.json();
+
+                document.getElementById('comment-modal-user').textContent = comment.user;
+                document.getElementById('comment-modal-date').textContent = "Posted: " + comment.created_at;
+                document.getElementById('comment-modal-content').textContent = comment.comment_text;
+
+                currentIndex = comments.findIndex(c => c.id === commentID);
+
+                document.getElementById('commentModal').classList.add('show');
+                document.getElementById('commentModal').setAttribute('aria-hidden', 'false');
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        document.getElementById('closeCommentModal').addEventListener('click', () => {
+            const modal = document.getElementById('commentModal');
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+        });
+
+        async function handleCommentReview(action) {
+            const commentID = comments[currentIndex].id;
+            const formData = new URLSearchParams({ commentID, action });
+
+            const res = await fetch("/reviewComment", {
+                method: "POST",
+                body: formData,
+                headers: { "Content-Type": "application/x-www-form-urlencoded" }
+            });
+
+            if (!res.ok) {
+                alert("Failed to review comment.");
+                return;
+            }
+
+            alert(`Comment ${action}d successfully.`);
+
+            // Remove row from table
+            const tableRows = document.querySelectorAll(".users-table tbody tr");
+            tableRows[comments[currentIndex].rowIndex].remove();
+            comments.splice(currentIndex, 1);
+
+            // Auto-load next comment
+            if (comments.length === 0) {
+                document.getElementById('commentModal').classList.remove('show');
+                alert("No more flagged comments.");
+                return;
+            }
+
+            if (currentIndex >= comments.length) currentIndex = comments.length - 1;
+            viewComment(comments[currentIndex].id);
+        }
+
+        document.getElementById('approveComment').addEventListener('click', () => handleCommentReview('approve'));
+        document.getElementById('rejectComment').addEventListener('click', () => handleCommentReview('reject'));
+    </script>
+
+</body>
 </html>
+

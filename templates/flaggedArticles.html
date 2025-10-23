@@ -53,7 +53,7 @@
                         <th>ID</th>
                         <th>Title</th>
                         <th>Author</th>
-                        <th>Created At</th>
+                        <th>Published At</th>
                         <th>Flagged Reason</th>
                         <th>Reported At</th>
                         <th>Actions</th>
@@ -69,6 +69,7 @@
                         <td>{{ article.flagged_reason }}</td>
                         <td>{{ article.flagged_at }}</td>
                         <td>
+                            <button type="button" class="view-btn" onclick="viewArticle('{{ article.articleID }}')">View</button>
                             <form method="POST" action="/reviewArticle" style="display:inline;">
                                 <input type="hidden" name="report_id" value="{{ article.report_id }}">
                                 <button type="submit" name="action" value="approve">Approve</button>
@@ -143,6 +144,258 @@
         })();
 
     </script>
+
+    <div id="viewModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal article-modal">
+            <h2 id="modal-title">Article Title</h2>
+            <p id="modal-author"></p>
+            <p id="modal-date"></p>
+            <div id="modal-image-container" style="text-align:center; margin-bottom:10px;">
+                <img id="modal-image" src="" alt="Article image" style="max-width:100%; max-height:300px; display:none; border-radius:8px;">
+            </div>
+            <hr>
+            <div id="modal-content" style="max-height: 400px; overflow-y: auto;"></div>
+            <div class="buttons" style="display: flex; justify-content: space-between; margin-top: 10px;">
+                <button type="button" class="btn btn-light" id="prevArticle">◀ Previous</button>
+                <div>
+                    <button type="button" class="btn btn-light" id="closeModal">Close</button>
+                </div>
+                <button type="button" class="btn btn-light" id="nextArticle">Next ▶</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let articleIDs = [];
+        let currentIndex = -1;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Collect all article IDs from the table
+            articleIDs = Array.from(document.querySelectorAll(".view-btn")).map(btn => btn.getAttribute("onclick").match(/\d+/)[0]);
+
+            // Navigation buttons
+            document.getElementById('prevArticle').addEventListener('click', showPreviousArticle);
+            document.getElementById('nextArticle').addEventListener('click', showNextArticle);
+            document.getElementById('closeModal').addEventListener('click', closeArticleModal);
+        });
+
+        async function viewArticle(articleID) {
+            currentIndex = articleIDs.indexOf(articleID.toString());
+            await loadArticle(articleID);
+        }
+
+        async function loadArticle(articleID) {
+            try {
+                const response = await fetch(`/getArticle/${articleID}`);
+                if (!response.ok) throw new Error('Failed to fetch article.');
+                const article = await response.json();
+
+                // Populate modal fields
+                document.getElementById('modal-title').textContent = article.title;
+                document.getElementById('modal-author').textContent = "By " + (article.author || "Unknown");
+                document.getElementById('modal-date').textContent = "Published: " +
+                    (article.published_at ? new Date(article.published_at).toLocaleString() : "Unknown date");
+
+                // Image
+                const img = document.getElementById('modal-image');
+                if (article.image) {
+                    img.src = article.image.startsWith('/') ? article.image : '/' + article.image;
+                    img.style.display = 'block';
+                } else {
+                    img.style.display = 'none';
+                }
+
+                document.getElementById('modal-content').innerHTML = article.content || "(No content)";
+
+                // Update nav button states
+                document.getElementById('prevArticle').disabled = currentIndex <= 0;
+                document.getElementById('nextArticle').disabled = currentIndex >= articleIDs.length - 1;
+
+                // Show modal
+                const modal = document.getElementById('viewModal');
+                modal.classList.add('show');
+                modal.setAttribute('aria-hidden', 'false');
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function showPreviousArticle() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                loadArticle(articleIDs[currentIndex]);
+            }
+        }
+
+        function showNextArticle() {
+            if (currentIndex < articleIDs.length - 1) {
+                currentIndex++;
+                loadArticle(articleIDs[currentIndex]);
+            }
+        }
+
+        function closeArticleModal() {
+            const modal = document.getElementById('viewModal');
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+    </script>
+
+
+    """<div id="viewModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal article-modal">
+            <h2 id="modal-title">Article Title</h2>
+            <p id="modal-author"></p>
+            <p id="modal-date"></p>
+
+            <div id="modal-image-container" style="text-align:center; margin-bottom:10px;">
+                <img id="modal-image" src="" alt="Article image" 
+                    style="max-width:100%; max-height:300px; display:none; border-radius:8px;">
+            </div>
+
+            <hr>
+
+            <div id="modal-content" style="max-height: 400px; overflow-y: auto;"></div>
+
+            <div class="buttons" style="display:flex; justify-content: space-between; margin-top: 15px;">
+                <button type="button" class="btn btn-light" id="prevArticle">◀ Previous</button>
+                <div>
+                    <button type="button" class="btn btn-success" id="approveArticle">Approve</button>
+                    <button type="button" class="btn btn-danger" id="rejectArticle">Reject</button>
+                    <button type="button" class="btn btn-light" id="closeModal">Close</button>
+                </div>
+                <button type="button" class="btn btn-light" id="nextArticle">Next ▶</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let articleIDs = [];
+        let reportIDs = [];
+        let currentIndex = -1;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            // Collect all article & report IDs from table
+            articleIDs = Array.from(document.querySelectorAll(".view-btn"))
+                .map(btn => btn.getAttribute("onclick").match(/\d+/)[0]);
+            reportIDs = Array.from(document.querySelectorAll("input[name='report_id']"))
+                .map(input => input.value);
+
+            // Navigation + modal buttons
+            document.getElementById('prevArticle').addEventListener('click', showPreviousArticle);
+            document.getElementById('nextArticle').addEventListener('click', showNextArticle);
+            document.getElementById('closeModal').addEventListener('click', closeArticleModal);
+
+            document.getElementById('approveArticle').addEventListener('click', () => handleReview('approve'));
+            document.getElementById('rejectArticle').addEventListener('click', () => handleReview('reject'));
+        });
+
+        async function viewArticle(articleID) {
+            currentIndex = articleIDs.indexOf(articleID.toString());
+            await loadArticle(articleID);
+        }
+
+        async function loadArticle(articleID) {
+            try {
+                const response = await fetch(`/getArticle/${articleID}`);
+                if (!response.ok) throw new Error('Failed to fetch article.');
+                const article = await response.json();
+
+                // Fill modal fields
+                document.getElementById('modal-title').textContent = article.title;
+                document.getElementById('modal-author').textContent = "By " + (article.author || "Unknown");
+                document.getElementById('modal-date').textContent = 
+                    "Published: " + (article.published_at ? new Date(article.published_at).toLocaleString() : "Unknown");
+
+                const img = document.getElementById('modal-image');
+                if (article.image) {
+                    img.src = article.image.startsWith('/') ? article.image : '/' + article.image;
+                    img.style.display = 'block';
+                } else {
+                    img.style.display = 'none';
+                }
+
+                document.getElementById('modal-content').innerHTML = article.content || "(No content)";
+
+                // Update navigation buttons
+                document.getElementById('prevArticle').disabled = currentIndex <= 0;
+                document.getElementById('nextArticle').disabled = currentIndex >= articleIDs.length - 1;
+
+                // Show modal
+                const modal = document.getElementById('viewModal');
+                modal.classList.add('show');
+                modal.setAttribute('aria-hidden', 'false');
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        function showPreviousArticle() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                loadArticle(articleIDs[currentIndex]);
+            }
+        }
+
+        function showNextArticle() {
+            if (currentIndex < articleIDs.length - 1) {
+                currentIndex++;
+                loadArticle(articleIDs[currentIndex]);
+            }
+        }
+
+        function closeArticleModal() {
+            const modal = document.getElementById('viewModal');
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        async function handleReview(action) {
+        const report_id = reportIDs[currentIndex];
+        if (!report_id) {
+            alert("Unable to find report ID.");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to ${action} this article?`)) return;
+
+        try {
+            const response = await fetch("/reviewArticle", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `report_id=${report_id}&action=${action}`
+            });
+
+            if (!response.ok) throw new Error("Failed to submit review.");
+
+            alert(`Article ${action}d successfully.`);
+
+            // Remove reviewed article from lists
+            articleIDs.splice(currentIndex, 1);
+            reportIDs.splice(currentIndex, 1);
+
+            // Automatically load next article
+            if (articleIDs.length === 0) {
+                closeArticleModal();
+                alert("No more flagged articles remaining.");
+                return;
+            }
+
+            // Keep currentIndex within bounds
+            if (currentIndex >= articleIDs.length) currentIndex = articleIDs.length - 1;
+
+            loadArticle(articleIDs[currentIndex]);
+
+            // Also remove row from table visually
+            const row = document.querySelectorAll(".view-btn")[currentIndex].closest("tr");
+            if (row) row.remove();
+
+        } catch (err) {
+            alert(err.message);
+        }
+    }
+    </script>"""
+    
 </body>
 </html>
 
