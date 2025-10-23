@@ -783,7 +783,6 @@ def subscriber_article_view(article_id):
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    # Fetch article (visible, not draft)
     cur.execute("""
         SELECT a.articleID, a.title, a.content, a.author,
                a.published_at, a.updated_at,
@@ -808,7 +807,6 @@ def subscriber_article_view(article_id):
 
     # --- Views: +1 per session per article ---
     viewed_key = "viewed_articles"
-    # session might store strings; coerce to int
     already_viewed = set(int(x) for x in session.get(viewed_key, []))
     if article_id not in already_viewed:
         cur.execute("UPDATE articles SET views = views + 1 WHERE articleID = %s", (article_id,))
@@ -822,9 +820,22 @@ def subscriber_article_view(article_id):
         (session["userID"], article_id)
     )
     is_pinned = cur.fetchone() is not None
-
     cur.close(); conn.close()
-    return render_template("subscriberArticleView.html", article=article, is_pinned=is_pinned)
+
+    # --- AI summarizer (reuse the same helper you use on public page) ---
+    summary_points = []
+    try:
+        full_text = (article.get("content") or "").strip()
+        summary_points = summarize_to_points(full_text)  # same helper as /article/<id>
+    except Exception as e:
+        summary_points = []
+
+    return render_template(
+        "subscriberArticleView.html",
+        article=article,
+        is_pinned=is_pinned,
+        summary_points=summary_points
+    )
 
 
 @app.route("/subscriber/api/pin", methods=["POST"])

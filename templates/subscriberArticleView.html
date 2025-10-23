@@ -65,9 +65,62 @@
               <button id="ttsPause"  class="btn btn-ghost">Pause</button>
               <button id="ttsResume" class="btn btn-ghost">Continue</button>
               <button id="ttsReplay" class="btn btn-ghost">Replay</button>
+
+                <label>Speaker:
+                  <select id="ttsGender">
+                    <option value="auto" selected>Auto</option>
+                    <option value="female">Female</option>
+                    <option value="male">Male</option>
+                  </select>
+                </label>
+
+                <label>Speed:
+                  <select id="ttsRate">
+                    <option value="0.5">0.5×</option>
+                    <option value="1" selected>1×</option>
+                    <option value="2">2×</option>
+                  </select>
+                </label>
             </div>
           </div>
         </div>
+
+        <div style="margin: 15px 20px;">
+              <label for="language">Translate to:</label>
+              <select id="language" onchange="translateArticle()">
+                <option value="en">English (Default)</option>
+                <optgroup label="Asian Languages">
+                  <option value="zh-CN">Chinese (Simplified)</option>
+                  <option value="ms">Malay</option>
+                  <option value="ko">Korean</option>
+                  <option value="ja">Japanese</option>
+                  <option value="vi">Vietnamese</option>
+                </optgroup>
+
+                <optgroup label="European Languages">
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="nl">Dutch</option>
+                  <option value="ru">Russian</option>
+                  <option value="it">Italian</option>
+                  <option value="pt">Portuguese</option>
+                </optgroup>
+              </select>
+            </div>
+
+
+            {% if summary_points %}
+              <div class="summary-box">
+                <h3>Summary</h3>
+                <ul id="summaryList">
+                  {% for point in summary_points %}
+                    <li>{{ point }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
+
 
         <!-- Two-column body: text + image -->
         <div class="article-body two-col">
@@ -138,6 +191,17 @@
   <!-- Toast -->
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
     <span id="toastMsg">Done.</span>
+  </div>
+
+    <!-- Logout Confirmation Modal -->
+  <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h2>Log out?</h2>
+      <div class="buttons">
+        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+      </div>
+    </div>
   </div>
 
   <!-- Topbar menu toggle -->
@@ -273,95 +337,192 @@
 
   <!-- Bookmark + TTS -->
   <script>
-    (function(){
-      const toast   = document.getElementById('toast');
-      const msgEl   = document.getElementById('toastMsg');
-      const showToast = (m) => { msgEl.textContent = m || 'Done.'; toast.classList.add('show'); setTimeout(()=> toast.classList.remove('show'), 1400); };
+  (function(){
+    // --- bookmark (unchanged) ---
+    const toast   = document.getElementById('toast');
+    const msgEl   = document.getElementById('toastMsg');
+    const showToast = (m) => { msgEl.textContent = m || 'Done.'; toast.classList.add('show'); setTimeout(()=> toast.classList.remove('show'), 1400); };
 
-      const bookmarkBtn = document.getElementById('bookmarkBtn');
-      const articleRoot = document.getElementById('articleRoot');
-      const articleID   = parseInt(articleRoot?.dataset.articleId || '0', 10);
-      const endpoint    = "{{ url_for('subscriber_toggle_pin') }}";
+    const bookmarkBtn = document.getElementById('bookmarkBtn');
+    const articleRoot = document.getElementById('articleRoot');
+    const articleID   = parseInt(articleRoot?.dataset.articleId || '0', 10);
+    const endpoint    = "{{ url_for('subscriber_toggle_pin') }}";
 
-      if (bookmarkBtn){
-        bookmarkBtn.addEventListener('click', async () => {
-          if (!articleID){ showToast('Missing article ID.'); return; }
-          try{
-            const res  = await fetch(endpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ articleID })
-            });
-            const data = await res.json().catch(()=> ({}));
-            if (!res.ok || !data.ok){ throw new Error(data.message || ('HTTP '+res.status)); }
-            const nowBookmarked = data.state === 'pinned';
-            bookmarkBtn.setAttribute('aria-pressed', nowBookmarked ? 'true' : 'false');
-            const label = bookmarkBtn.querySelector('.label');
-            if (label) label.textContent = nowBookmarked ? 'Remove Bookmark' : 'Add Bookmark';
-            showToast(nowBookmarked ? 'Bookmarked.' : 'Removed from bookmarks.');
-          }catch(err){
-            showToast('Unable to update bookmark.');
-            console.error(err);
-          }
-        });
-      }
-
-      const ttsStart   = document.getElementById('ttsStart');
-      const ttsCtrls   = document.getElementById('ttsControls');
-      const ttsPause   = document.getElementById('ttsPause');
-      const ttsResume  = document.getElementById('ttsResume');
-      const ttsReplay  = document.getElementById('ttsReplay');
-
-      const articleText = (() => {
-        const el = document.querySelector('.article-content');
-        return el ? el.innerText.trim() : '';
-      })();
-
-      function speak(text){
-        if (!('speechSynthesis' in window)){ showToast('Reader not supported by this browser.'); return; }
-        window.speechSynthesis.cancel();
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.rate = 1.0;
-        utter.pitch = 1.0;
-        window.speechSynthesis.speak(utter);
-      }
-
-      if (ttsStart){
-        ttsStart.addEventListener('click', () => {
-          if (!articleText){ showToast('Nothing to read.'); return; }
-          speak(articleText);
-          ttsCtrls.classList.remove('hidden');
-          ttsStart.classList.add('hidden');
-        });
-      }
-      if (ttsPause){
-        ttsPause.addEventListener('click', () => {
-          if (window.speechSynthesis.speaking && !window.speechSynthesis.paused){
-            window.speechSynthesis.pause();
-          }
-        });
-      }
-      if (ttsResume){
-        ttsResume.addEventListener('click', () => {
-          if (window.speechSynthesis.paused){
-            window.speechSynthesis.resume();
-          }
-        });
-      }
-      if (ttsReplay){
-        ttsReplay.addEventListener('click', () => {
-          speak(articleText);
-        });
-      }
-
-      window.addEventListener('beforeunload', () => {
-        if ('speechSynthesis' in window){ window.speechSynthesis.cancel(); }
+    if (bookmarkBtn){
+      bookmarkBtn.addEventListener('click', async () => {
+        if (!articleID){ showToast('Missing article ID.'); return; }
+        try{
+          const res  = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ articleID })
+          });
+          const data = await res.json().catch(()=> ({}));
+          if (!res.ok || !data.ok){ throw new Error(data.message || ('HTTP '+res.status)); }
+          const nowBookmarked = data.state === 'pinned';
+          bookmarkBtn.setAttribute('aria-pressed', nowBookmarked ? 'true' : 'false');
+          const label = bookmarkBtn.querySelector('.label');
+          if (label) label.textContent = nowBookmarked ? 'Remove Bookmark' : 'Add Bookmark';
+          showToast(nowBookmarked ? 'Bookmarked.' : 'Removed from bookmarks.');
+        }catch(err){
+          showToast('Unable to update bookmark.');
+          console.error(err);
+        }
       });
-    })();
-  </script>
+    }
+
+    // --- TTS with language + gender + rate controls ---
+    const ttsStart  = document.getElementById('ttsStart');
+    const ttsCtrls  = document.getElementById('ttsControls');
+    const ttsPause  = document.getElementById('ttsPause');
+    const ttsResume = document.getElementById('ttsResume');
+    const ttsReplay = document.getElementById('ttsReplay');
+    const rateSel   = document.getElementById('ttsRate');
+    const genderSel = document.getElementById('ttsGender');
+    const langSel   = document.getElementById('language');
+
+    window.currentTTSLang = window.currentTTSLang || 'en';
+
+    function mapLang(code){
+      const m = {'en':'en-US','zh-CN':'zh-CN','ms':'ms-MY','ko':'ko-KR','ja':'ja-JP','vi':'vi-VN','es':'es-ES','fr':'fr-FR','de':'de-DE','nl':'nl-NL','ru':'ru-RU','it':'it-IT','pt':'pt-PT'};
+      return m[code] || 'en-US';
+    }
+
+    let allVoices = [];
+    if ('speechSynthesis' in window){
+      const load = () => allVoices = speechSynthesis.getVoices() || [];
+      load(); speechSynthesis.onvoiceschanged = load;
+    }
+
+    function genderGuess(name){
+      const n = (name||'').toLowerCase();
+      if (/female|woman|feminine/.test(n)) return 'female';
+      if (/male|man|masculine/.test(n))   return 'male';
+      return 'unknown';
+    }
+    function pickVoice(langCode, genderPref){
+      if (!allVoices.length) return null;
+      const want = mapLang(langCode).toLowerCase();
+      const prefix = want.split('-')[0];
+      let cands = allVoices.filter(v => {
+        const vl = (v.lang||'').toLowerCase();
+        return vl === want || vl.startsWith(prefix + '-');
+      });
+      if (genderPref !== 'auto'){
+        const g = cands.filter(v => genderGuess(v.name) === genderPref);
+        if (g.length) cands = g;
+      }
+      if (!cands.length) cands = allVoices.slice();
+      const local = cands.filter(v => v.localService);
+      return local[0] || cands[0] || null;
+    }
+
+    function getArticlePlainText(){
+      const el = document.querySelector('.article-content');
+      return el ? el.innerText.trim() : '';
+    }
+
+    function splitForTTS(text, maxLen = 1000){
+      // Similar to translation chunking, but smaller per utterance for stability
+      return splitIntoChunks(text, maxLen);
+    }
+
+    // (reuse the splitter from translation section)
+    function splitIntoChunks(text, maxLen = 1000) {
+      const parts = [];
+      const paras = String(text || "").split(/\n{2,}/);
+      for (let p of paras) {
+        p = p.trim();
+        if (!p) continue;
+        if (p.length <= maxLen) { parts.push(p); continue; }
+        const sentences = p.split(/(?<=[.!?。！？])\s+/);
+        let buf = "";
+        for (const s of sentences) {
+          if ((buf + " " + s).trim().length <= maxLen) {
+            buf = (buf ? buf + " " : "") + s;
+          } else {
+            if (buf) parts.push(buf);
+            if (s.length <= maxLen) {
+              buf = s;
+            } else {
+              let cur = "";
+              for (const w of s.split(/\s+/)) {
+                if ((cur + " " + w).trim().length <= maxLen) cur = (cur ? cur + " " : "") + w;
+                else { if (cur) parts.push(cur); cur = w; }
+              }
+              if (cur) { parts.push(cur); buf = ""; }
+            }
+          }
+        }
+        if (buf) parts.push(buf);
+      }
+      return parts.length ? parts : [text];
+    }
+
+    // Speak a queue of chunks with pause/resume support
+    let queue = [];
+    let idx = 0;
+    let currentUtter = null;
+
+    function nextUtter(){
+      if (idx >= queue.length) { currentUtter = null; return; }
+
+      const utter = new SpeechSynthesisUtterance(queue[idx]);
+      utter.lang  = mapLang(window.currentTTSLang);
+      utter.rate  = Math.max(0.1, Math.min(3, parseFloat(rateSel?.value || '1') || 1));
+      utter.pitch = 1.0;
+
+      const v = pickVoice(window.currentTTSLang, (genderSel?.value || 'auto'));
+      if (v) utter.voice = v;
+
+      utter.onend = () => { idx++; nextUtter(); };
+      utter.onerror = () => { idx++; nextUtter(); };
+
+      currentUtter = utter;
+      speechSynthesis.speak(utter);
+    }
+
+    function speakArticle(){
+      if (!('speechSynthesis' in window)) { alert('Reader not supported by this browser.'); return; }
+      speechSynthesis.cancel();
+      queue = splitForTTS(getArticlePlainText(), 1000);
+      idx = 0;
+      if (!queue.length || !queue[0]) return;
+      nextUtter();
+    }
+
+    ttsStart?.addEventListener('click', () => {
+      const text = getArticlePlainText();
+      if (!text) return alert('Nothing to read.');
+      speakArticle();
+      ttsCtrls.classList.remove('hidden');
+      ttsStart.classList.add('hidden');
+    });
+    ttsPause?.addEventListener('click', () => {
+      if (speechSynthesis.speaking && !speechSynthesis.paused) speechSynthesis.pause();
+    });
+    ttsResume?.addEventListener('click', () => {
+      if (speechSynthesis.paused) speechSynthesis.resume();
+    });
+    ttsReplay?.addEventListener('click', () => {
+      speakArticle();
+    });
+
+    [rateSel, genderSel].forEach(sel => sel && sel.addEventListener('change', () => {
+      if (speechSynthesis.speaking) speakArticle(); // restart with new settings
+    }));
+
+    window.addEventListener('beforeunload', () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); });
+
+    // Keep voices in the right language after translation
+    document.getElementById('language')?.addEventListener('change', () => {
+      // window.currentTTSLang is set in translateArticle()
+    });
+  })();
+</script>
 
   
-<!-- Comments logic (REPLACE existing block) -->
+<!-- Comments logic -->
 <script>
 document.addEventListener("DOMContentLoaded", initCommentSystem);
 
@@ -862,6 +1023,70 @@ document.addEventListener('click', () => {
     setInterval(loadAd, 10_000); // your 10s rotation
   })();
   </script>
+
+<!-- Multilingual Support Functions -->
+      <script>
+       let originalTitle = "";
+  let originalContent = "";
+  let originalSummary = [];
+
+  window.addEventListener("DOMContentLoaded", () => {
+    // Title lives in .article-title (not .main-title)
+    originalTitle = document.querySelector(".article-title")?.innerText || "";
+
+    // Content lives in .article-content (HTML). Use innerText to translate plain text.
+    const contentEl = document.querySelector(".article-content");
+    originalContent = contentEl ? contentEl.innerText : "";
+
+    // Summary points (if rendered)
+    originalSummary = Array.from(document.querySelectorAll("#summaryList li")).map(li => li.innerText);
+  });
+
+  async function translateArticle() {
+    const lang = document.getElementById("language")?.value;
+    if (!lang) return;
+
+    // Restore original
+    if (lang === "en") {
+      const tEl = document.querySelector(".article-title");
+      if (tEl) tEl.innerText = originalTitle;
+
+      const cEl = document.querySelector(".article-content");
+      if (cEl) cEl.innerText = originalContent;
+
+      const items = document.querySelectorAll("#summaryList li");
+      originalSummary.forEach((t, i) => { if (items[i]) items[i].innerText = t; });
+      return;
+    }
+
+    // Translate current article
+    try {
+      const res = await fetch("/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: originalTitle,
+          content: originalContent,
+          summary: originalSummary,
+          target_lang: lang
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      const tEl = document.querySelector(".article-title");
+      if (tEl) tEl.innerText = data.title || originalTitle;
+
+      const cEl = document.querySelector(".article-content");
+      if (cEl) cEl.innerText = data.content || originalContent;
+
+      const items = document.querySelectorAll("#summaryList li");
+      (data.summary || []).forEach((t, i) => { if (items[i]) items[i].innerText = t; });
+    } catch (err) {
+      console.error("Translation error:", err);
+    }
+  }
+</script>
 
   <!-- Logout modal wiring (AFTER modal element) -->
   <script>
