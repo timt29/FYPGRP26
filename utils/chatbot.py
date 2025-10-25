@@ -37,5 +37,5 @@ def getChatbotResponse (user_input):
     user_input = user_input.lower()
     for keyword, answer in FAQ_Responses.items():
         if keyword in user_input:
-            return jsonify({"response": answer})
-    return jsonify({"response": "I'm sorry, can't help with that question right now. Please try another question."})
+            return answer
+    return "I'm sorry, can't help with that question right now. Please try another question."

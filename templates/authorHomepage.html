@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/author.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
@@ -95,5 +96,6 @@
       document.addEventListener("keydown",e=>{if(e.key==="Escape")modal.style.display="none"});
     })();
   </script>
+  {% include 'partials/chatbot.html' %}
 </body>
 </html>
