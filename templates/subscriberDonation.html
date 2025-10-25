@@ -2,22 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>EchoPress — Donation</title>
+  <title>EchoPress - Donate</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/echopresslogo.png') }}" type="image/png" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
 </head>
 <body>
 
   <!-- Top Bar -->
   <header class="topbar">
     <div class="left">
-      <div class="brand">
+      <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
-      </div>
+      </button>
     </div>
-
-    <!-- User name then menu button; panel anchored to the RIGHT -->
     <div class="right">
       <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
@@ -32,81 +30,165 @@
     </div>
   </header>
 
-  <!-- Page -->
-  <div class="page">
+  <div class="page" style="max-width:980px">
     <div class="feed">
-      <!-- Intro / Notes -->
-      <div class="summary-box">
-        <h3>Support EchoPress</h3>
+
+      <!-- Inviting hero -->
+      <div class="donate-hero">
+        <h3>Support EchoPress 💙</h3>
+        <p>Your contribution keeps quality journalism independent and ad-light for everyone.</p>
+        <ul class="bullets">
+          <li>Pick an amount, choose a method, and complete the form.</li>
+          <li>Card or PayNow — fast and secure.</li>
+        </ul>
       </div>
 
       <!-- Donation Form -->
-      <form class="create-form" method="post" action="{{ url_for('donate_submit') }}" novalidate>
-        <!-- Amount -->
+      <form id="donationForm" class="create-form" method="post" action="{{ url_for('donate_submit') }}" novalidate>
+        <!-- Hidden fields the server expects -->
+        <input type="hidden" id="payment_method" name="payment_method" value="">
+        <input type="hidden" id="donation_amount_final" name="donation_amount" value="">
+        <input type="hidden" id="cardNumber" name="cardNumber" value="">
+        <input type="hidden" id="card_brand" name="card_brand" value="">
+
+        <!-- 1) Amount chooser -->
         <div>
-          <label for="donation_amount">Amount (SGD)</label>
-          <input id="donation_amount" name="donation_amount" type="number" step="0.01" min="0.01" required aria-required="true" placeholder="10.00">
+          <label>Amount (SGD)</label>
+          <div class="method-actions" role="group" aria-label="Preset amounts" id="amountButtons">
+            <button type="button" class="btn btn-light amount-btn" data-amt="1">$1</button>
+            <button type="button" class="btn btn-light amount-btn" data-amt="2">$2</button>
+            <button type="button" class="btn btn-light amount-btn" data-amt="5">$5</button>
+            <button type="button" class="btn btn-light amount-btn" data-amt="10">$10</button>
+            <button type="button" class="btn btn-light amount-btn" data-amt="50">$50</button>
+            <button type="button" class="btn btn-light amount-btn" data-amt="100">$100</button>
+            <button type="button" class="btn btn-light" id="customAmtBtn">Custom</button>
+          </div>
+          <div id="customAmtWrap" class="meta-grid" style="margin-top:10px; display:none;">
+            <div class="currency-input">
+              
+              <input id="donation_amount_custom"
+                    type="text"
+                    inputmode="decimal"
+                    placeholder="$10.00"
+                    class="input-like"
+                    autocomplete="off"
+                    aria-label="Custom amount">
+            </div>
+            <div id="amtErr" class="field-error" aria-live="polite"></div>
+          </div>
         </div>
 
-        <!-- Payment Method -->
+        <hr class="hr hr-spaced">
+
+        <!-- 2) Method chooser -->
         <div>
-          <label for="payment_method">Payment Method</label>
-          <select id="payment_method" name="payment_method" required aria-required="true">
-            <option value="" selected disabled>Select method</option>
-            <option value="card">Credit / Debit Card (DEV)</option>
-            <option value="paynow">PayNow (DEV)</option>
-            <option value="cash">Cash (DEV)</option>
-            <option value="cheque">Cheque (DEV)</option>
-          </select>
+          <label>Payment Method</label>
+          <div class="method-actions" role="group" aria-label="Payment method" id="methodButtons">
+            <button type="button" class="btn btn-light method-btn" data-method="card">Credit / Debit Card</button>
+            <button type="button" class="btn btn-light method-btn" data-method="paynow">PayNow</button>
+          </div>
         </div>
 
+        <!-- 3) Method-specific panels -->
         <!-- Card fields -->
-        <fieldset id="card_fields" hidden>
-          <legend>Card Details (DEV)</legend>
-          <label for="card_brand">Card Brand</label>
-          <input id="card_brand" name="card_brand" type="text" placeholder="Visa / MasterCard" maxlength="20">
+        <fieldset id="card_panel" class="summary-box" hidden>
+          <legend class="legend-title">Card Details</legend>
 
-          <label for="cardNumber">Card Number</label>
-          <input id="cardNumber" name="cardNumber" type="text" inputmode="numeric" autocomplete="off" placeholder="4111 1111 1111 1111" maxlength="25">
+          <div class="meta-grid">
+            <label>Card Number</label>
+            <!-- four boxes, left-to-right (no stacking) -->
+            <div class="inline-row nowrap">
+              <input id="cc1" type="text" inputmode="numeric" maxlength="4" class="input-like cc-input" aria-label="First 4 digits">
+              <input id="cc2" type="text" inputmode="numeric" maxlength="4" class="input-like cc-input" aria-label="Second 4 digits">
+              <input id="cc3" type="text" inputmode="numeric" maxlength="4" class="input-like cc-input" aria-label="Third 4 digits">
+              <input id="cc4" type="text" inputmode="numeric" maxlength="4" class="input-like cc-input" aria-label="Last 4 digits">
+              <span class="brand-wrap">
+                <img id="brandVisa" class="brand-logo" src="{{ url_for('static', filename='img/visa.png') }}" alt="Visa">
+                <img id="brandMc" class="brand-logo" src="{{ url_for('static', filename='img/mastercard.jpg') }}" alt="MasterCard">
+              </span>
+            </div>
+          </div>
+
+          <div class="meta-grid">
+            <div>
+              <label for="expMM">Expiry</label>
+              <!-- month & year left-right -->
+              <div class="inline-row">
+                <select id="expMM" class="input-like select-like" aria-label="Expiry month"></select>
+                <select id="expYYYY" class="input-like select-like" aria-label="Expiry year"></select>
+              </div>
+            </div>
+            <div>
+              <label for="cvv">CVV</label>
+              <input id="cvv" type="password" inputmode="numeric" maxlength="3" placeholder="3 digits" class="input-like" autocomplete="off" aria-describedby="cvvErr">
+              <div id="cvvErr" class="field-error" aria-live="polite"></div>
+            </div>
+          </div>
         </fieldset>
 
         <!-- PayNow fields -->
-        <fieldset id="paynow_fields" hidden>
-          <legend>PayNow Details (DEV)</legend>
-          <label for="paynowRef">PayNow Reference</label>
-          <input id="paynowRef" name="paynowRef" type="text" placeholder="PN-DEV-0001" maxlength="64">
+        <fieldset id="paynow_panel" class="summary-box" hidden>
+          <legend class="legend-title">PayNow</legend>
+
+          <div class="qr-card">
+            <img
+              class="qr-img"
+              src="{{ url_for('static', filename='img/echopressPaynowQR.png') }}"
+              alt="EchoPress PayNow QR code"
+              loading="lazy"
+            />
+            <p class="qr-tip">Scan PayNow QR with your banking app, then fill in the reference so we can match your donation.</p>
+          </div>
+
+          <div class="meta-grid" style="margin-top:12px">
+            <div>
+              <label for="paynowRef">Reference</label>
+              <input id="paynowRef" name="paynowRef" type="text"
+                    placeholder="e.g. PN-2025-0001" maxlength="64" class="input-like">
+            </div>
+          </div>
         </fieldset>
 
-        <!-- Cash fields -->
-        <fieldset id="cash_fields" hidden>
-          <legend>Cash Details (DEV)</legend>
-          <label for="CashReceiptNumber">Cash Receipt Number</label>
-          <input id="CashReceiptNumber" name="CashReceiptNumber" type="text" placeholder="CR-DEV-0001" maxlength="40">
-        </fieldset>
 
-        <!-- Cheque fields -->
-        <fieldset id="cheque_fields" hidden>
-          <legend>Cheque Details (DEV)</legend>
-          <label for="ChequeNumber">Cheque Number</label>
-          <input id="ChequeNumber" name="ChequeNumber" type="text" placeholder="CQ-DEV-0001" maxlength="40">
-        </fieldset>
-
-        <!-- Actions -->
+        <!-- 4) Actions -->
         <div class="form-buttons">
-          <button class="btn btn-primary" type="submit">Donate</button>
+          <button id="submitBtn" class="btn btn-primary" type="submit">Donate</button>
           <a class="btn btn-light" href="{{ url_for('subscriberHomepage') }}">Cancel</a>
         </div>
       </form>
     </div>
 
-
-    <!-- Optional sidebar area -->
     <aside class="sidebar">
-      <!-- keep empty or add info blocks -->
+      <div class="side-stack">
+        <a href="{{ url_for('subscriberHomepage') }}">Back to Homepage</a>
+      </div>
+      <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </div>
 
-  <!-- Logout Confirmation Modal -->
+  <!-- Error modal -->
+  <div id="errModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-card" role="document">
+      <div class="modal-title">Payment unsuccessful</div>
+      <div class="modal-body" id="errText">Invalid card number.</div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="errOk">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success modal (appears first, then we redirect after 3s) -->
+  <div id="successModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-card" role="document">
+      <div class="modal-title">Thank you!</div>
+      <div class="modal-body">
+        Thank you for your donation to EchoPress! 💙<br>
+        It will help us deeply to improve our services &lt;3
+      </div>
+    </div>
+  </div>
+
+      <!-- Logout Confirmation Modal -->
   <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal" role="document">
       <h2>Log out?</h2>
@@ -131,28 +213,301 @@
     })();
   </script>
 
+  <!-- Donation logic -->
   <script>
-    (function () {
-      const method = document.getElementById('payment_method');
-      const blocks = {
-        card:   document.getElementById('card_fields'),
-        paynow: document.getElementById('paynow_fields'),
-        cash:   document.getElementById('cash_fields'),
-        cheque: document.getElementById('cheque_fields'),
-      };
+    (function(){
+      // ------- DOM refs -------
+      const form = document.getElementById('donationForm');
 
-      function showBlock(val) {
-        Object.values(blocks).forEach(el => { el.hidden = true; });
-        if (blocks[val]) blocks[val].hidden = false;
+      // amount
+      const amtBtns = Array.from(document.querySelectorAll('.amount-btn'));
+      const customBtn = document.getElementById('customAmtBtn');
+      const customWrap = document.getElementById('customAmtWrap');
+      const customInput = document.getElementById('donation_amount_custom');
+      const amountFinal = document.getElementById('donation_amount_final'); // always posted
+      const amtErr = document.getElementById('amtErr');
+
+      // method
+      const methodBtns = Array.from(document.querySelectorAll('.method-btn'));
+      const methodHidden = document.getElementById('payment_method');
+      const cardPanel = document.getElementById('card_panel');
+      const paynowPanel = document.getElementById('paynow_panel');
+
+      // card fields
+      const ccInputs = ['cc1','cc2','cc3','cc4'].map(id => document.getElementById(id));
+      const cardNumberHidden = document.getElementById('cardNumber');
+      const cardBrandHidden  = document.getElementById('card_brand');
+      const brandVisa = document.getElementById('brandVisa');
+      const brandMc = document.getElementById('brandMc');
+      const expMM   = document.getElementById('expMM');
+      const expYYYY = document.getElementById('expYYYY');
+      const cvv     = document.getElementById('cvv');
+      const cvvErr  = document.getElementById('cvvErr');
+      const paynowRef = document.getElementById('paynowRef');
+
+      // modals
+      const errModal = document.getElementById('errModal');
+      const errText = document.getElementById('errText');
+      const errOk = document.getElementById('errOk');
+      const successModal = document.getElementById('successModal');
+
+      errOk.addEventListener('click', () => {
+        errModal.classList.remove('show');
+        errModal.setAttribute('aria-hidden','true');
+      });
+
+      // --- populate expiry dropdowns (01–12, 2025–2040)
+      (function fillExpiry(){
+        for (let m=1; m<=12; m++){
+          const opt = document.createElement('option');
+          opt.value = String(m).padStart(2,'0');
+          opt.textContent = String(m).padStart(2,'0');
+          expMM.appendChild(opt);
+        }
+        for (let y=2025; y<=2040; y++){
+          const opt = document.createElement('option');
+          opt.value = String(y);
+          opt.textContent = String(y);
+          expYYYY.appendChild(opt);
+        }
+      })();
+
+      // ------- Helpers -------
+      function showError(msg){
+        errText.textContent = msg || 'Payment unsuccessful.';
+        errModal.classList.add('show');
+        errModal.setAttribute('aria-hidden','false');
+      }
+      function onlyDigits(s){ return (s||'').replace(/\D+/g,''); }
+
+      // brand detection + Luhn
+      function detectBrand(num16){
+        if (/^4\d{15}$/.test(num16)) return 'Visa';
+        const first2 = parseInt(num16.slice(0,2),10);
+        const first4 = parseInt(num16.slice(0,4),10);
+        if ((first2 >= 51 && first2 <= 55) || (first4 >= 2221 && first4 <= 2720)) return 'MasterCard';
+        return 'Unknown';
+      }
+      function luhnValid(num){
+        let sum = 0, alt = false;
+        for (let i = num.length - 1; i >= 0; i--){
+          let n = parseInt(num.charAt(i),10);
+          if (alt){ n *= 2; if (n > 9) n -= 9; }
+          sum += n; alt = !alt;
+        }
+        return (sum % 10) === 0;
+      }
+      function updateBrandVisual(brand){
+        brandVisa.style.display = 'none';
+        brandMc.style.display = 'none';
+        if (brand === 'Visa') brandVisa.style.display = 'block';
+        if (brand === 'MasterCard') brandMc.style.display = 'block';
+      }
+      function detectBrandAndDisplay(){
+        const full = ccInputs.map(x => x.value).join('');
+        const brand = full.length === 16 ? detectBrand(full) : '';
+        updateBrandVisual(brand);
+        cardBrandHidden.value = brand || '';
       }
 
-      method.addEventListener('change', function (e) {
-        showBlock(e.target.value);
+      // ------- Amount selection -------
+      function clearAmtSelection(){
+        amtBtns.forEach(x => { x.classList.remove('btn-primary','is-selected'); x.classList.add('btn-light'); });
+        customBtn.classList.remove('btn-primary','is-selected'); customBtn.classList.add('btn-light');
+        amtErr.textContent = '';
+      }
+      amtBtns.forEach(b => b.addEventListener('click', () => {
+        const val = parseFloat(b.dataset.amt);
+        amountFinal.value = isFinite(val) ? val.toFixed(2) : '';
+        customWrap.style.display = 'none';
+        customInput.value = '';
+        clearAmtSelection();
+        b.classList.remove('btn-light'); b.classList.add('btn-primary','is-selected');
+      }));
+      customBtn.addEventListener('click', () => {
+        clearAmtSelection();
+        customBtn.classList.remove('btn-light'); customBtn.classList.add('btn-primary','is-selected');
+        customWrap.style.display = 'block';
+        customInput.focus();
       });
+
+    // custom amount: allow one ".", max 2 decimals, keep typing natural
+    customInput && customInput.addEventListener('input', () => {
+      let v = (customInput.value || '').replace(/[^0-9.]/g, '');
+
+      // keep only the first "." if multiple are typed
+      const firstDot = v.indexOf('.');
+      if (firstDot !== -1) {
+        v =
+          v.slice(0, firstDot + 1) +
+          v.slice(firstDot + 1).replace(/\./g, '');
+      }
+
+      // split integer/fraction
+      let [intPart, fracPart = ''] = v.split('.');
+      // normalize leading zeros: allow "0" or "0.xxx"
+      intPart = intPart.replace(/^0+(?=\d)/, '');
+
+      // cap to 2 decimals
+      if (fracPart.length > 2) {
+        fracPart = fracPart.slice(0, 2);
+        amtErr.textContent = 'Max 2 decimal places.';
+      } else {
+        amtErr.textContent = '';
+      }
+
+      // Re-assemble for display (permit trailing "." or ".x" while typing)
+      if (firstDot !== -1) {
+        customInput.value = `${intPart || '0'}.${fracPart}`;
+      } else {
+        customInput.value = intPart;
+      }
+
+      // Update hidden amount only when we have a valid numeric amount
+      const numeric = Number(firstDot !== -1 ? `${intPart || '0'}.${fracPart}` : (intPart || '0'));
+      amountFinal.value = (isFinite(numeric) && numeric > 0)
+        ? numeric.toFixed(2)
+        : '';
+    });
+
+      // ------- Method selection -------
+      function clearMethodSelection(){
+        methodBtns.forEach(x => { x.classList.remove('btn-primary','is-selected'); x.classList.add('btn-light'); });
+      }
+      function showPanel(m){
+        cardPanel.hidden = m !== 'card';
+        paynowPanel.hidden = m !== 'paynow';
+      }
+      methodBtns.forEach(b => b.addEventListener('click', () => {
+        clearMethodSelection();
+        b.classList.remove('btn-light'); b.classList.add('btn-primary','is-selected');
+        methodHidden.value = b.dataset.method;
+        showPanel(b.dataset.method);
+      }));
+
+      // ------- Card input behaviors -------
+      ccInputs.forEach((inp, idx) => {
+        inp.addEventListener('input', () => {
+          inp.value = onlyDigits(inp.value).slice(0,4);
+          if (inp.value.length === 4 && idx < ccInputs.length - 1) ccInputs[idx+1].focus();
+          detectBrandAndDisplay();
+        });
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Backspace' && inp.selectionStart === 0 && idx > 0 && !inp.value){ ccInputs[idx-1].focus(); }
+        });
+        inp.addEventListener('paste', (e) => {
+          const pasted = onlyDigits((e.clipboardData || window.clipboardData).getData('text'));
+          if (pasted.length >= 16){
+            e.preventDefault();
+            ccInputs.forEach((el, i) => el.value = pasted.slice(i*4, i*4 + 4));
+            detectBrandAndDisplay();
+            ccInputs[3].focus();
+          }
+        });
+      });
+
+      // CVV: strictly 3 digits with live error
+      function enforceCVV() {
+        const d = onlyDigits(cvv.value).slice(0,3);
+        if (cvv.value !== d) cvv.value = d;
+        cvvErr.textContent = (cvv.value.length === 3) ? '' : 'CVV must be 3 digits.';
+      }
+      cvv.addEventListener('input', enforceCVV);
+      cvv.addEventListener('blur', enforceCVV);
+
+      // ------- Submit -------
+      form.addEventListener('submit', (e) => {
+        const submitBtn = document.getElementById('submitBtn');
+
+        // amount must exist
+        const amount = parseFloat(amountFinal.value || '0');
+        if (!isFinite(amount) || amount <= 0){
+          e.preventDefault(); return showError('Please choose or enter a valid amount.');
+        }
+        // method must exist
+        const method = methodHidden.value;
+        if (!method){
+          e.preventDefault(); return showError('Please select a payment method.');
+        }
+        // method specifics
+        if (method === 'card'){
+          const full = ccInputs.map(x => x.value).join('');
+          if (full.length !== 16 || !/^\d{16}$/.test(full)){
+            e.preventDefault(); return showError('Please enter a 16-digit card number.');
+          }
+          const brand = detectBrand(full);
+          if (brand === 'Unknown' || !luhnValid(full)){
+            e.preventDefault(); return showError('Invalid card number.');
+          }
+          const mm = expMM.value, yy = expYYYY.value;
+          const cv = (cvv.value || '').trim();
+          const mmOk = /^\d{2}$/.test(mm) && +mm>=1 && +mm<=12;
+          const yyOk = /^\d{4}$/.test(yy);
+          const cvOk = /^\d{3}$/.test(cv); // exactly 3
+          if (!mmOk || !yyOk || !cvOk){
+            e.preventDefault(); 
+            if (!cvOk) cvvErr.textContent = 'CVV must be 3 digits.';
+            return showError('Please select a valid expiry and enter a valid CVV.');
+          }
+          // pack up
+          cardNumberHidden.value = full;
+          cardBrandHidden.value  = brand;
+        } else if (method === 'paynow'){
+          if (!paynowRef.value.trim()){
+            e.preventDefault(); return showError('Please enter a PayNow reference.');
+          }
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing…';
+      });
+
+      // ------- Success flow: show modal then navigate after 3s -------
+      (function showThanksIfNeeded(){
+        const params = new URLSearchParams(location.search);
+        if (params.get('thanks') === '1'){
+          const next = params.get('next') || "{{ url_for('subscriberHomepage') }}";
+          successModal.classList.add('show');
+          successModal.setAttribute('aria-hidden','false');
+          setTimeout(() => { window.location.href = next; }, 3000);
+        }
+      })();
     })();
   </script>
 
-    <!-- Logout modal wiring (AFTER modal element) -->
+  <!-- Ads Box Functions -->
+  <script>
+  (function(){
+    const adsBox   = document.getElementById('adsBox');
+    const ADS_API  = "{{ url_for('api_random_ad') }}";
+    const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+    function renderAd(ad){
+      if(!adsBox) return;
+      adsBox.innerHTML = `
+        <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+          <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+          ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
+          ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
+        </a>
+      `;
+    }
+
+    async function loadAd(){
+      try{
+        const res = await fetch(ADS_API, {cache:'no-store'});
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data?.ok && data.ad) renderAd(data.ad);
+      }catch(_){}
+    }
+
+    loadAd();
+    setInterval(loadAd, 10_000); // your 10s rotation
+  })();
+  </script>
+
+   <!-- Logout modal wiring (AFTER modal element) -->
   <script>
     (function () {
       const modal   = document.getElementById('logoutModal');

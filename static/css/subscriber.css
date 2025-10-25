@@ -2022,6 +2022,66 @@ body {
 .table tbody td { padding: 8px; border-bottom: 1px solid var(--line); }
 .input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
 
+/* === Donation page === */
+
+/* Hero / intro box */
+.donate-hero{
+  background: linear-gradient(180deg,#f7f9ff,#ffffff);
+  border:1px solid #e3e8f0;
+  border-radius:12px;
+  padding:16px 18px;
+  display:grid;
+  gap:6px;
+  margin-bottom:14px;
+}
+.donate-hero h3{ margin:0; font-size:1.1rem; font-weight:800; }
+.donate-hero p { margin:0; color:#475569; }
+.donate-hero .bullets{ margin:6px 0 0 1.1rem; color:#334155; }
+
+/* Generic inputs used on this page */
+.input-like{
+  width:100%;
+  padding:10px;
+  border:1px solid #cfcfcf;
+  border-radius:8px;
+  background:#fff;
+}
+
+/* Inline layout helpers (card number row, expiry row) */
+.inline-row{ display:flex; gap:8px; align-items:center; }
+.inline-row.nowrap{ flex-wrap:nowrap; }
+
+/* 4×4 card number fields */
+.cc-input{ width:90px; text-align:center; letter-spacing:1px; }
+
+/* Brand logos (hidden by default; JS shows when detected) */
+.brand-wrap{ display:flex; align-items:center; gap:8px; }
+.brand-logo{ display:none; width:32px; height:22px; object-fit:contain; }
+
+/* Error text for small field-level messages */
+.field-error{ margin-top:6px; font-size:.85rem; color:#b00020; }
+
+/* Fieldset legend title */
+.legend-title{ font-weight:700; margin-bottom:8px; }
+
+/* Currency input with $ inside the textbox */
+.currency-input{ position:relative; }
+.currency-input .prefix{
+  position:absolute; left:12px; top:50%; transform:translateY(-50%);
+  color:#334155; pointer-events:none; font-weight:600;
+}
+.currency-input .input-like{ padding-left:28px; } /* space for $ */
+
+/* Selects with a visible caret */
+.select-like{
+  appearance:none; -moz-appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23677' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  background-size:14px 14px;
+  padding-right:32px; 
+}
+
 /* -- chatbot feature -- */
 #chatbot-button {
   position: fixed;

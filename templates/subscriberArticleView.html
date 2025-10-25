@@ -162,7 +162,6 @@
 
         <!-- Create -->
         <form id="cForm" class="comment-form" autocomplete="off">
-          <img src="{{ url_for('static', filename='img/avatar.png') }}" alt="" class="comment-avatar">
           <textarea id="cInput" class="comment-input" rows="3" placeholder="Add a comment…"></textarea>
           <button id="cSend" type="submit" class="btn btn-primary">Send</button>
         </form>
@@ -538,7 +537,6 @@ function initCommentSystem(){
   const API_EDIT   = (id)=> `/subscriber/api/comments/${id}`;
   const API_REACT  = (id)=> `/subscriber/api/comments/${id}/react`;
 
-  const AVATAR_SRC = "{{ url_for('static', filename='img/avatar.png') }}";
 
   const esc = s => (s||"").replace(/[&<>]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
 
@@ -553,7 +551,6 @@ function initCommentSystem(){
     return `
       <article class="comment-card ${indentClass}" data-id="${c.commentID}" data-parent="${c.parent_id || ''}" style="margin-left:${Math.min(depth*20, 160)}px;">
         <div class="comment-meta">
-          <img src="${AVATAR_SRC}" alt="" class="avatar">
           <span class="comment-name">${esc(c.author)}</span>
           <span class="comment-time">${esc(c.created_at ? new Date(c.created_at).toLocaleString() : '')}</span>
         </div>

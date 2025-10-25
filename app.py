@@ -5,6 +5,7 @@ import webbrowser
 import threading
 import mysql.connector
 import json
+import decimal
 from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
 from rapidfuzz import process, fuzz
@@ -1681,77 +1682,125 @@ def subscriber_analytics_my_articles():
 def donate_form():
     return render_template("subscriberDonation.html")
 
+# --- DONATIONS ---
 @app.post("/donate")
 @login_required("Subscriber")
 def donate_submit():
     """
-    Stores a donation and the method-specific info in two steps:
-    1) INSERT into donations (master row)
-    2) INSERT into donation_info (detail row)
+    1) Validate form
+    2) INSERT into donations (master)
+    3) INSERT into donation_info (detail)
     """
     from flask import request, redirect, url_for, session, flash
-    method = (request.form.get("payment_method") or "").lower()  # 'card'|'paynow'|'cash'|'cheque'
-    amount = (request.form.get("donation_amount") or "").strip()
+    import decimal
 
-    # Method-specific fields (dev/plaintext as requested)
+    method = (request.form.get("payment_method") or "").strip().lower()
+    amount_raw = (request.form.get("donation_amount") or "").strip()
+
+    # Optional fields by method
     card_brand = (request.form.get("card_brand") or "").strip() or None
     cardNumber = (request.form.get("cardNumber") or "").strip() or None
-    paynowRef  = (request.form.get("paynowRef") or "").strip() or None
-    cheque_no  = (request.form.get("ChequeNumber") or "").strip() or None
-    cash_rcpt  = (request.form.get("CashReceiptNumber") or "").strip() or None
+    paynowRef  = (request.form.get("paynowRef")  or "").strip() or None
 
-    # Basic validation
-    if not amount or method not in {"card","paynow","cash","cheque"}:
-        flash("Please enter a valid amount and payment method.", "danger")
-        return redirect(url_for("donate_form"))
-
+    # ---- Basic validation
     try:
-        amt = float(amount)
-        if amt <= 0:
-            raise ValueError()
+        amt = decimal.Decimal(amount_raw)
     except Exception:
-        flash("Amount must be a positive number.", "danger")
+        flash("Invalid amount.", "danger")
         return redirect(url_for("donate_form"))
 
-    # Optional: minimal method-field guards for dev
-    if method == "card" and not cardNumber:
-        flash("Please enter a test card number.", "danger"); return redirect(url_for("donate_form"))
-    if method == "paynow" and not paynowRef:
-        flash("Please enter a PayNow reference.", "danger"); return redirect(url_for("donate_form"))
-    if method == "cheque" and not cheque_no:
-        flash("Please enter a Cheque Number.", "danger"); return redirect(url_for("donate_form"))
-    if method == "cash" and not cash_rcpt:
-        flash("Please enter a Cash Receipt Number.", "danger"); return redirect(url_for("donate_form"))
+    if amt <= 0:
+        flash("Amount must be greater than 0.", "danger")
+        return redirect(url_for("donate_form"))
 
-    # Insert master + detail
+    if method not in {"card", "paynow"}:
+        flash("Please select a valid payment method.", "danger")
+        return redirect(url_for("donate_form"))
+
+    # Method-specific quick checks (the front-end already validated, this is just belt & braces)
+    if method == "card":
+        if not cardNumber or len(cardNumber) != 16 or not cardNumber.isdigit():
+            flash("Invalid card number.", "danger")
+            return redirect(url_for("donate_form"))
+        # card_brand is optional, but if missing we can infer "Unknown"
+        if not card_brand:
+            card_brand = "Unknown"
+
+    if method == "paynow":
+        if not paynowRef:
+            flash("PayNow reference is required.", "danger")
+            return redirect(url_for("donate_form"))
+
+    user_id = session.get("userID")
+    if not user_id:
+        flash("You are not logged in.", "danger")
+        return redirect(url_for("login"))
+
+    # ---- DB insert
     conn = get_db_connection()
     cur  = conn.cursor()
     try:
-        cur.execute("""
+        # 1) donations (master)
+        cur.execute(
+            """
             INSERT INTO donations
               (userID, donation_amount, payment_method, paymentDateTime, created_By)
             VALUES
               (%s, %s, %s, NOW(), %s)
-        """, (session["userID"], amt, method, session["userID"]))
+            """,
+            (user_id, str(amt), method, user_id)
+        )
         conn.commit()
+
         cur.execute("SELECT LAST_INSERT_ID()")
         donation_id = cur.fetchone()[0]
 
-        cur.execute("""
-            INSERT INTO donation_info
-              (donation_ID, card_brand, cardNumber, paynowRef, ChequeNumber, CashReceiptNumber)
-            VALUES
-              (%s, %s, %s, %s, %s, %s)
-        """, (donation_id, card_brand, cardNumber, paynowRef, cheque_no, cash_rcpt))
+        # 2) donation_info (detail) — exactly your columns
+        if method == "card":
+            cur.execute(
+                """
+                INSERT INTO donation_info
+                  (donation_ID, card_brand, cardNumber)
+                VALUES
+                  (%s, %s, %s)
+                """,
+                (donation_id, card_brand, cardNumber)
+            )
+        elif method == "paynow":
+            cur.execute(
+                """
+                INSERT INTO donation_info
+                  (donation_ID, paynowRef)
+                VALUES
+                  (%s, %s)
+                """,
+                (donation_id, paynowRef)
+            )
+
         conn.commit()
+
+        # Success → thank you
+        return redirect(url_for("donate_form", thanks=1, next=url_for("subscriberHomepage")))
+
     except Exception as e:
+        # This will reveal foreign-key errors, etc.
+        app.logger.exception("DONATION_INSERT_FAILED: %s", e)
+
+        # Helpful hint for FK failures
+        # MySQL error 1452 is "Cannot add or update a child row: a foreign key constraint fails"
+        msg = str(e)
+        if "foreign key constraint fails" in msg.lower():
+            flash("Insert failed: your user account (userID) must exist in 'users' table.", "danger")
+        else:
+            flash(f"Could not save donation: {e}", "danger")
         conn.rollback()
-        flash(f"Could not save donation: {e}", "danger")
         return redirect(url_for("donate_form"))
     finally:
-        cur.close(); conn.close()
-
-    return redirect(url_for("donate_thankyou", d=donation_id))
+        try:
+            cur.close()
+            conn.close()
+        except Exception:
+            pass
 
 
 # (YY)
