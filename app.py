@@ -2633,7 +2633,8 @@ def translate():
 @app.route("/chat", methods=["POST"])
 def chat():
     user_input = request.json.get("message", "")
-    return getChatbotResponse(user_input)
+    response = getChatbotResponse(user_input)
+    return jsonify({"response": response})
 
 
 # ---------- Dev helper ----------
