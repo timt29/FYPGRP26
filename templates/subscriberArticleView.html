@@ -110,18 +110,16 @@
               </select>
             </div>
 
-
-            {% if summary_points %}
-              <div class="summary-box">
-                <h3>Summary</h3>
-                <ul id="summaryList">
-                  {% for point in summary_points %}
-                    <li>{{ point }}</li>
-                  {% endfor %}
-                </ul>
-              </div>
-            {% endif %}
-
+          {% if summary_points %}
+            <div class="summary-box">
+              <h3>Summary</h3>
+              <ul id="summaryList">
+                {% for point in summary_points %}
+                  <li>{{ point | safe }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% endif %}
 
         <!-- Two-column body: text + image -->
         <div class="article-body two-col">

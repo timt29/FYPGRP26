@@ -70,18 +70,20 @@
             {% endif %}
 
             <!-- AI summarizer section -->
-            {% if summary_points %} 
-            <div class="summary-box">
-              <h3>Summary</h3>
-              <ul style="margin-left: 30px;">
-                {% for point in summary_points %}
-                <li>{{ point }}</li>
-                 {% endfor %}
-              </ul>
-            </div>
-             {% endif %}  
+            {% if summary_points %}
+              <div class="summary-box">
+                <h3>Summary</h3>
+                <ul id="summaryList">
+                  {% for point in summary_points %}
+                    <li>{{ point | safe }}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
 
-            <p class="small-text">{{ article['content'] }}</p>
+
+            <div class="small-text article-content">{{ article['content'] | safe }}</div>
+
             <p>
               Author: {{ article['author'] }} <br />
               Published: {{ article['published_at'] }} <br />
@@ -192,6 +194,7 @@
         }
       }
     </script>
+    
     <script src="{{ url_for('static', filename='js/accessibility_toolbar.js') }}"></script>
 
     <script>

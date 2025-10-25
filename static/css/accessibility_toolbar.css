@@ -87,12 +87,15 @@
   transform: rotate(-360deg);
 }
 
-/* --- Theme overrides --- */
+/* =======================================================
+   THEME OVERRIDES
+   ======================================================= */
 
 /* Default Theme */
 .article-card.detail.article-view.theme-default,
 .article-content.theme-default,
-.text.theme-default {
+.text.theme-default,
+.small-text.article-content.theme-default {
   background-color: #ffffff !important;
   color: #000000;
 }
@@ -100,7 +103,8 @@
 /* Cream Theme */
 .article-card.detail.article-view.theme-cream,
 .article-content.theme-cream,
-.text.theme-cream {
+.text.theme-cream,
+.small-text.article-content.theme-cream {
   background-color: #fff8dc !important;
   color: #000000;
 }
@@ -108,7 +112,8 @@
 /* Pastel Blue Theme */
 .article-card.detail.article-view.theme-pastelblue,
 .article-content.theme-pastelblue,
-.text.theme-pastelblue {
+.text.theme-pastelblue,
+.small-text.article-content.theme-pastelblue {
   background-color: #d6eaff !important;
   color: #000000;
 }
@@ -116,16 +121,19 @@
 /* Dark Mode */
 .article-card.detail.article-view.theme-darkmode,
 .article-content.theme-darkmode,
-.text.theme-darkmode {
+.text.theme-darkmode,
+.small-text.article-content.theme-darkmode {
   background-color: #121212 !important;
   color: #f1f1f1;
 }
 
-/* Inner text color inheritance for dark mode */
-.article-card.detail.article-view.theme-darkmode *,
-.article-content.theme-darkmode *,
-.text.theme-darkmode * {
-  color: #f1f1f1 !important;
+/* Ensure nested text inherits proper colors */
+.theme-default *,
+.theme-cream *,
+.theme-pastelblue *,
+.theme-darkmode * {
+  color: inherit !important;
+  background: transparent !important;
 }
 
 /* Toolbar theming to match selected background */
@@ -151,40 +159,104 @@
   border-color: #ddd;
 }
 
-/* --- Font class definitions --- */
+/* =======================================================
+   FONT CLASSES
+   ======================================================= */
 .font-opendyslexic { font-family: 'OpenDyslexic', Arial, Helvetica, sans-serif !important; }
 .font-arial { font-family: Arial, Helvetica, sans-serif !important; }
 .font-comic { font-family: 'Comic Sans MS', cursive, sans-serif !important; }
 
-/* --- Overwrite fonts within article content --- */
+/* Apply selected font family inside content */
 .article-content,
 .article-content *,
 .text,
-.text * {
+.text *,
+.small-text.article-content,
+.small-text.article-content * {
   transition: all 0.25s ease-in-out;
   font-family: inherit;
 }
 
-/* Apply when user selects OpenDyslexic */
+/* Font overrides */
 .article-content.font-opendyslexic,
 .article-content.font-opendyslexic *,
 .text.font-opendyslexic,
-.text.font-opendyslexic * {
+.text.font-opendyslexic *,
+.small-text.article-content.font-opendyslexic,
+.small-text.article-content.font-opendyslexic * {
   font-family: 'OpenDyslexic', Arial, Helvetica, sans-serif !important;
 }
 
-/* Apply when user selects Arial */
 .article-content.font-arial,
 .article-content.font-arial *,
 .text.font-arial,
-.text.font-arial * {
+.text.font-arial *,
+.small-text.article-content.font-arial,
+.small-text.article-content.font-arial * {
   font-family: Arial, Helvetica, sans-serif !important;
 }
 
-/* Apply when user selects Comic Sans */
 .article-content.font-comic,
 .article-content.font-comic *,
 .text.font-comic,
-.text.font-comic * {
+.text.font-comic *,
+.small-text.article-content.font-comic,
+.small-text.article-content.font-comic * {
   font-family: 'Comic Sans MS', cursive, sans-serif !important;
 }
+
+/* =======================================================
+   FONT SIZE CONTROL
+   ======================================================= */
+.article-content,
+.article-content *,
+.summary-box,
+.summary-box *,
+.ql-editor,
+.ql-editor *,
+.article-card.detail.article-view,
+.article-card.detail.article-view *,
+.small-text.article-content,
+.small-text.article-content * {
+  font-size: var(--reader-font-size, 18px);
+  transition: font-size 0.25s ease-in-out;
+}
+
+/* Prevent the toolbar itself from scaling with reader font size */
+.accessibility-toolbar,
+.accessibility-toolbar * {
+  font-size: initial !important;
+}
+
+/* =======================================================
+   SUMMARY BOX COLOR ADJUSTMENTS PER THEME
+   ======================================================= */
+
+/* Default Theme */
+.theme-default .summary-box {
+  background-color: #f9f9f9 !important;
+  border-left: 5px solid #ccc;
+  color: inherit;
+}
+
+/* Cream Theme */
+.theme-cream .summary-box {
+  background-color: #fff3b3 !important; /* slightly richer cream */
+  border-left: 5px solid #e6d999;
+  color: #000;
+}
+
+/* Pastel Blue Theme */
+.theme-pastelblue .summary-box {
+  background-color: #c0ddff !important; /* a bit deeper blue tone */
+  border-left: 5px solid #9bc7ff;
+  color: #000;
+}
+
+/* Dark Mode */
+.theme-darkmode .summary-box {
+  background-color: #1b1b1b !important; /* slightly lighter than article bg */
+  border-left: 5px solid #444;
+  color: #f1f1f1;
+}
+

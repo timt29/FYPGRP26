@@ -235,10 +235,11 @@ body {
 
 .page {
   display: flex;
-  gap: 20px;
+  justify-content: center;
   align-items: flex-start;
-  padding: 18px;
-  max-width: 1200px;
+  gap: 24px;
+  padding: 20px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
