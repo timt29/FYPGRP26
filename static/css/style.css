@@ -273,27 +273,30 @@ p {
 /* -- chatbot feature -- */
 #chatbot-button {
   position: fixed;
-  bottom: 25px;
+  bottom: 0; /* make it peek from the bottom */
   right: 25px;
-  background-color: #ffffff;
-  color: white;
-  font-size: 24px;
-  border: 1px solid #1a1a1a;
-  border-radius: 50%;
-  width: 60px;
-  height: 60px;
-  text-align: center;
-  line-height: 60px;
+  width: 70px;
+  height: 70px;
+  background-color: transparent; /* remove default background */
+  border: none;
   cursor: pointer;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   z-index: 9999;
   transition: transform 0.2s;
 }
 
+/* Add hover scale effect */
 #chatbot-button:hover {
   transform: scale(1.1);
 }
 
+/* If using an image for the button */
+#chatbot-button img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Chatbot popup */
 #chatbot-popup {
   display: none;
   position: fixed;
