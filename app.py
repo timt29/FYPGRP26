@@ -1672,6 +1672,87 @@ def subscriber_analytics_my_articles():
 
     return jsonify(rows)
 
+# (MW)
+# ----------Subscriber Donations-----------
+
+# --- Donations (Subscriber) ---
+@app.get("/donate")
+@login_required("Subscriber")
+def donate_form():
+    return render_template("subscriberDonation.html")
+
+@app.post("/donate")
+@login_required("Subscriber")
+def donate_submit():
+    """
+    Stores a donation and the method-specific info in two steps:
+    1) INSERT into donations (master row)
+    2) INSERT into donation_info (detail row)
+    """
+    from flask import request, redirect, url_for, session, flash
+    method = (request.form.get("payment_method") or "").lower()  # 'card'|'paynow'|'cash'|'cheque'
+    amount = (request.form.get("donation_amount") or "").strip()
+
+    # Method-specific fields (dev/plaintext as requested)
+    card_brand = (request.form.get("card_brand") or "").strip() or None
+    cardNumber = (request.form.get("cardNumber") or "").strip() or None
+    paynowRef  = (request.form.get("paynowRef") or "").strip() or None
+    cheque_no  = (request.form.get("ChequeNumber") or "").strip() or None
+    cash_rcpt  = (request.form.get("CashReceiptNumber") or "").strip() or None
+
+    # Basic validation
+    if not amount or method not in {"card","paynow","cash","cheque"}:
+        flash("Please enter a valid amount and payment method.", "danger")
+        return redirect(url_for("donate_form"))
+
+    try:
+        amt = float(amount)
+        if amt <= 0:
+            raise ValueError()
+    except Exception:
+        flash("Amount must be a positive number.", "danger")
+        return redirect(url_for("donate_form"))
+
+    # Optional: minimal method-field guards for dev
+    if method == "card" and not cardNumber:
+        flash("Please enter a test card number.", "danger"); return redirect(url_for("donate_form"))
+    if method == "paynow" and not paynowRef:
+        flash("Please enter a PayNow reference.", "danger"); return redirect(url_for("donate_form"))
+    if method == "cheque" and not cheque_no:
+        flash("Please enter a Cheque Number.", "danger"); return redirect(url_for("donate_form"))
+    if method == "cash" and not cash_rcpt:
+        flash("Please enter a Cash Receipt Number.", "danger"); return redirect(url_for("donate_form"))
+
+    # Insert master + detail
+    conn = get_db_connection()
+    cur  = conn.cursor()
+    try:
+        cur.execute("""
+            INSERT INTO donations
+              (userID, donation_amount, payment_method, paymentDateTime, created_By)
+            VALUES
+              (%s, %s, %s, NOW(), %s)
+        """, (session["userID"], amt, method, session["userID"]))
+        conn.commit()
+        cur.execute("SELECT LAST_INSERT_ID()")
+        donation_id = cur.fetchone()[0]
+
+        cur.execute("""
+            INSERT INTO donation_info
+              (donation_ID, card_brand, cardNumber, paynowRef, ChequeNumber, CashReceiptNumber)
+            VALUES
+              (%s, %s, %s, %s, %s, %s)
+        """, (donation_id, card_brand, cardNumber, paynowRef, cheque_no, cash_rcpt))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        flash(f"Could not save donation: {e}", "danger")
+        return redirect(url_for("donate_form"))
+    finally:
+        cur.close(); conn.close()
+
+    return redirect(url_for("donate_thankyou", d=donation_id))
+
 
 # (YY)
 # ---------- Auth ----------
