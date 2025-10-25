@@ -10,174 +10,238 @@
 </head>
 <body>
 
-  <header class="topbar">
-    <div class="left">
-      <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
-        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" height="28">
-      </button>
-    </div>
-  <!-- User name then menu button; panel anchored to the RIGHT -->
-    <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
-      <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
-      <div id="menuPanel" class="menu-panel">
-        <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
-        <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
-        <a class="menu-item" href="{{ url_for('subscriber_analytics') }}">View Analytics</a>
-        <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
-        <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
+    <header class="topbar">
+      <div class="left">
+        <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
+          <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" height="28">
+        </button>
       </div>
-    </div>
-</header>
-
-
-<!-- Logout Confirmation Modal -->
-  <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
-    <div class="modal" role="document">
-      <h2>Log out?</h2>
-      <div class="buttons">
-        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+      <div class="right">
+        <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+        <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+        <div id="menuPanel" class="menu-panel">
+          <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
+          <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
+          <a class="menu-item" href="{{ url_for('subscriber_analytics') }}">View Analytics</a>
+          <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
+          <a class="menu-item" href="{{ url_for('donate_form') }}">Donate to EchoPress</a>
+          <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
+        </div>
       </div>
-    </div>
-  </div>
+    </header>
 
-<main class="page analytics">
-  <!-- Overview cards -->
-  <section class="analytics-cards" id="overview">
-    <div class="card kpi">
-      <div class="kpi-label">Total Views</div>
-      <div class="kpi-value" id="kViews">0</div>
-    </div>
-    <div class="card kpi">
-      <div class="kpi-label">Total Shares</div>
-      <div class="kpi-value" id="kShares">0</div>
-      <div class="kpi-note">(*not tracked yet)</div>
-    </div>
-    <div class="card kpi">
-      <div class="kpi-label">My Bookmarks</div>
-      <div class="kpi-value" id="kBookmarks">—</div>
-    </div>
-    <div class="card kpi">
-      <div class="kpi-label">My Comment Likes</div>
-      <div class="kpi-value" id="kLike">—</div>
-    </div>
-    <div class="card kpi">
-      <div class="kpi-label">My Comment Dislikes</div>
-      <div class="kpi-value" id="kDislike">—</div>
-    </div>
-  </section>
+    <main class="page analytics">
+      <!-- Overview cards -->
+      <section class="analytics-cards" id="overview">
+        <div class="card kpi">
+          <div class="kpi-label">Total Views</div>
+          <div class="kpi-value" id="kViews">0</div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">Total Shares</div>
+          <div class="kpi-value" id="kShares">0</div>
+          <div class="kpi-note">(*not tracked yet)</div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">My Bookmarks</div>
+          <div class="kpi-value" id="kBookmarks">—</div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">My Comment Likes</div>
+          <div class="kpi-value" id="kLike">—</div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">My Comment Dislikes</div>
+          <div class="kpi-value" id="kDislike">—</div>
+        </div>
 
-  <!-- Per-article table -->
-  <section class="analytics-table card">
-    <div class="table-head">
-      <h2>My Articles Performance</h2>
-      <input id="filterQ" class="input" type="search" placeholder="Filter by title…" />
-    </div>
-    <div class="table-responsive">
-      <table class="table" id="tbl">
-        <thead>
+        <div class="card kpi">
+          <div class="kpi-label">Contributed amount</div>
+          <div class="kpi-value money" id="kContrib">$0.00</div>
+        </div>
+      </section>
+
+      <!-- Per-article table -->
+      <section class="analytics-table card">
+        <div class="table-head">
+          <h2>My Articles Performance</h2>
+          <input id="filterQ" class="input" type="search" placeholder="Filter by title…" />
+        </div>
+        <div class="table-responsive">
+          <table class="table" id="tbl">
+            <thead>
+              <tr>
+                <th style="width:48%">Title</th>
+                <th>Views</th>
+                <th>Shares*</th>
+                <th>Bookmarks</th>
+                <th>Comments</th>
+                <th>Published</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"><tr><td colspan="7">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="muted small" style="margin-top:6px;">*Shares not tracked yet — will update once SQL tables are added.</div>
+      </section>
+
+      <section class="analytics-table card">
+        <div class="table-head">
+          <h2>My Donations</h2>
+          <div class="muted small">A history of your contributions to EchoPress</div>
+        </div>
+        <div class="table-responsive">
+          <table class="table" id="tblDon">
+              <thead>
+                <tr>
+                  <th style="width:16%">Donation ID</th>
+                  <th style="width:22%">Payment Method</th>
+                  <th style="width:18%">Amount</th>
+                  <th style="width:22%">Payment Date</th>
+                  <th style="width:22%">Payment Time</th>
+                </tr>
+              </thead>
+            <tbody id="tbodyDon"><tr><td colspan="6">Loading…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <!-- Logout Confirmation Modal -->
+      <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal" role="document">
+          <h2>Log out?</h2>
+          <div class="buttons">
+            <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+          </div>
+        </div>
+      </div>
+
+    <!-- Menu toggle -->
+    <script>
+    (function(){
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      if(!btn || !panel) return;
+      const closeP  = () => panel.style.display='none';
+      const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
+      btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
+    })();
+    </script>
+
+    <!-- Analytics loader -->
+    <script>
+    (async function () {
+      const $ = sel => document.querySelector(sel);
+      const kViews = $("#kViews"), kShares = $("#kShares"),
+            kBookmarks = $("#kBookmarks"), kLike = $("#kLike"), kDislike = $("#kDislike"),
+            kContrib = $("#kContrib");
+
+      const tbody = $("#tbody"), filterQ = $("#filterQ");
+      const tbodyDon = $("#tbodyDon");
+
+      const URL_OVERVIEW = "{{ url_for('subscriber_analytics_overview') }}";
+      const URL_MYART    = "{{ url_for('subscriber_analytics_my_articles') }}";
+      const URL_MYDON    = "{{ url_for('subscriber_analytics_my_donations') }}";
+      const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
+
+      const fmtInt = n => (n||0).toLocaleString();
+      const fmtMoney = n => new Intl.NumberFormat('en-SG', { style:'currency', currency:'SGD' }).format(Number(n||0));
+      const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+      async function loadOverview(){
+        try {
+          const r = await fetch(URL_OVERVIEW);
+          if(!r.ok) throw 0;
+          const j = await r.json();
+          kViews.textContent     = fmtInt(j.total_views);
+          kShares.textContent    = fmtInt(j.total_shares);
+          kBookmarks.textContent = fmtInt(j.total_bookmarks);
+          kLike.textContent      = fmtInt(j.comment_likes);
+          kDislike.textContent   = fmtInt(j.comment_dislikes);
+          if ('contributed_amount' in j) kContrib.textContent = fmtMoney(j.contributed_amount);
+        } catch {}
+      }
+
+      // --- Articles
+      let rows = [];
+      function paintTable(filtered){
+        if (!filtered.length){
+          tbody.innerHTML = `<tr><td colspan="7">No data.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = filtered.map(a => {
+          const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+          return `<tr>
+            <td>${esc(a.title)}</td>
+            <td>${fmtInt(a.views)}</td>
+            <td>${fmtInt(a.shares)}</td>
+            <td>${fmtInt(a.bookmarks)}</td>
+            <td>${fmtInt(a.comment_count)}</td>
+            <td>${esc(a.published_at || '')}</td>
+            <td><a class="btn btn-light" href="${href}">View</a></td>
+          </tr>`;
+        }).join("");
+      }
+
+      async function loadMyArticles(){
+        try {
+          const r = await fetch(URL_MYART);
+          if(!r.ok) throw 0;
+          rows = await r.json();
+          paintTable(rows);
+        } catch {
+          tbody.innerHTML = `<tr><td colspan="7">Failed to load.</td></tr>`;
+        }
+      }
+
+      filterQ?.addEventListener("input", () => {
+        const q = (filterQ.value || "").toLowerCase();
+        if (!q) { paintTable(rows); return; }
+        paintTable(rows.filter(a => (a.title||"").toLowerCase().includes(q)));
+      });
+
+      // --- Donations
+      function paintDonations(items){
+        const fmtMoney = n => new Intl.NumberFormat('en-SG', { style:'currency', currency:'SGD' }).format(Number(n||0));
+        const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+        if (!items.length){
+          tbodyDon.innerHTML = `<tr><td colspan="5">No donations yet.</td></tr>`;
+          return;
+        }
+        tbodyDon.innerHTML = items.map(d => `
           <tr>
-            <th style="width:48%">Title</th>
-            <th>Views</th>
-            <th>Shares*</th>
-            <th>Bookmarks</th>
-            <th>Comments</th>
-            <th>Published</th>
-            <th></th>
+            <td>${d.donation_ID}</td>
+            <td>${esc(d.payment_method)}</td>
+            <td class="money">${fmtMoney(d.donation_amount)}</td>
+            <td>${esc(d.payment_date)}</td>
+            <td>${esc(d.payment_time)}</td>
           </tr>
-        </thead>
-        <tbody id="tbody"><tr><td colspan="7">Loading…</td></tr></tbody>
-      </table>
-    </div>
-    <div class="muted small" style="margin-top:6px;">*Shares not tracked yet — will update once SQL tables are added.</div>
-  </section>
-</main>
+        `).join("");
+      }
 
-<!-- Menu toggle -->
-<script>
-(function(){
-  const btn = document.getElementById('menuBtn');
-  const panel = document.getElementById('menuPanel');
-  if(!btn || !panel) return;
-  const closeP  = () => panel.style.display='none';
-  const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
-  btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
-  document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
-})();
-</script>
+      async function loadMyDonations(){
+        try{
+          const r = await fetch(URL_MYDON);
+          if(!r.ok) throw 0;
+          const j = await r.json();
+          paintDonations(j);
+        }catch{
+          tbodyDon.innerHTML = `<tr><td colspan="6">Failed to load.</td></tr>`;
+        }
+      }
 
-<!-- Analytics loader -->
-<script>
-(async function () {
-  const $ = sel => document.querySelector(sel);
-  const kViews = $("#kViews"), kShares = $("#kShares"),
-        kBookmarks = $("#kBookmarks"), kLike = $("#kLike"), kDislike = $("#kDislike");
-  const tbody = $("#tbody"), filterQ = $("#filterQ");
+      await Promise.all([loadOverview(), loadMyArticles(), loadMyDonations()]);
+    })();
+    </script>
 
-  const URL_OVERVIEW = "{{ url_for('subscriber_analytics_overview') }}";
-  const URL_MYART    = "{{ url_for('subscriber_analytics_my_articles') }}";
-  const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
-
-  function fmt(n){ return (n||0).toLocaleString(); }
-  function esc(s){ return (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
-
-  async function loadOverview(){
-    try {
-      const r = await fetch(URL_OVERVIEW);
-      if(!r.ok) throw 0;
-      const j = await r.json();
-      kViews.textContent     = fmt(j.total_views);
-      kShares.textContent    = fmt(j.total_shares);
-      kBookmarks.textContent = fmt(j.total_bookmarks);
-      kLike.textContent      = fmt(j.comment_likes);
-      kDislike.textContent   = fmt(j.comment_dislikes);
-    } catch { /* leave placeholders */ }
-  }
-
-  let rows = [];
-  function paintTable(filtered){
-    if (!filtered.length){
-      tbody.innerHTML = `<tr><td colspan="7">No data.</td></tr>`;
-      return;
-    }
-    tbody.innerHTML = filtered.map(a => {
-      const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
-      return `<tr>
-        <td>${esc(a.title)}</td>
-        <td>${fmt(a.views)}</td>
-        <td>${fmt(a.shares)}</td>
-        <td>${fmt(a.bookmarks)}</td>
-        <td>${fmt(a.comment_count)}</td>
-        <td>${esc(a.published_at || '')}</td>
-        <td><a class="btn btn-light" href="${href}">View</a></td>
-      </tr>`;
-    }).join("");
-  }
-
-  async function loadMyArticles(){
-    try {
-      const r = await fetch(URL_MYART);
-      if(!r.ok) throw 0;
-      rows = await r.json();
-      paintTable(rows);
-    } catch {
-      tbody.innerHTML = `<tr><td colspan="7">Failed to load.</td></tr>`;
-    }
-  }
-
-  filterQ?.addEventListener("input", () => {
-    const q = (filterQ.value || "").toLowerCase();
-    if (!q) { paintTable(rows); return; }
-    paintTable(rows.filter(a => (a.title||"").toLowerCase().includes(q)));
-  });
-
-  await Promise.all([loadOverview(), loadMyArticles()]);
-})();
-</script>
-
-<script>
+  <!-- Logout modal wiring (AFTER modal element) -->
+  <script>
     (function () {
       const modal   = document.getElementById('logoutModal');
       const confirm = document.getElementById('logoutConfirm');
@@ -186,6 +250,8 @@
       document.querySelectorAll('.logout-link').forEach(a => {
         a.addEventListener('click', (e) => {
           e.preventDefault();
+          const panel = document.getElementById('menuPanel');
+          if (panel) panel.style.display = 'none';   // <— add this line
           modal.dataset.href = a.getAttribute('href');
           modal.classList.add('show');
           modal.setAttribute('aria-hidden', 'false');
@@ -217,6 +283,6 @@
       }
     });
   </script>
-  {% include 'partials/chatbot.html' %}
+
 </body>
 </html>

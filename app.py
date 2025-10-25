@@ -1586,51 +1586,6 @@ def api_random_ad():
 def subscriber_analytics():
     return render_template("subscriberAnalytics.html")
 
-@app.route("/subscriber/api/analytics/overview")
-@login_required("Subscriber")
-def subscriber_analytics_overview():
-    user_id     = session.get("userID")
-    author_name = session.get("user", "")
-
-    conn = get_db_connection()
-    cur  = conn.cursor()
-
-    # Total views for my published & visible articles
-    cur.execute("""
-        SELECT COALESCE(SUM(views), 0)
-        FROM articles
-        WHERE author = %s AND draft = 0 AND visible = 1
-    """, (author_name,))
-    total_views_me = int((cur.fetchone() or [0])[0] or 0)
-
-    # Bookmarks BY ME (how many I bookmarked)
-    cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userID = %s", (user_id,))
-    total_bookmarks_me = int((cur.fetchone() or [0])[0] or 0)
-
-    # Comment reactions BY ME
-    try:
-        cur.execute("""
-            SELECT
-              COALESCE(SUM(reaction='like'),0)    AS likes_by_me,
-              COALESCE(SUM(reaction='dislike'),0) AS dislikes_by_me
-            FROM comment_reactions
-            WHERE userID = %s
-        """, (user_id,))
-        row = cur.fetchone() or [0, 0]
-        likes_by_me, dislikes_by_me = int(row[0] or 0), int(row[1] or 0)
-    except Exception:
-        likes_by_me, dislikes_by_me = 0, 0
-
-    cur.close(); conn.close()
-
-    return jsonify({
-        "total_views": total_views_me,   # 👈 now tracked
-        "total_shares": 0,               # (not tracked yet)
-        "total_bookmarks": total_bookmarks_me,
-        "comment_likes": likes_by_me,
-        "comment_dislikes": dislikes_by_me,
-    })
-
 @app.route("/subscriber/api/analytics/my-articles")
 @login_required("Subscriber")
 def subscriber_analytics_my_articles():
@@ -1644,9 +1599,9 @@ def subscriber_analytics_my_articles():
             a.articleID,
             a.title,
             a.published_at,
-            COALESCE(a.views, 0)                  AS views,
-            COALESCE(bm.bookmarks, 0)             AS bookmarks,
-            COALESCE(cc.comment_count, 0)         AS comment_count
+            COALESCE(a.views, 0)          AS views,
+            COALESCE(bm.bookmarks, 0)     AS bookmarks,
+            COALESCE(cc.comment_count, 0) AS comment_count
         FROM articles a
         LEFT JOIN (
             SELECT articleID, COUNT(*) AS bookmarks
@@ -1665,13 +1620,170 @@ def subscriber_analytics_my_articles():
     """, (author_name,))
 
     rows = cur.fetchall() or []
-    cur.close(); conn.close()
 
-    # 'shares' not tracked yet — keep 0 to satisfy the table columns
+    from datetime import datetime
     for r in rows:
+        dt = r.get("published_at")
+        if hasattr(dt, "strftime"):
+            r["published_at"] = (
+                                    f'{dt.strftime("%a")}, '              
+                                    f'{dt.strftime("%d-%m-%Y %I:%M")} '   
+                                    f'{dt.strftime("%p").lower()}'        
+                                )
+        elif isinstance(dt, str) and dt:
+            for fmt in ("%Y-%m-%d %H:%M:%S",
+                        "%Y-%m-%dT%H:%M:%S",
+                        "%a, %d %b %Y %H:%M:%S %Z"):
+                try:
+                    d = datetime.strptime(dt, fmt)
+                    r["published_at"] = (
+                                            f'{dt.strftime("%a")}, '              
+                                            f'{dt.strftime("%d-%m-%Y %I:%M")} '   
+                                            f'{dt.strftime("%p").lower()}'        
+                                        )
+                    break
+                except ValueError:
+                    pass
         r["shares"] = 0
 
+    cur.close()
+    conn.close()
+
     return jsonify(rows)
+
+def _row_donation(idx, row):
+    donation_id     = row["donation_ID"]
+    donation_amount = row["donation_amount"] 
+    payment_method  = row["payment_method"] or ""
+    ts              = row["paymentDateTime"]  
+
+    # Display formatting
+    if isinstance(ts, (datetime, )):
+        payment_date = ts.strftime("%d-%m-%Y")
+        payment_time = ts.strftime("%I:%M %p").lower() 
+    else:
+        payment_date = str(ts)
+        payment_time = ""
+
+    return {
+        "no": idx,
+
+        "donation_ID": donation_id,
+        "donation_amount": float(donation_amount or 0),
+        "payment_method": payment_method,
+        "paymentDateTime": ts,
+
+        "payment_date": payment_date,      
+        "payment_time": payment_time,      
+        "donation_id_display": donation_id 
+    }
+
+@app.get("/subscriber/api/analytics/my-donations")
+@login_required("Subscriber")
+def subscriber_analytics_my_donations():
+    uid = session.get("userID")
+    if not uid:
+        return jsonify({"error": "unauthorized"}), 401
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    try:
+        cur.execute("""
+            SELECT
+                d.donation_ID,
+                d.donation_amount,
+                d.payment_method,
+                d.paymentDateTime,
+                di.card_brand
+            FROM donations AS d
+            LEFT JOIN donation_info AS di
+              ON di.donation_ID = d.donation_ID
+            WHERE d.userID = %s
+            ORDER BY d.paymentDateTime DESC, d.donation_ID DESC
+        """, (uid,))
+        recs = cur.fetchall() or []
+    finally:
+        cur.close()
+        conn.close()
+
+    def _shape(row):
+        ts = row["paymentDateTime"]
+        if hasattr(ts, "strftime"):
+            payment_date = ts.strftime("%d-%m-%Y")
+            payment_time = ts.strftime("%I:%M %p").lower()
+        else:
+            payment_date, payment_time = "", ""
+
+        pm = (row.get("payment_method") or "").lower()
+        if pm == "card":
+            pm_disp = row.get("card_brand") or "Card"
+        elif pm == "paynow":
+            pm_disp = "PayNow"
+        else:
+            pm_disp = pm.capitalize() if pm else "—"
+
+        return {
+            "donation_ID": row["donation_ID"],
+            "payment_method": pm_disp,
+            "donation_amount": float(row.get("donation_amount") or 0),
+            "payment_date": payment_date,
+            "payment_time": payment_time,
+        }
+
+    return jsonify([_shape(r) for r in recs])
+
+@app.get("/subscriber/api/analytics/overview")
+@login_required("Subscriber")
+def subscriber_analytics_overview():
+    user_id     = session.get("userID")
+    author_name = session.get("user", "")
+
+    conn = get_db_connection()
+    cur  = conn.cursor()
+    try:
+        # total views for my published & visible articles
+        cur.execute("""
+            SELECT COALESCE(SUM(views), 0)
+            FROM articles
+            WHERE author = %s AND draft = 0 AND visible = 1
+        """, (author_name,))
+        total_views = int((cur.fetchone() or [0])[0] or 0)
+
+        # bookmarks by me
+        cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userID = %s", (user_id,))
+        total_bookmarks = int((cur.fetchone() or [0])[0] or 0)
+
+        # comment reactions by me
+        try:
+            cur.execute("""
+                SELECT
+                  COALESCE(SUM(reaction='like'),0),
+                  COALESCE(SUM(reaction='dislike'),0)
+                FROM comment_reactions
+                WHERE userID = %s
+            """, (user_id,))
+            row = cur.fetchone() or [0, 0]
+            likes_by_me, dislikes_by_me = int(row[0] or 0), int(row[1] or 0)
+        except Exception:
+            likes_by_me, dislikes_by_me = 0, 0
+
+        # contributed amount from donations
+        cur.execute("SELECT COALESCE(SUM(donation_amount),0) FROM donations WHERE userID=%s", (user_id,))
+        contributed_amount = float((cur.fetchone() or [0])[0] or 0.0)
+
+    finally:
+        cur.close()
+        conn.close()
+
+    return jsonify({
+        "total_views": total_views,
+        "total_shares": 0,  # not tracked yet
+        "total_bookmarks": total_bookmarks,
+        "comment_likes": likes_by_me,
+        "comment_dislikes": dislikes_by_me,
+        "contributed_amount": contributed_amount,
+    })
+
 
 # (MW)
 # ----------Subscriber Donations-----------

@@ -1155,6 +1155,8 @@ body {
   color: #000;
 }
 
+#logoutModal { display: none; }
+#logoutModal.show { display: flex; }
 
 /* Dynamic article cards */
 .article-card {
