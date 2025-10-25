@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>EchoPress — Donation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{{ url_for('static', filename='img/echopresslogo.png') }}" type="image/png" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="left">
+      <div class="brand">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
+      </div>
+    </div>
+
+    <!-- User name then menu button; panel anchored to the RIGHT -->
+    <div class="right">
+      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div id="menuPanel" class="menu-panel">
+        <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
+        <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
+        <a class="menu-item" href="{{ url_for('subscriber_analytics') }}">View Analytics</a>
+        <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
+        <a class="menu-item" href="{{ url_for('donate_form') }}">Donate to EchoPress</a>
+        <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Page -->
+  <div class="page">
+    <div class="feed">
+      <!-- Intro / Notes -->
+      <div class="summary-box">
+        <h3>Support EchoPress</h3>
+      </div>
+
+      <!-- Donation Form -->
+      <form class="create-form" method="post" action="{{ url_for('donate_submit') }}" novalidate>
+        <!-- Amount -->
+        <div>
+          <label for="donation_amount">Amount (SGD)</label>
+          <input id="donation_amount" name="donation_amount" type="number" step="0.01" min="0.01" required aria-required="true" placeholder="10.00">
+        </div>
+
+        <!-- Payment Method -->
+        <div>
+          <label for="payment_method">Payment Method</label>
+          <select id="payment_method" name="payment_method" required aria-required="true">
+            <option value="" selected disabled>Select method</option>
+            <option value="card">Credit / Debit Card (DEV)</option>
+            <option value="paynow">PayNow (DEV)</option>
+            <option value="cash">Cash (DEV)</option>
+            <option value="cheque">Cheque (DEV)</option>
+          </select>
+        </div>
+
+        <!-- Card fields -->
+        <fieldset id="card_fields" hidden>
+          <legend>Card Details (DEV)</legend>
+          <label for="card_brand">Card Brand</label>
+          <input id="card_brand" name="card_brand" type="text" placeholder="Visa / MasterCard" maxlength="20">
+
+          <label for="cardNumber">Card Number</label>
+          <input id="cardNumber" name="cardNumber" type="text" inputmode="numeric" autocomplete="off" placeholder="4111 1111 1111 1111" maxlength="25">
+        </fieldset>
+
+        <!-- PayNow fields -->
+        <fieldset id="paynow_fields" hidden>
+          <legend>PayNow Details (DEV)</legend>
+          <label for="paynowRef">PayNow Reference</label>
+          <input id="paynowRef" name="paynowRef" type="text" placeholder="PN-DEV-0001" maxlength="64">
+        </fieldset>
+
+        <!-- Cash fields -->
+        <fieldset id="cash_fields" hidden>
+          <legend>Cash Details (DEV)</legend>
+          <label for="CashReceiptNumber">Cash Receipt Number</label>
+          <input id="CashReceiptNumber" name="CashReceiptNumber" type="text" placeholder="CR-DEV-0001" maxlength="40">
+        </fieldset>
+
+        <!-- Cheque fields -->
+        <fieldset id="cheque_fields" hidden>
+          <legend>Cheque Details (DEV)</legend>
+          <label for="ChequeNumber">Cheque Number</label>
+          <input id="ChequeNumber" name="ChequeNumber" type="text" placeholder="CQ-DEV-0001" maxlength="40">
+        </fieldset>
+
+        <!-- Actions -->
+        <div class="form-buttons">
+          <button class="btn btn-primary" type="submit">Donate</button>
+          <a class="btn btn-light" href="{{ url_for('subscriberHomepage') }}">Cancel</a>
+        </div>
+      </form>
+    </div>
+
+
+    <!-- Optional sidebar area -->
+    <aside class="sidebar">
+      <!-- keep empty or add info blocks -->
+    </aside>
+  </div>
+
+  <!-- Logout Confirmation Modal -->
+  <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h2>Log out?</h2>
+      <div class="buttons">
+        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu toggle -->
+  <script>
+    (function(){
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      if(!btn || !panel) return;
+      const closeP  = () => panel.style.display='none';
+      const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
+      btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
+    })();
+  </script>
+
+  <script>
+    (function () {
+      const method = document.getElementById('payment_method');
+      const blocks = {
+        card:   document.getElementById('card_fields'),
+        paynow: document.getElementById('paynow_fields'),
+        cash:   document.getElementById('cash_fields'),
+        cheque: document.getElementById('cheque_fields'),
+      };
+
+      function showBlock(val) {
+        Object.values(blocks).forEach(el => { el.hidden = true; });
+        if (blocks[val]) blocks[val].hidden = false;
+      }
+
+      method.addEventListener('change', function (e) {
+        showBlock(e.target.value);
+      });
+    })();
+  </script>
+
+    <!-- Logout modal wiring (AFTER modal element) -->
+  <script>
+    (function () {
+      const modal   = document.getElementById('logoutModal');
+      const confirm = document.getElementById('logoutConfirm');
+      const cancel  = document.getElementById('logoutCancel');
+
+      document.querySelectorAll('.logout-link').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          modal.dataset.href = a.getAttribute('href');
+          modal.classList.add('show');
+          modal.setAttribute('aria-hidden', 'false');
+        });
+      });
+
+      function closeModal() {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        delete modal.dataset.href;
+      }
+
+      if (cancel)  cancel.addEventListener('click', closeModal);
+      if (confirm) confirm.addEventListener('click', () => {
+        const href = modal.dataset.href || "{{ url_for('logout') }}";
+        window.location.href = href;
+      });
+
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+      });
+    })();
+
+    // Fix back/forward cache so the page refreshes correctly
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    });
+  </script>
+
+</body>
+</html>
