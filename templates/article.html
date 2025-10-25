@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="../static/css/style.css" />
     <link rel="stylesheet" href="../static/css/accessibility_toolbar.css" />
     <link rel="icon" href="../static/img/EchoPressLogo.png" type="image/png" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   </head>
 
   <body>
@@ -206,6 +207,6 @@
         }).catch(() => {/* silent */});
       })();
     </script>
-
+    {% include 'partials/chatbot.html' %}
   </body>
 </html>
