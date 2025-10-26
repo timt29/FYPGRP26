@@ -35,15 +35,15 @@
             <h2>Articles Requiring Review</h2>
 
             {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    <div class="flash-messages">
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category }}">
-                        {{ message }}
-                        </div>
-                    {% endfor %}
-                    </div>
-                {% endif %}
+            {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
             {% endwith %}
 
             {% if articles %}
@@ -60,21 +60,16 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for article in articles %}
+                    {% for a in articles %}
                     <tr>
-                        <td>{{ article.articleID }}</td>
-                        <td>{{ article.title }}</td>
-                        <td>{{ article.author }}</td>
-                        <td>{{ article.article_created }}</td>
-                        <td>{{ article.flagged_reason }}</td>
-                        <td>{{ article.flagged_at }}</td>
+                        <td>{{ a.articleID }}</td>
+                        <td>{{ a.title }}</td>
+                        <td>{{ a.author }}</td>
+                        <td>{{ a.article_created }}</td>
+                        <td>{{ a.flagged_reason }}</td>
+                        <td>{{ a.flagged_at }}</td>
                         <td>
-                            <button type="button" class="view-btn" onclick="viewArticle('{{ article.articleID }}')">View</button>
-                            <form method="POST" action="/reviewArticle" style="display:inline;">
-                                <input type="hidden" name="report_id" value="{{ article.report_id }}">
-                                <button type="submit" name="action" value="approve">Approve</button>
-                                <button type="submit" name="action" value="reject">Reject</button>
-                            </form>
+                            <button type="button" class="view-btn" onclick="viewArticle({{ a.articleID }})">View</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -86,245 +81,179 @@
         </div>
     </div>
 
+    <!-- Logout Modal -->
     <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
-    <div class="modal" role="document">
-        <h2>Log out?</h2>
-        <div class="buttons">
-        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
-        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
-        </div>
-    </div>
-    </div>
-
-    <script>
-        function toggleDropdown() {
-            const dd = document.getElementById("admin-dropdown");
-            dd.style.display = dd.style.display === "block" ? "none" : "block";
-        }
-        window.addEventListener('click', function(event) {
-            const dropdown = document.getElementById("admin-dropdown");
-            if (!event.target.closest('.admin-menu')) {
-                dropdown.style.display = "none";
-            }
-        });
-
-        (function () {
-        const modal = document.getElementById('logoutModal');
-        const confirm = document.getElementById('logoutConfirm');
-        const cancel = document.getElementById('logoutCancel');
-
-        document.querySelectorAll('.logout-link').forEach(a => {
-            a.addEventListener('click', (e) => {
-            e.preventDefault();
-            modal.dataset.href = a.getAttribute('href');
-            modal.classList.add('show');
-            modal.setAttribute('aria-hidden', 'false');
-            });
-        });
-
-        function closeModal() {
-            modal.classList.remove('show');
-            modal.setAttribute('aria-hidden', 'true');
-            delete modal.dataset.href;
-        }
-
-        if (cancel) cancel.addEventListener('click', closeModal);
-        if (confirm) confirm.addEventListener('click', () => {
-            const href = modal.dataset.href || "/logout";
-            window.location.href = href;
-        });
-
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
-        });
-        })();
-
-    </script>
-
-    <div id="viewModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
-        <div class="modal article-modal">
-            <h2 id="modal-title">Article Title</h2>
-            <p id="modal-author"></p>
-            <p id="modal-date"></p>
-            <div id="modal-image-container" style="text-align:center; margin-bottom:10px;">
-                <img id="modal-image" src="" alt="Article image" style="max-width:100%; max-height:300px; display:none; border-radius:8px;">
-            </div>
-            <hr>
-            <div id="modal-content" style="max-height: 400px; overflow-y: auto;"></div>
-            <div class="buttons" style="display: flex; justify-content: space-between; margin-top: 10px;">
-                <button type="button" class="btn btn-light" id="prevArticle">◀ Previous</button>
-                <div>
-                    <button type="button" class="btn btn-light" id="closeModal">Close</button>
-                </div>
-                <button type="button" class="btn btn-light" id="nextArticle">Next ▶</button>
+        <div class="modal" role="document">
+            <h2>Log out?</h2>
+            <div class="buttons">
+                <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
             </div>
         </div>
     </div>
 
-    <script>
-        let articleIDs = [];
-        let currentIndex = -1;
-
-        document.addEventListener("DOMContentLoaded", () => {
-            // Collect all article IDs from the table
-            articleIDs = Array.from(document.querySelectorAll(".view-btn")).map(btn => btn.getAttribute("onclick").match(/\d+/)[0]);
-
-            // Navigation buttons
-            document.getElementById('prevArticle').addEventListener('click', showPreviousArticle);
-            document.getElementById('nextArticle').addEventListener('click', showNextArticle);
-            document.getElementById('closeModal').addEventListener('click', closeArticleModal);
-        });
-
-        async function viewArticle(articleID) {
-            currentIndex = articleIDs.indexOf(articleID.toString());
-            await loadArticle(articleID);
-        }
-
-        async function loadArticle(articleID) {
-            try {
-                const response = await fetch(`/getArticle/${articleID}`);
-                if (!response.ok) throw new Error('Failed to fetch article.');
-                const article = await response.json();
-
-                // Populate modal fields
-                document.getElementById('modal-title').textContent = article.title;
-                document.getElementById('modal-author').textContent = "By " + (article.author || "Unknown");
-                document.getElementById('modal-date').textContent = "Published: " +
-                    (article.published_at ? new Date(article.published_at).toLocaleString() : "Unknown date");
-
-                // Image
-                const img = document.getElementById('modal-image');
-                if (article.image) {
-                    img.src = article.image.startsWith('/') ? article.image : '/' + article.image;
-                    img.style.display = 'block';
-                } else {
-                    img.style.display = 'none';
-                }
-
-                document.getElementById('modal-content').innerHTML = article.content || "(No content)";
-
-                // Update nav button states
-                document.getElementById('prevArticle').disabled = currentIndex <= 0;
-                document.getElementById('nextArticle').disabled = currentIndex >= articleIDs.length - 1;
-
-                // Show modal
-                const modal = document.getElementById('viewModal');
-                modal.classList.add('show');
-                modal.setAttribute('aria-hidden', 'false');
-            } catch (err) {
-                alert(err.message);
-            }
-        }
-
-        function showPreviousArticle() {
-            if (currentIndex > 0) {
-                currentIndex--;
-                loadArticle(articleIDs[currentIndex]);
-            }
-        }
-
-        function showNextArticle() {
-            if (currentIndex < articleIDs.length - 1) {
-                currentIndex++;
-                loadArticle(articleIDs[currentIndex]);
-            }
-        }
-
-        function closeArticleModal() {
-            const modal = document.getElementById('viewModal');
-            modal.classList.remove('show');
-            modal.setAttribute('aria-hidden', 'true');
-        }
-    </script>
-
-
-    """<div id="viewModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <!-- Article Modal -->
+    <div id="articleModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
         <div class="modal article-modal">
-            <h2 id="modal-title">Article Title</h2>
-            <p id="modal-author"></p>
-            <p id="modal-date"></p>
+            <h2 id="article-modal-title">Article Title</h2>
+            <p id="article-modal-meta"></p>
 
-            <div id="modal-image-container" style="text-align:center; margin-bottom:10px;">
-                <img id="modal-image" src="" alt="Article image" 
+            <div id="article-modal-image-container" style="text-align:center; margin:10px 0;">
+                <img id="article-modal-image" src="" alt="Article image" 
                     style="max-width:100%; max-height:300px; display:none; border-radius:8px;">
             </div>
 
             <hr>
-
-            <div id="modal-content" style="max-height: 400px; overflow-y: auto;"></div>
+            <div id="article-modal-content" style="max-height: 400px; overflow-y: auto;"></div>
 
             <div class="buttons" style="display:flex; justify-content: space-between; margin-top: 15px;">
                 <button type="button" class="btn btn-light" id="prevArticle">◀ Previous</button>
                 <div>
-                    <button type="button" class="btn btn-success" id="approveArticle">Approve</button>
+                    <button type="button" class="btn btn-primary" id="approveArticle">Approve</button>
                     <button type="button" class="btn btn-danger" id="rejectArticle">Reject</button>
-                    <button type="button" class="btn btn-light" id="closeModal">Close</button>
+                    <button type="button" class="btn btn-light" id="closeArticleModal">Close</button>
                 </div>
                 <button type="button" class="btn btn-light" id="nextArticle">Next ▶</button>
             </div>
         </div>
     </div>
 
+
+
     <script>
-        let articleIDs = [];
-        let reportIDs = [];
-        let currentIndex = -1;
-
-        document.addEventListener("DOMContentLoaded", () => {
-            // Collect all article & report IDs from table
-            articleIDs = Array.from(document.querySelectorAll(".view-btn"))
-                .map(btn => btn.getAttribute("onclick").match(/\d+/)[0]);
-            reportIDs = Array.from(document.querySelectorAll("input[name='report_id']"))
-                .map(input => input.value);
-
-            // Navigation + modal buttons
-            document.getElementById('prevArticle').addEventListener('click', showPreviousArticle);
-            document.getElementById('nextArticle').addEventListener('click', showNextArticle);
-            document.getElementById('closeModal').addEventListener('click', closeArticleModal);
-
-            document.getElementById('approveArticle').addEventListener('click', () => handleReview('approve'));
-            document.getElementById('rejectArticle').addEventListener('click', () => handleReview('reject'));
-        });
-
-        async function viewArticle(articleID) {
-            currentIndex = articleIDs.indexOf(articleID.toString());
-            await loadArticle(articleID);
+        // Sidebar dropdown
+        function toggleDropdown() {
+            const dd = document.getElementById("admin-dropdown");
+            dd.style.display = dd.style.display === "block" ? "none" : "block";
         }
 
-        async function loadArticle(articleID) {
+        window.addEventListener('click', function (event) {
+            const dropdown = document.getElementById("admin-dropdown");
+            if (!event.target.closest('.admin-menu')) dropdown.style.display = "none";
+        });
+
+        // Logout modal logic
+        (function () {
+            const modal = document.getElementById('logoutModal');
+            const confirm = document.getElementById('logoutConfirm');
+            const cancel = document.getElementById('logoutCancel');
+
+            document.querySelectorAll('.logout-link').forEach(a => {
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    modal.dataset.href = a.getAttribute('href');
+                    modal.classList.add('show');
+                    modal.setAttribute('aria-hidden', 'false');
+                });
+            });
+
+            function closeModal() {
+                modal.classList.remove('show');
+                modal.setAttribute('aria-hidden', 'true');
+                delete modal.dataset.href;
+            }
+
+            if (cancel) cancel.addEventListener('click', closeModal);
+            if (confirm) confirm.addEventListener('click', () => {
+                const href = modal.dataset.href || "/logout";
+                window.location.href = href;
+            });
+
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('show')) closeModal(); });
+        })();
+
+            let articles = [
+            {% for a in articles %}
+            {
+                id: {{ a.articleID }},
+                reportID: {{ a.report_id }},
+                rowIndex: {{ loop.index0 }}
+            },
+            {% endfor %}
+        ];
+
+        let currentIndex = 0;
+
+        async function viewArticle(articleID) {
             try {
-                const response = await fetch(`/getArticle/${articleID}`);
-                if (!response.ok) throw new Error('Failed to fetch article.');
-                const article = await response.json();
+                const res = await fetch(`/getArticle/${articleID}`);
+                if (!res.ok) throw new Error("Failed to fetch article.");
+                const article = await res.json();
 
-                // Fill modal fields
-                document.getElementById('modal-title').textContent = article.title;
-                document.getElementById('modal-author').textContent = "By " + (article.author || "Unknown");
-                document.getElementById('modal-date').textContent = 
-                    "Published: " + (article.published_at ? new Date(article.published_at).toLocaleString() : "Unknown");
+                document.getElementById('article-modal-title').textContent = article.title;
+                document.getElementById('article-modal-meta').textContent =
+                    `By ${article.author} • ${article.published_at}`;
+                document.getElementById('article-modal-content').innerHTML = article.content || "(No content)";
 
-                const img = document.getElementById('modal-image');
+                const imgEl = document.getElementById('article-modal-image');
                 if (article.image) {
-                    img.src = article.image.startsWith('/') ? article.image : '/' + article.image;
-                    img.style.display = 'block';
+                    imgEl.src = article.image.startsWith('/') ? article.image : '/' + article.image;
+                    imgEl.style.display = 'block';
                 } else {
-                    img.style.display = 'none';
+                    imgEl.style.display = 'none';
                 }
 
-                document.getElementById('modal-content').innerHTML = article.content || "(No content)";
+                currentIndex = articles.findIndex(a => a.id === articleID);
 
-                // Update navigation buttons
+                // Enable/disable navigation buttons
                 document.getElementById('prevArticle').disabled = currentIndex <= 0;
-                document.getElementById('nextArticle').disabled = currentIndex >= articleIDs.length - 1;
+                document.getElementById('nextArticle').disabled = currentIndex >= articles.length - 1;
 
-                // Show modal
-                const modal = document.getElementById('viewModal');
+                const modal = document.getElementById('articleModal');
                 modal.classList.add('show');
                 modal.setAttribute('aria-hidden', 'false');
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        document.getElementById('closeArticleModal').addEventListener('click', () => {
+            const modal = document.getElementById('articleModal');
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+        });
+
+        async function handleArticleReview(action) {
+            const currentArticle = articles[currentIndex];
+            const formData = new URLSearchParams({
+                report_id: currentArticle.reportID,
+                action: action
+            });
+
+            try {
+                const res = await fetch("/reviewArticle", {
+                    method: "POST",
+                    body: formData,
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" }
+                });
+
+                if (!res.ok) throw new Error("Failed to review article.");
+
+                alert(`Article ${action}d successfully.`);
+
+                // Remove the article from table
+                const tableRows = document.querySelectorAll(".users-table tbody tr");
+                if (tableRows[currentArticle.rowIndex]) {
+                    tableRows[currentArticle.rowIndex].remove();
+                }
+
+                // Remove the article from JS array
+                articles.splice(currentIndex, 1);
+
+                // Adjust rowIndex for remaining articles
+                articles.forEach((a, i) => a.rowIndex = i);
+
+                // Auto-load next article
+                if (articles.length === 0) {
+                    document.getElementById('articleModal').classList.remove('show');
+                    alert("No more flagged articles.");
+                    return;
+                }
+
+                if (currentIndex >= articles.length) currentIndex = articles.length - 1;
+                viewArticle(articles[currentIndex].id);
+
             } catch (err) {
                 alert(err.message);
             }
@@ -333,69 +262,23 @@
         function showPreviousArticle() {
             if (currentIndex > 0) {
                 currentIndex--;
-                loadArticle(articleIDs[currentIndex]);
+                viewArticle(articles[currentIndex].id);
             }
         }
 
         function showNextArticle() {
-            if (currentIndex < articleIDs.length - 1) {
+            if (currentIndex < articles.length - 1) {
                 currentIndex++;
-                loadArticle(articleIDs[currentIndex]);
+                viewArticle(articles[currentIndex].id);
             }
         }
 
-        function closeArticleModal() {
-            const modal = document.getElementById('viewModal');
-            modal.classList.remove('show');
-            modal.setAttribute('aria-hidden', 'true');
-        }
-
-        async function handleReview(action) {
-        const report_id = reportIDs[currentIndex];
-        if (!report_id) {
-            alert("Unable to find report ID.");
-            return;
-        }
-
-        if (!confirm(`Are you sure you want to ${action} this article?`)) return;
-
-        try {
-            const response = await fetch("/reviewArticle", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: `report_id=${report_id}&action=${action}`
-            });
-
-            if (!response.ok) throw new Error("Failed to submit review.");
-
-            alert(`Article ${action}d successfully.`);
-
-            // Remove reviewed article from lists
-            articleIDs.splice(currentIndex, 1);
-            reportIDs.splice(currentIndex, 1);
-
-            // Automatically load next article
-            if (articleIDs.length === 0) {
-                closeArticleModal();
-                alert("No more flagged articles remaining.");
-                return;
-            }
-
-            // Keep currentIndex within bounds
-            if (currentIndex >= articleIDs.length) currentIndex = articleIDs.length - 1;
-
-            loadArticle(articleIDs[currentIndex]);
-
-            // Also remove row from table visually
-            const row = document.querySelectorAll(".view-btn")[currentIndex].closest("tr");
-            if (row) row.remove();
-
-        } catch (err) {
-            alert(err.message);
-        }
-    }
-    </script>"""
-    
+        document.getElementById('prevArticle').addEventListener('click', showPreviousArticle);
+        document.getElementById('nextArticle').addEventListener('click', showNextArticle);
+        document.getElementById('approveArticle').addEventListener('click', () => handleArticleReview('approve'));
+        document.getElementById('rejectArticle').addEventListener('click', () => handleArticleReview('reject'));
+    </script>
 </body>
 </html>
+
 

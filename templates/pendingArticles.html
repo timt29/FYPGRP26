@@ -1,21 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pending Articles - EchoPress</title>
-    <link rel="stylesheet" href="../static/css/adminHomepage.css" />
+    <title>Pending Articles - Moderator</title>
+    <link rel="stylesheet" href="../static/css/adminHomepage.css">
 </head>
-
 <body>
     <!-- Sidebar -->
     <div class="sidebar">
         <h2>EchoPress</h2>
         <a href="/modHomepage">Dashboard</a>
-        <a href="/flaggedArticles">Flagged Articles</a>
+        <a href="/flaggedArticles" class="active">Flagged Articles</a>
         <a href="/flaggedComments">Flagged Comments</a>
-        <a href="/pendingArticles" class="active">Pending Articles</a>
+        <a href="/pendingArticles">Pending Articles</a>
         <a href="/manageCategories">Manage Categories</a>
         <a href="/manageUsers">Manage Users</a>
         <a href="#">Setting</a>
@@ -23,79 +21,218 @@
 
     <!-- Main -->
     <div class="main">
-        <!-- Top bar -->
         <div class="topbar">
-            <h1>Moderator's Dashboard</h1>
+            <h1>Pending Articles for Approval</h1>
             <div class="admin-menu">
                 <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
                 <div class="dropdown" id="admin-dropdown">
-                    <a href="/logout">Logout</a>
+                    <a class="logout-link" href="/logout">Logout</a>
                 </div>
             </div>
         </div>
 
-        <!-- Content -->
+
         <div class="content">
-            <h2>Pending Articles</h2>
+            <h2>Articles Requiring Approval</h2>
 
-            {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                    <div class="flash-messages">
-                        {% for msg in messages %}
-                            <p style="color:red;">{{ msg }}</p>
-                        {% endfor %}
-                    </div>
-                {% endif %}
-            {% endwith %}
-
-            <!-- Pending Articles Table -->
             {% if articles %}
-                <table class="users-table">
-                    <thead>
-                        <tr>
-                            <th>Article ID</th>
-                            <th>Title</th>
-                            <th>Author</th>
-                            <th>Created At</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for article in articles %}
-                        <tr>
-                            <td>{{ article.articleID }}</td>
-                            <td>{{ article.title }}</td>
-                            <td>{{ article.author }}</td>
-                            <td>{{ article.created_at }}</td>
-                            <td>
-                                <form method="POST" action="/pendingArticles">
-                                    <input type="hidden" name="articleID" value="{{ article.articleID }}">
-                                    <button type="submit" name="action" value="approve">Approve</button>
-                                    <button type="submit" name="action" value="reject">Reject</button>
-                                </form>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Title</th>
+                        <th>Author</th>
+                        <th>Submitted At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in articles %}
+                    <tr>
+                        <td>{{ a.articleID }}</td>
+                        <td>{{ a.title }}</td>
+                        <td>{{ a.author }}</td>
+                        <td>{{ a.updated_at }}</td>
+                        <td>
+                            <button onclick="viewArticle({{ a.articleID }})">View</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
             {% else %}
-                <p>No pending articles at the moment.</p>
+            <p>No articles pending approval.</p>
             {% endif %}
         </div>
     </div>
 
+    <!-- Logout Modal -->
+    <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal" role="document">
+            <h2>Log out?</h2>
+            <div class="buttons">
+                <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Article Modal -->
+    <div id="articleModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+        <div class="modal article-modal">
+            <h2 id="article-modal-title">Article Title</h2>
+            <p id="article-modal-meta"></p>
+
+            <div id="article-modal-image-container" style="text-align:center; margin:10px 0;">
+                <img id="article-modal-image" src="" alt="Article image" 
+                    style="max-width:100%; max-height:300px; display:none; border-radius:8px;">
+            </div>
+
+            <hr>
+            <div id="article-modal-content" style="max-height: 400px; overflow-y: auto;"></div>
+
+            <div class="buttons" style="display:flex; justify-content: space-between; margin-top: 15px;">
+                <button type="button" class="btn btn-light" id="prevArticle">◀ Previous</button>
+                <div>
+                    <button type="button" class="btn btn-primary" id="approveArticle">Approve</button>
+                    <button type="button" class="btn btn-danger" id="rejectArticle">Reject</button>
+                    <button type="button" class="btn btn-light" id="closeArticleModal">Close</button>
+                </div>
+                <button type="button" class="btn btn-light" id="nextArticle">Next ▶</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // Sidebar dropdown
         function toggleDropdown() {
-            const dropdown = document.getElementById("admin-dropdown");
-            dropdown.style.display = dropdown.style.display === "block" ? "none" : "block";
+            const dd = document.getElementById("admin-dropdown");
+            dd.style.display = dd.style.display === "block" ? "none" : "block";
         }
 
-        window.onclick = function (event) {
-            if (!event.target.matches('.admin-btn')) {
-                document.getElementById("admin-dropdown").style.display = "none";
+        window.addEventListener('click', function (event) {
+            const dropdown = document.getElementById("admin-dropdown");
+            if (!event.target.closest('.admin-menu')) dropdown.style.display = "none";
+        });
+
+        // Logout modal logic
+        (function () {
+            const modal = document.getElementById('logoutModal');
+            const confirm = document.getElementById('logoutConfirm');
+            const cancel = document.getElementById('logoutCancel');
+
+            document.querySelectorAll('.logout-link').forEach(a => {
+                a.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    modal.dataset.href = a.getAttribute('href');
+                    modal.classList.add('show');
+                    modal.setAttribute('aria-hidden', 'false');
+                });
+            });
+
+            function closeModal() {
+                modal.classList.remove('show');
+                modal.setAttribute('aria-hidden', 'true');
+                delete modal.dataset.href;
+            }
+
+            if (cancel) cancel.addEventListener('click', closeModal);
+            if (confirm) confirm.addEventListener('click', () => {
+                const href = modal.dataset.href || "/logout";
+                window.location.href = href;
+            });
+
+            modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('show')) closeModal(); });
+        })();
+
+        // === Article Review Logic ===
+        let articles = [{% for a in articles %}{ id: {{ a.articleID }}, rowIndex: {{ loop.index0 }} },{% endfor %}];
+        let currentIndex = 0;
+
+        async function viewArticle(articleID) {
+            try {
+                const res = await fetch(`/getArticle/${articleID}`);
+                if (!res.ok) throw new Error("Failed to fetch article.");
+                const article = await res.json();
+
+                document.getElementById('article-modal-title').textContent = article.title;
+                document.getElementById('article-modal-meta').textContent =
+                    `By ${article.author} • ${article.published_at}`;
+                document.getElementById('article-modal-content').innerHTML = article.content || "(No content)";
+
+                const imgEl = document.getElementById('article-modal-image');
+                if (article.image) {
+                    imgEl.src = article.image.startsWith('/') ? article.image : '/' + article.image;
+                    imgEl.style.display = 'block';
+                } else {
+                    imgEl.style.display = 'none';
+                }
+
+                currentIndex = articles.findIndex(a => a.id === articleID);
+
+                document.getElementById('prevArticle').disabled = currentIndex <= 0;
+                document.getElementById('nextArticle').disabled = currentIndex >= articles.length - 1;
+
+                const modal = document.getElementById('articleModal');
+                modal.classList.add('show');
+                modal.setAttribute('aria-hidden', 'false');
+            } catch (err) {
+                alert(err.message);
             }
         }
+
+        document.getElementById('closeArticleModal').addEventListener('click', () => {
+            const modal = document.getElementById('articleModal');
+            modal.classList.remove('show');
+            modal.setAttribute('aria-hidden', 'true');
+        });
+
+        async function handleArticleReview(action) {
+            const articleID = articles[currentIndex].id;
+            const formData = new URLSearchParams({ articleID, action });
+
+            const res = await fetch("/reviewArticle", {
+                method: "POST",
+                body: formData,
+                headers: { "Content-Type": "application/x-www-form-urlencoded" }
+            });
+
+            if (!res.ok) {
+                alert("Failed to update article.");
+                return;
+            }
+
+            alert(`Article ${action}d successfully.`);
+
+            // Remove row from table
+            const tableRows = document.querySelectorAll(".users-table tbody tr");
+            tableRows[articles[currentIndex].rowIndex].remove();
+            articles.splice(currentIndex, 1);
+
+            if (articles.length === 0) {
+                document.getElementById('articleModal').classList.remove('show');
+                alert("No more pending articles.");
+                return;
+            }
+
+            if (currentIndex >= articles.length) currentIndex = articles.length - 1;
+            viewArticle(articles[currentIndex].id);
+        }
+
+        document.getElementById('prevArticle').addEventListener('click', () => {
+            if (currentIndex > 0) currentIndex--;
+            viewArticle(articles[currentIndex].id);
+        });
+
+        document.getElementById('nextArticle').addEventListener('click', () => {
+            if (currentIndex < articles.length - 1) currentIndex++;
+            viewArticle(articles[currentIndex].id);
+        });
+
+        document.getElementById('approveArticle').addEventListener('click', () => handleArticleReview('approve'));
+        document.getElementById('rejectArticle').addEventListener('click', () => handleArticleReview('reject'));
     </script>
 </body>
-
 </html>
+

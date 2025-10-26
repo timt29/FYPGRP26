@@ -453,3 +453,76 @@ th {
    font-size: 20px;
    color: #333;
  }
+
+ /* === Article Preview Modal (for flagged articles) === */
+.article-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 25px 30px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  text-align: left;
+  position: relative;
+  animation: popup 0.3s ease-out;
+}
+
+/* Smooth entry animation */
+@keyframes popup {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* Article content styling */
+.article-modal h2 {
+  margin-bottom: 8px;
+  color: #2c3e50;
+  font-size: 1.8rem;
+}
+
+.article-modal p {
+  margin: 4px 0;
+  color: #555;
+}
+
+.article-modal img {
+  border-radius: 8px;
+  margin-top: 10px;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Footer buttons layout */
+.article-modal .buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* Navigation buttons */
+#prevArticle, #nextArticle {
+  background: #f3f4f6;
+  color: #333;
+  border: 1px solid #d1d5db;
+}
+
+#prevArticle:disabled, #nextArticle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Scrollbar for long articles */
+.article-modal::-webkit-scrollbar {
+  width: 8px;
+}
+.article-modal::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+.article-modal::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
