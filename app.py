@@ -6,6 +6,8 @@ import threading
 import mysql.connector
 import json
 import decimal
+import traceback
+import re
 from datetime import datetime, timezone
 from werkzeug.utils import secure_filename
 from rapidfuzz import process, fuzz
@@ -2837,38 +2839,61 @@ def summarize():
 translated = GoogleTranslator(source="auto", target="de").translate
 @app.route("/translate", methods=["POST"])
 def translate():
-    data = request.get_json()
-    title = data.get("title", "")
-    content = data.get("content", "")
-    summary = data.get("summary", [])
-    target_lang = data.get("target_lang", "en")
-
-    if target_lang == "en":
-        return jsonify({
-            "title": title,
-            "content": content,
-            "summary": summary
-        })
-
     try:
-        translate_title = GoogleTranslator(source="auto", target=target_lang).translate(title) if title else ""
-        translated_content = GoogleTranslator(source="auto", target=target_lang).translate(content)
+        data = request.get_json()
+        title = data.get("title", "")
+        content = data.get("content", "")
+        summary = data.get("summary", [])
+        target_lang = data.get("target_lang", "en")
 
-        # traslate in single api call
+        if target_lang == "en":
+            return jsonify({
+                "title": title,
+                "content": content,
+                "summary": summary
+            })
+
+        # translate title
+        translated_title = GoogleTranslator(source="auto", target=target_lang).translate(title) if title else ""
+
+        # split content into chunks of 2-3 sentences
+        sentence_endings = re.compile(r'(?<=[.!?])\s+')
+        sentences = sentence_endings.split(content.strip())
+        
+        chunks = []
+        chunk_size = 3  # number of sentences per chunk
+        for i in range(0, len(sentences), chunk_size):
+            chunks.append(" ".join(sentences[i:i+chunk_size]))
+
+        translated_paragraphs = []
+        for chunk in chunks:
+            try:
+                translated_paragraphs.append(GoogleTranslator(source="auto", target=target_lang).translate(chunk))
+            except Exception:
+                translated_paragraphs.append(chunk)  # fallback
+
+        translated_content = "\n\n".join(translated_paragraphs)
+
+        # translate summary
         if summary:
             full_summary = "\n".join(summary)
-            translated_full_summary = GoogleTranslator(source="auto", target=target_lang).translate(full_summary)
-            translated_summary = translated_full_summary.split("\n")
+            try:
+                translated_full_summary = GoogleTranslator(source="auto", target=target_lang).translate(full_summary)
+                translated_summary = translated_full_summary.split("\n")
+            except Exception:
+                translated_summary = summary  # fallback
         else:
             translated_summary = []
 
         return jsonify({
-            "title": translate_title,
+            "title": translated_title,
             "content": translated_content,
             "summary": translated_summary
         })
-    
+
     except Exception as e:
+        print("Error in /translate:", e)
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     
 # ---------- chatbot support ----------
