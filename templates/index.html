@@ -42,31 +42,41 @@
     <main class="main-content">
       <!-- Articles -->
       <section class="articles">
-        {% if no_articles %}
-        <p
-          style="font-size: 18px; font-weight: bold; margin: 20px; color: black"
-        >
-          No articles found in {{ category_name }}.
-        </p>
-        {% else %} {% for article in articles %}
-        <article
-          class="article {% if loop.index == 1 %}big-article{% elif loop.index == 2 %}medium-article{% else %}small-article{% endif %}"
-        >
-          <div class="text">
-            <a
-              href="{{ url_for('article', article_id=article['articleID']) }}"
-              style="color: #000000; text-decoration: none"
-            >
-              <h2>{{ article['title'] }}</h2>
-            </a>
-            <p>{{ article['content'][:250] }}...</p>
-          </div>
-          {% if article['image'] %}
-          <img src="{{ article['image'] }}" alt="thumbnail" class="thumbnail" />
-          {% endif %}
-        </article>
-        {% endfor %} {% endif %}
-      </section>
+  {% if articles %}
+    {% for article in articles %}
+      <article class="article">
+        <div class="text">
+          <a href="{{ url_for('article', article_id=article['articleID']) }}" style="color:#000;text-decoration:none;">
+            <h2>{{ article['title'] }}</h2>
+          </a>
+          <p>{{ article['content'][:250] }}...</p>
+        </div>
+        {% if article['image'] %}
+        <img src="{{ article['image'] }}" alt="thumbnail" class="thumbnail">
+        {% endif %}
+      </article>
+    {% endfor %}
+  
+  {% elif fallback_articles %}
+    <p style="font-size:18px;font-weight:bold;margin:20px;color:black;">
+      We couldn’t find any articles matching "{{ search_query }}". Showing recent articles instead:
+    </p>
+    {% for article in fallback_articles %}
+      <article class="article small-article">
+        <div class="text">
+          <a href="{{ url_for('article', article_id=article['articleID']) }}" style="color:#000;text-decoration:none;">
+            <h2>{{ article['title'] }}</h2>
+          </a>
+          <p>{{ article['content'][:250] }}...</p>
+        </div>
+        {% if article['image'] %}
+        <img src="{{ article['image'] }}" alt="thumbnail" class="thumbnail">
+        {% endif %}
+      </article>
+    {% endfor %}
+  {% endif %}
+</section>
+
 
       <!-- Sidebar -->
       <aside class="sidebar">
@@ -82,34 +92,40 @@
     </main>
 
     <!-- Modal -->
-    <div id="noResultsModal" class="modal">
-      <div class="modal-content">
+    <div id="noResultsModal" class="modal-overlay">
+      <div class="modal">
         <span class="close">&times;</span>
         <h2>No results found</h2>
         <p>We couldn’t find any articles matching "{{ search_query }}".</p>
       </div>
     </div>
 
+    {% if no_results %}
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", function () {
         {% if no_results %}
-        let modal = document.getElementById("noResultsModal");
-        let span = document.querySelector(".close");
+        const modalOverlay = document.getElementById("noResultsModal");
+        const closeBtn = modalOverlay.querySelector(".close");
 
-        modal.style.display = "block";
+        // Show modal
+        modalOverlay.style.display = "block";
 
-        span.onclick = function () {
-          modal.style.display = "none";
-        }
+        // Close when clicking X
+        closeBtn.addEventListener("click", function () {
+          modalOverlay.style.display = "none";
+        });
 
-        window.onclick = function (event) {
-          if (event.target == modal) {
-            modal.style.display = "none";
+        // Close when clicking outside the modal box
+        window.addEventListener("click", function (event) {
+          if (event.target === modalOverlay) {
+            modalOverlay.style.display = "none";
           }
-        }
+        });
         {% endif %}
       });
     </script>
+    {% endif %}
+
 
     <!-- chatbot floating button -->
     <div id="chatbot-button" onclick="toggleChatbot()">

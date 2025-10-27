@@ -87,6 +87,7 @@ def index():
         FROM articles 
         WHERE visible = 1
         ORDER BY published_at DESC
+        LIMIT 10
     """)
     articles = cursor.fetchall()
     cursor.close()
@@ -148,38 +149,49 @@ def api_article_view_beacon(article_id: int):
 
 @app.route("/search")
 def search():
-    query = request.args.get("q", "")
-    articles = []
+    query = request.args.get("q", "").strip()
     no_results = False
+    articles = []
+    fallback_articles = []
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
+    # --- 1. Perform the search ---
     if query:
         cursor.execute("""
             SELECT articleID, title, content, author, published_at, updated_at, image
             FROM articles
-            WHERE title LIKE %s
+            WHERE title LIKE %s OR content LIKE %s
             ORDER BY published_at DESC
-        """, ("%" + query + "%",))
+        """, (f"%{query}%", f"%{query}%"))
         articles = cursor.fetchall()
 
-    # If no results, load homepage articles instead
+    # --- 2. If no results, show recent articles as fallback ---
     if not articles:
         no_results = True
         cursor.execute("""
-        SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
-        FROM articles a
-        JOIN categories c ON a.catID = c.categoryID
-        ORDER BY a.published_at DESC
-        LIMIT 4
-    """)
-        articles = cursor.fetchall()
+            SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
+            FROM articles a
+            JOIN categories c ON a.catID = c.categoryID
+            ORDER BY a.published_at DESC
+            LIMIT 10
+        """)
+        fallback_articles = cursor.fetchall()
 
     cursor.close()
     conn.close()
 
-    return render_template("index.html", articles=articles, no_results=no_results, search_query=query)
+    # --- 3. Render template with both lists ---
+    return render_template(
+        "index.html",
+        articles=articles,
+        fallback_articles=fallback_articles,
+        no_results=no_results,
+        search_query=query
+    )
+
+
 
 def get_categories():
     conn = get_db_connection()
