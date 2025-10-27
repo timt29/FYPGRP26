@@ -2500,27 +2500,27 @@ def review_article():
         
         article_id = report["article_id"]
 
-        if action == "approve":
-            # 1. Mark all reports for this article as reviewed
+        if action == "approve": # meaning moderator confirmed issues
+            # mark reports reviewed
             cursor.execute(
                 "UPDATE article_reports SET status = 'reviewed' WHERE article_id = %s",
                 (article_id,)
             )
             
-            # 2. Temporarily hide the article from public
+            # hide article from public and mark as pending revision
             cursor.execute(
-                "UPDATE articles SET visible = 0 WHERE articleID = %s",
+                "UPDATE articles SET visible = 0, status = 'pending_revision' WHERE articleID = %s",
                 (article_id,)
             )
-        elif action == "reject":
-            # Mark report as dismissed
+        elif action == "reject": # moderator thinks it's okay
+            # Mark report dismissed
             cursor.execute(
                 "UPDATE article_reports SET status = 'dismissed' WHERE report_id = %s",
                 (report_id,)
             )
-            # Ensure article stays visible
+            # article stays visible and approved
             cursor.execute(
-                "UPDATE articles SET visible = 1 WHERE articleID = %s",
+                "UPDATE articles SET visible = 1, status = 'published' WHERE articleID = %s",
                 (article_id,)
             )
 
@@ -2668,32 +2668,28 @@ def get_comment(comment_id):
     return jsonify(comment)
 
 # (YY)
-@app.route("/pendingArticles", methods=["GET", "POST"])
+@app.route("/pendingArticles")
 @login_required("Moderator")
 def pending_articles():
-    if "userID" not in session or session.get("usertype") != "Moderator":
-        flash("Access denied.")
-        return redirect(url_for("login"))
-
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    if request.method == "POST":
-        article_id = request.form.get("articleID")
-        action = request.form.get("action")
-        if action == "approve":
-            cursor.execute("UPDATE articles SET status='Approved' WHERE articleID=%s", (article_id,))
-            flash("Article approved successfully.")
-        elif action == "reject":
-            cursor.execute("UPDATE articles SET status='Rejected' WHERE articleID=%s", (article_id,))
-            flash("Article rejected successfully.")
-        conn.commit()
+    try:
+        # Fetch articles that are pending approval
+        cursor.execute("""
+            SELECT a.articleID, a.title, a.author, a.published_at, a.updated_at, a.visible, a.image,
+                   COUNT(r.report_id) AS num_reports
+            FROM articles a
+            LEFT JOIN article_reports r ON a.articleID = r.article_id AND r.status = 'pending'
+            WHERE a.status = 'pending_review'
+            GROUP BY a.articleID
+            ORDER BY a.updated_at DESC
+        """)
+        articles = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
-    cursor.execute("SELECT articleID, title, author, created_at FROM articles WHERE status='Pending'")
-    articles = cursor.fetchall()
-
-    cursor.close()
-    conn.close()
     return render_template("pendingArticles.html", articles=articles)
 
 # (YY)
