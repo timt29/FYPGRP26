@@ -80,6 +80,25 @@
     </aside>
   </main>
 
+  <!-- chatbot model -->
+  <div id="chatbot-button" onclick="toggleChatbot()">
+    <img src="/static/img/FAQ-robot.png" alt="Chatbot" />
+  </div>
+
+  <!-- chatbot popup -->
+  <div id="chatbot-popup">
+  <div id="chatbot-header">
+      EchoBot
+    <span id="chatbot-close" onclick="toggleChatbot()">&times;</span>
+  </div>
+  
+  <div id="chatbot-messages"></div>
+    <div id="chatbot-input">
+      <input type="text" id="userMessage" placeholder="Ask me anything.." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
   <!-- Logout Confirmation Modal -->
   <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal" role="document">
@@ -357,33 +376,17 @@
     });
   </script>
 
-      <!-- chatbot floating button -->
-      <div id="chatbot-button" onclick="toggleChatbot()">
-        <img src="/static/img/FAQ-robot.png" alt="Chatbot" />
-      </div>
+      
 
-    <!-- chatbot popup -->
-    <div id="chatbot-popup">
-      <div id="chatbot-header">
-        EchoBot
-        <span id="chatbot-close" onclick="toggleChatbot()">&times;</span>
-      </div>
-      <div id="chatbot-messages"></div>
-      <div id="chatbot-input">
-        <input type="text" id="userMessage" placeholder="Ask me anything.." />
-        <button onclick="sendMessage()">Send</button>
-      </div>
-    </div>
-
-    <script>
+  <script>
     function toggleChatbot() {
       const popup = document.getElementById("chatbot-popup");
       const input = document.getElementById("userMessage");
+      if (!popup) return;
 
-      if (popup.style.display === "block") {
-        popup.style.display = "none";
-      } else {
-        popup.style.display = "block";
+      popup.style.display = (popup.style.display === "block") ? "none" : "block";
+
+      if (popup.style.display === "block" && input) {
         input.focus();
       }
     }
@@ -413,14 +416,16 @@
     }
 
     document.addEventListener("DOMContentLoaded", function() {
-      const input = document.getElementById("userMessage");
+    const input = document.getElementById("userMessage");
+    if (input) {
       input.addEventListener("keypress", function (event) {
-        if (event.key == "Enter") {
+        if (event.key === "Enter") {
           event.preventDefault();
           sendMessage();
         }
       });
-    });
-    </script>
+    }
+  }); 
+  </script>
 </body>
 </html>
