@@ -186,10 +186,10 @@ p {
   text-align: center;
 }
 
-.modal {
+.modal-overlay {
   display: none; 
   position: fixed;
-  z-index: 1000;
+  z-index: 9999;
   left: 0;
   top: 0;
   width: 100%;
@@ -199,7 +199,7 @@ p {
 }
 
 /* Modal box */
-.modal-content {
+.modal-overlay .modal {
   background-color: #fff;
   margin: 15% auto;
   padding: 20px;
@@ -207,6 +207,7 @@ p {
   width: 40%;
   text-align: center;
   box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  position: relative;
 }
 
 /* Close button */
@@ -301,7 +302,7 @@ p {
   background-color: transparent;
   border: none;
   cursor: pointer;
-  z-index: 9999;
+  z-index: 950;
   transition: transform 0.2s;
 }
 
@@ -326,7 +327,7 @@ p {
   border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
   overflow: hidden;
-  z-index: 9999;
+  z-index: 900;
   font-family: "Poppins", sans-serif;
 }
 
