@@ -909,33 +909,56 @@ def subscriber_api_my_articles():
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    where  = ["a.author = %s"]                      
-    params = [session.get("user")]                   
-
-    if status == "published":
-        where.append("a.draft = FALSE")
-    elif status == "drafts":
-        where.append("a.draft = TRUE")
-
-    cur.execute(f"""
+    base_select = """
         SELECT a.articleID, a.title, a.content, a.draft,
+               a.status,                        -- expose status to the UI
                a.published_at, a.updated_at,
                CASE
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
                  WHEN a.image LIKE 'http%' THEN a.image
                  WHEN a.image LIKE '/static/%' THEN a.image
-                 WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
+                 WHEN a.image LIKE './static/%' THEN REPLACE(a.image, './static', '/static')
                  ELSE CONCAT('/static/img/', a.image)
                END AS image,
                c.name AS category
         FROM articles a
         LEFT JOIN categories c ON a.catID = c.categoryID
-        WHERE {" AND ".join(where)}
-        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
-        LIMIT %s OFFSET %s
-    """, (*params, limit, offset))
+    """
 
-    rows = cur.fetchall()
+    rows = []
+    if status in ("all", "published", "drafts", "pending"):
+        where  = ["a.author = %s"]
+        params = [session.get("user")]
+
+        if status == "published":
+            where += ["a.draft = FALSE", "a.status = 'published'"]
+        elif status == "drafts":
+            where += ["a.draft = TRUE"]
+        elif status == "pending":
+            where += ["a.status = 'pending_revision'"]
+
+        sql = f"""{base_select}
+                  WHERE {" AND ".join(where)}
+                  ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+                  LIMIT %s OFFSET %s"""
+        params += [limit, offset]
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall()
+
+    elif status == "reported":
+        sql = f"""
+            {base_select}
+            INNER JOIN article_reports ar ON ar.article_id = a.articleID
+            WHERE a.author = %s
+              AND ar.status = 'reviewed'
+              AND a.status = 'pending_revision'
+            GROUP BY a.articleID
+            ORDER BY MAX(ar.updated_at) DESC
+            LIMIT %s OFFSET %s
+        """
+        cur.execute(sql, (session.get("user"), limit, offset))
+        rows = cur.fetchall()
+
     cur.close(); conn.close()
     return jsonify(rows)
 

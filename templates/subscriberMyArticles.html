@@ -41,6 +41,8 @@
       <button type="button" class="tab active" data-status="all">All</button>
       <button type="button" class="tab" data-status="published">Published</button>
       <button type="button" class="tab" data-status="drafts">Drafts</button>
+      <button type="button" class="tab" data-status="pending">Pending</button>
+      <button type="button" class="tab" data-status="reported">Reported</button>
     </div>
   </nav>
 
@@ -89,155 +91,206 @@
 
   <!-- My Articles logic -->
   <script>
-  (function(){
-    const feedEl   = document.getElementById("feed");
-    const API_URL  = "{{ url_for('subscriber_api_my_articles') }}";
-    const EDIT_TPL = "{{ url_for('subscriber_edit_article', article_id=0) }}"; // /subscriber/edit-article/<id>
+(function () {
+  // ====== DOM HOOKS ======
+  const LIST = document.getElementById("feed"); // <- your list container
+  const TAB_BTNS = document.querySelectorAll(".tabs .tab[data-status]");
+  const API_URL = "{{ url_for('subscriber_api_my_articles') }}";
+  const EDIT_TPL = "{{ url_for('subscriber_edit_article', article_id=0) }}";
+  const searchForm  = document.getElementById("searchForm");
+  const searchInput = document.getElementById("searchQ");
 
+  let currentStatus = "all"; // all | published | drafts | pending | reported
 
-    const searchForm  = document.getElementById("searchForm");
-    const searchInput = document.getElementById("searchQ");
+  // ====== UTIL: SAFE SNIPPET (render <p><strong><em><u><s> etc.) ======
+  const ALLOWED_TAGS = new Set(["P","BR","STRONG","EM","U","S","UL","OL","LI"]);
+  function safeSnippet(html, maxChars = 220) {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html || "";
 
-    let currentStatus = "all";   // all|published|drafts
-
-    const truncate = (t, n=200) => (!t ? "" : (t=t.trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
-    const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-
-    function statusBadge(draft){
-      return draft
-        ? '<span class="badge badge-draft">Draft</span>'
-        : '<span class="badge badge-published">Published</span>';
-    }
-
-    function card(a){
-      const img = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
-      const isDraft = !!a.draft;
-      const href = EDIT_TPL.replace(/0$/, a.articleID);
-
-      return `
-        <article class="article-card my-article article-with-delete" data-id="${a.articleID}">
-          <a class="card-link" href="${href}" aria-label="${esc(a.title)}">
-            <div class="text">
-              <div class="card-top">
-                ${statusBadge(isDraft)}
-                ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
-              </div>
-              <h3>${esc(a.title)}</h3>
-              <p class="desc">${esc(truncate(a.content))}</p>
-              <div class="meta-line">
-                ${a.published_at ? `<span>${isDraft ? 'Updated' : 'Published'}: ${esc(a.published_at || a.updated_at || '')}</span>` : ""}
-              </div>
-            </div>
-            <div class="thumb-wrap"><img src="${img}" alt=""></div>
-          </a>
-          <button class="article-delete-btn danger" data-id="${a.articleID}" title="Delete this article">🗑 Delete</button>
-        </article>`;
-    }
-
-
-    async function loadMyArticles(status, q){
-      feedEl.innerHTML = "";
-      const p = new URLSearchParams();
-      if (status) p.set("status", status);
-      if (q)      p.set("q", q);              // optional: server can ignore if you don’t add search there
-      p.set("limit", "50");
-
-      const res = await fetch(`${API_URL}?${p.toString()}`);
-      if (!res.ok){
-        feedEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`;
-        return;
-      }
-      const rows = await res.json();
-      feedEl.innerHTML = rows.length ? rows.map(card).join("") : "<p>No articles yet.</p>";
-    }
-
-    // Filter tabs
-    document.addEventListener("click", e => {
-      const t = e.target.closest(".tab[data-status]");
-      if (!t) return;
-      document.querySelectorAll(".tab[data-status]").forEach(x => x.classList.remove("active"));
-      t.classList.add("active");
-      currentStatus = t.getAttribute("data-status");
-      loadMyArticles(currentStatus, (searchInput?.value || "").trim());
-    });
-
-    // Search within my articles (optional—works if you add q handling to API; otherwise client-side filtering could be added)
-    if (searchForm){
-      searchForm.addEventListener("submit", e => {
-        e.preventDefault();
-        loadMyArticles(currentStatus, (searchInput.value || "").trim());
-      });
-    }
-        // Delete article
-    document.addEventListener("click", async e => {
-      const btn = e.target.closest(".article-delete-btn");
-      if (!btn) return;
-
-      const id = btn.getAttribute("data-id");
-      if (!id) return;
-
-      if (!confirm("Are you sure you want to delete this article?")) return;
-
-      const res = await fetch(`/subscriber/api/articles/${id}/delete`, { method: "DELETE" });
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        // remove from DOM
-        const card = btn.closest(".article-card");
-        if (card) card.remove();
-
-        showToast("Article deleted successfully.");
+    const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_ELEMENT);
+    const toRemove = [];
+    while (walker.nextNode()) {
+      const el = walker.currentNode;
+      if (!ALLOWED_TAGS.has(el.tagName)) {
+        const parent = el.parentNode;
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        toRemove.push(el);
       } else {
-        showToast(data.error || "Failed to delete article.");
+        [...el.attributes].forEach(a => el.removeAttribute(a.name));
       }
-    });
-
-    function showToast(msg){
-      const toast = document.getElementById("toast");
-      const span = document.getElementById("toastMsg");
-      if (!toast || !span) return;
-      span.textContent = msg;
-      toast.classList.add("show");
-      setTimeout(() => toast.classList.remove("show"), 2500);
     }
+    toRemove.forEach(n => n.remove());
 
+    let count = 0, tn;
+    const it = document.createNodeIterator(wrapper, NodeFilter.SHOW_TEXT);
+    while ((tn = it.nextNode()) && count < maxChars) {
+      const remain = maxChars - count;
+      if (tn.nodeValue.length > remain) tn.nodeValue = tn.nodeValue.slice(0, remain) + "…";
+      count += tn.nodeValue.length;
+    }
+    if (count >= maxChars && tn) {
+      let stop = tn;
+      while (stop && stop.parentNode !== wrapper) stop = stop.parentNode;
+      if (stop) {
+        let n = stop.nextSibling;
+        while (n) { const next = n.nextSibling; n.remove(); n = next; }
+      }
+    }
+    return wrapper.innerHTML;
+  }
 
-    // initial
-    loadMyArticles(currentStatus, "");
+  // ====== RENDER HELPERS ======
+  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  function statusBadge(draft, status) {
+    const st = (status || (draft ? "draft" : "published"));
+    if (st === "pending_revision") return '<span class="badge badge-draft">Pending</span>';
+    return draft ? '<span class="badge badge-draft">Draft</span>'
+                 : '<span class="badge badge-published">Published</span>';
+  }
+  function card(a) {
+    const img  = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
+    const href = EDIT_TPL.replace(/0$/, a.articleID);
+    const snippet = safeSnippet(a.content, 220);
+    return `
+      <article class="article-card my-article article-with-delete" data-id="${a.articleID}">
+        <a class="card-link" href="${href}" aria-label="${esc(a.title)}">
+          <div class="text">
+            <div class="card-top">
+              ${statusBadge(!!a.draft, a.status)}
+              ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
+            </div>
+            <h3>${esc(a.title)}</h3>
+            <p class="desc">${snippet}</p>
+            <div class="meta-line">
+              ${a.published_at ? `<span>${a.draft ? "Updated" : "Published"}: ${esc(a.published_at || a.updated_at || "")}</span>` : ""}
+            </div>
+          </div>
+          <div class="thumb-wrap"><img src="${img}" alt=""></div>
+        </a>
+        <button class="article-delete-btn danger" data-id="${a.articleID}" title="Delete this article">🗑 Delete</button>
+      </article>`;
+  }
+  function renderList(items) {
+    if (!LIST) return;
+    LIST.innerHTML = (items && items.length)
+      ? items.map(card).join("")
+      : `<div class="empty-state"><p>No ${esc(labelFor(currentStatus))} articles found.</p></div>`;
+    bindDeleteHandlers();
+  }
+  function labelFor(s){
+    return s==="published"?"Published":s==="drafts"?"Drafts":s==="pending"?"Pending":s==="reported"?"Reported":"All";
+  }
+
+  // ====== DATA LOAD ======
+  async function loadArticles(status, q) {
+    const url = new URL(API_URL, window.location.origin);
+    url.searchParams.set("status", status);
+    if (q) url.searchParams.set("q", q);
+    try {
+      setLoading(true);
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      renderList(data);
+    } catch (e) {
+      console.error(e);
+      if (LIST) LIST.innerHTML = `<p style="color:#b00">Failed to load ${esc(labelFor(status))}.</p>`;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ====== UX ======
+  function setLoading(on){
+    document.querySelector(".topbar")?.classList.toggle("is-loading", !!on);
+  }
+  function setActiveTab(btn){
+    TAB_BTNS.forEach(b => b.classList.remove("active"));
+    btn?.classList.add("active");
+  }
+
+  // ====== DELETE ======
+  function bindDeleteHandlers(){
+    document.querySelectorAll(".article-delete-btn[data-id]").forEach(btn => {
+      btn.onclick = async (e) => {
+        e.preventDefault();
+        const id = btn.getAttribute("data-id");
+        if (!id || !confirm("Delete this article?")) return;
+        try {
+          const delUrl = "{{ url_for('subscriber_delete_article', article_id=0) }}".replace(/0$/, id);
+          const res = await fetch(delUrl, { method: "POST", credentials: "same-origin" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          btn.closest(".article-card")?.remove();
+          if (!document.querySelector(".article-card")) loadArticles(currentStatus, (searchInput?.value||"").trim());
+        } catch (err) {
+          alert("Failed to delete. Please try again.");
+          console.error(err);
+        }
+      };
+    });
+  }
+
+  // ====== TABS ======
+  TAB_BTNS.forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentStatus = (btn.getAttribute("data-status") || "all").toLowerCase();
+      setActiveTab(btn);
+      loadArticles(currentStatus, (searchInput?.value || "").trim());
+    });
+  });
+
+  // ====== SEARCH ======
+  if (searchForm) {
+    searchForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      loadArticles(currentStatus, (searchInput.value || "").trim());
+    });
+  }
+
+  // ====== INIT ======
+  (function init(){
+    const active = document.querySelector(".tabs .tab.active[data-status]");
+    if (active) currentStatus = (active.getAttribute("data-status") || "all").toLowerCase();
+    setActiveTab(active);
+    loadArticles(currentStatus, "");
   })();
-  </script>
+})();
+</script>
 
   <!-- Ads Box Functions -->
-  <script>
-  (function(){
-    const adsBox   = document.getElementById('adsBox');
-    const ADS_API  = "{{ url_for('api_random_ad') }}";
-    const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+<script>
+(function(){
+  const adsBox = document.getElementById('adsBox');
+  const ADS_API = "{{ url_for('api_random_ad') }}";
+  const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
-    function renderAd(ad){
-      if(!adsBox) return;
-      adsBox.innerHTML = `
-        <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
-          <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
-          ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
-          ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
-        </a>
-      `;
-    }
+  function renderAd(ad){
+    if(!adsBox) return;
+    const hasText = !!(ad.title || ad.desc);
+    adsBox.classList.toggle('has-text', hasText);
+    adsBox.innerHTML = `
+      <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+        <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+        ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
+        ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
+      </a>
+    `;
+  }
 
-    async function loadAd(){
-      try{
-        const res = await fetch(ADS_API, {cache:'no-store'});
-        if(!res.ok) return;
-        const data = await res.json();
-        if(data?.ok && data.ad) renderAd(data.ad);
-      }catch(_){}
-    }
+  async function loadAd(){
+    try{
+      const res = await fetch(ADS_API, {cache:'no-store'});
+      if(!res.ok) return;
+      const data = await res.json();
+      if(data?.ok && data.ad) renderAd(data.ad);
+    }catch(_){}
+  }
 
-    loadAd();
-    setInterval(loadAd, 10_000); // your 10s rotation
-  })();
-  </script>
+  loadAd();
+  setInterval(loadAd, 10000);
+})();
+</script>
 
   <!-- Logout modal wiring (AFTER modal element) -->
   <script>

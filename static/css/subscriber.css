@@ -339,32 +339,59 @@ body {
 
 
 /* ===== Buttons & Ads ===== */
-.btn {
-  display: inline-block;
-  font-weight: 600;
-  text-decoration: none;
-  text-align: center;
-  cursor: pointer;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-}
-
-.btn-primary {
-  background: var(--brand);
-  color: #fff;
-}
-
 .ads {
-  height: 380px;
-  background: #f1f1f1;
-  border: 1px dashed #cfcfcf;
-  border-radius: 10px;
+  height: 380px;            /* keep if you want fixed height */
+  padding: 10px;
+  overflow: hidden;         /* prevent spill */
+  position: relative;
+}
+
+/* Make the whole ad clickable and fill the box */
+.ads .ad-link {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  color: #999;
-  font-size: 1.1rem;
+  justify-content: center;  /* center when only image */
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  text-decoration: none;
+}
+
+/* Key fix: contain the image */
+.ads .ad-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;        /* or 'contain' if you want to see full image with letterboxing */
+  border-radius: 10px;
+}
+
+/* Optional: if you want image + text layout */
+.ads.has-text .ad-link {
+  justify-content: flex-start;
+}
+.ads.has-text .ad-image {
+  height: 65%;              /* reserve space for text */
+}
+.ads .ad-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #222;
+  text-align: center;
+}
+.ads .ad-desc {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #555;
+  text-align: center;
+  display: -webkit-box;     /* clamp to 3 lines */
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* Toolbar above an article */
