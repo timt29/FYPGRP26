@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Profile — EchoPress</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="{{ url_for('static', filename='img/echopresslogo.png') }}" type="image/png" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="left">
+      <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" height="28">
+      </button>
+    </div>
+    <div class="right">
+      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
+      <div id="menuPanel" class="menu-panel">
+        <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
+        <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
+        <a class="menu-item" href="{{ url_for('subscriber_analytics') }}">View Analytics</a>
+        <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
+        <a class="menu-item" href="{{ url_for('donate_form') }}">Donate to EchoPress</a>
+        <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page">
+    <!-- Main column -->
+    <section class="feed">
+      <div class="article-card detail">
+        <div class="card-header">Subscriber Profile</div>
+
+        {% set p = profile or user %}
+        {% set raw_name = (p.display_name if p is defined and p.display_name is not none else (p.name if p is defined else 'User')) or 'User' %}
+        {% set initial  = raw_name[0]|upper %}
+        {% set current_img = (p.avatar_url if p is defined and p.avatar_url is not none else (p.image if p is defined else '')) or '' %}
+        {% set show_img = current_img.replace('../static','/static').replace('./static','/static') if current_img else '' %}
+        {% set email = (p.email if p is defined else '') or '' %}
+        {% set role  = (p.usertype if p is defined else '') or '' %}
+        {% set bio   = (p.bio if p is defined else '') or '' %}
+
+        <!-- Avatar + Basic -->
+        <div class="profile-header" style="display:flex; gap:16px; align-items:center;">
+          <div class="avatar" aria-label="Profile picture">
+            {% if show_img %}
+              <img src="{{ show_img }}" alt="Profile picture of {{ raw_name|e }}">
+            {% else %}
+              <div class="avatar-initial" aria-hidden="true">{{ initial }}</div>
+            {% endif %}
+          </div>
+          <div class="profile-basics">
+            <h1 class="profile-name" style="margin:0;">{{ raw_name }}</h1>
+            {% if role %}<p class="muted" style="margin:.25rem 0 0;">{{ role }}</p>{% endif %}
+          </div>
+        </div>
+
+        <!-- Details (read-only) -->
+        <div class="profile-body" style="margin-top:20px;">
+          <dl class="kv">
+            <dt>Name</dt>
+            <dd>{{ raw_name }}</dd>
+
+            {% if email %}
+              <dt>Email</dt>
+              <dd>{{ email }}</dd>
+            {% endif %}
+
+            {% if role %}
+              <dt>Role</dt>
+              <dd>{{ role }}</dd>
+            {% endif %}
+
+            <dt>Bio</dt>
+            <dd>
+              {% if bio %}
+                <div class="prose">{{ bio|e|replace('\n','<br>')|safe }}</div>
+              {% else %}
+                <span class="muted">No bio provided.</span>
+              {% endif %}
+            </dd>
+
+            {% if p and (p.articles_count is defined or p.bookmarks_count is defined or p.joined_at is defined) %}
+              {% if p.articles_count is defined %}
+                <dt>Articles</dt>
+                <dd>{{ p.articles_count }}</dd>
+              {% endif %}
+              {% if p.bookmarks_count is defined %}
+                <dt>Bookmarks</dt>
+                <dd>{{ p.bookmarks_count }}</dd>
+              {% endif %}
+              {% if p.joined_at is defined and p.joined_at %}
+                <dt>Member since</dt>
+                <dd>{{ p.joined_at }}</dd>
+              {% endif %}
+            {% endif %}
+          </dl>
+        </div>
+
+        <!-- Navigation -->
+        <div class="form-buttons" style="gap:12px;">
+          <a class="btn btn-light" href="{{ request.referrer or url_for('subscriberHomepage') }}">Back</a>
+          {% if p and p.id and url_for %}
+            <a class="btn btn-primary" href="{{ url_for('subscriber_article_list_by_author', author_id=p.id) }}">View {{ raw_name.split(' ')[0] }}’s Articles</a>
+          {% endif %}
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Right sidebar -->
+    <aside class="sidebar">
+      <a href="{{ url_for('subscriberCreateArticle') }}" class="btn btn-primary">Create Your Story</a>
+      <div class="ads" id="adsBox" aria-live="polite"></div>
+    </aside>
+  </main>
+
+  <!-- Logout Confirmation Modal -->
+  <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h2>Log out?</h2>
+      <div class="buttons">
+        <button type="button" class="btn btn-light" id="logoutCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Menu toggle -->
+  <script>
+    (function(){
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      if(!btn || !panel) return;
+      const closeP  = () => panel.style.display='none';
+      const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
+      btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
+    })();
+  </script>
+
+  <!-- Ads Box Functions -->
+  <script>
+    (function(){
+      const adsBox   = document.getElementById('adsBox');
+      const ADS_API  = "{{ url_for('api_random_ad') }}";
+      const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+      function renderAd(ad){
+        if(!adsBox) return;
+        adsBox.innerHTML = `
+          <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+            <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+            ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
+            ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
+          </a>
+        `;
+      }
+
+      async function loadAd(){
+        try{
+          const res = await fetch(ADS_API, {cache:'no-store'});
+          if(!res.ok) return;
+          const data = await res.json();
+          if(data?.ok && data.ad) renderAd(data.ad);
+        }catch(_){}
+      }
+
+      loadAd();
+      setInterval(loadAd, 10_000);
+    })();
+  </script>
+
+  <!-- Logout modal wiring -->
+  <script>
+    (function () {
+      const modal   = document.getElementById('logoutModal');
+      const confirm = document.getElementById('logoutConfirm');
+      const cancel  = document.getElementById('logoutCancel');
+
+      document.querySelectorAll('.logout-link').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          modal.dataset.href = a.getAttribute('href');
+          modal.classList.add('show');
+          modal.setAttribute('aria-hidden', 'false');
+        });
+      });
+
+      function closeModal() {
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+        delete modal.dataset.href;
+      }
+
+      if (cancel)  cancel.addEventListener('click', closeModal);
+      if (confirm) confirm.addEventListener('click', () => {
+        const href = modal.dataset.href || "{{ url_for('logout') }}";
+        window.location.href = href;
+      });
+
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+      });
+
+      // Handle bfcache
+      window.addEventListener('pageshow', function(event) {
+        if (event.persisted) window.location.reload();
+      });
+    })();
+  </script>
+
+  {% include 'partials/chatbot.html' %}
+
+  <footer class="site-footer" role="contentinfo" aria-label="Site footer">
+    <div class="footer-container">
+
+      <div class="footer-top">
+        <a class="footer-brand" href="{{ url_for('subscriberHomepage') }}">EchoPress</a>
+
+        <nav class="footer-links" aria-label="Key links">
+          <ul>
+            <li><a href="{{ url_for('subscriber_my_articles') }}">My Articles</a></li>
+            <li><a href="{{ url_for('subscriber_bookmarks') }}">Bookmarks</a></li>
+            <li><a href="{{ url_for('profile') }}">My Profile</a></li>
+            <li><a href="{{ url_for('subscriberCreateArticle') }}">Create Story</a></li>
+            <li><a href="{{ url_for('donate_form') }}">Donate</a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <div class="footer-grid">
+        <div class="footer-support">
+          <h3>Support EchoPress</h3>
+          <p>Your contribution keeps independent journalism alive.</p>
+          <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
+
+          <ul class="footer-social" aria-label="Social links">
+            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
+            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-legal">
+        <address class="footer-contact">
+          Newsroom: <a href="mailto:newsdesk@echopress.com">Email Us</a> ·
+          Ads: <a href="mailto:ads@echopress.com">Email Us</a> ·
+        </address>
+        <p class="footer-copy">© <span id="footer-year"></span> EchoPress. All rights reserved.</p>
+      </div>
+
+    </div>
+  </footer>
+
+  <script>
+    (function(){
+      var y = document.getElementById('footer-year');
+      if (y) y.textContent = new Date().getFullYear();
+    })();
+  </script>
+
+</body>
+</html>

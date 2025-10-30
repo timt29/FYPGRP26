@@ -1532,6 +1532,64 @@ def profile_update():
     # success → show toast on profile for 2s, then return to last page
     return redirect(url_for("profile", updated=1, next=next_url))
 
+@app.get("/subscriber/profile/<int:user_id>")
+@login_required("Subscriber")
+def subscriber_profile_view(user_id: int):
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    cur.execute("""
+        SELECT userID, name, email, usertype, image, bio
+        FROM users
+        WHERE userID = %s
+        LIMIT 1
+    """, (user_id,))
+    u = cur.fetchone()
+
+    if not u:
+        cur.close(); conn.close()
+        abort(404)
+
+    img = (u.get("image") or "")
+    if img.startswith("../static/"):
+        u["image"] = img.replace("../static", "/static")
+    elif img.startswith("./static/"):
+        u["image"] = img.replace("./static", "/static")
+
+    cur.execute("""
+        SELECT a.articleID, a.title, a.published_at,
+               CASE
+                 WHEN a.image IS NULL OR a.image = '' THEN NULL
+                 WHEN a.image LIKE 'http%%' THEN a.image
+                 WHEN a.image LIKE '/static/%%' THEN a.image
+                 WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image, '../static', '/static')
+                 ELSE CONCAT('/static/img/', a.image)
+               END AS image
+        FROM articles a
+        WHERE a.author = %s AND a.draft = 0 AND a.visible = 1
+        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+        LIMIT 50
+    """, (u["name"],))
+    articles = cur.fetchall() or []
+
+    cur.close(); conn.close()
+
+    profile = {
+        "id": u["userID"],
+        "display_name": u["name"],
+        "email": u["email"],
+        "usertype": u["usertype"],
+        "bio": u.get("bio"),
+        "avatar_url": u.get("image"),
+    }
+
+    return render_template(
+        "subscriberViewProfile.html",
+        user=u,              
+        profile=profile,    
+        articles=articles,  
+    )
+
 @app.route("/subscriber/api/articles/<int:article_id>/delete", methods=["DELETE"])
 @login_required("Subscriber")
 def subscriber_delete_article(article_id):
