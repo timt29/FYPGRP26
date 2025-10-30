@@ -47,14 +47,15 @@ def get_db_connection():
         database="nrs"
     )
 '''
+
 def get_db_connection():
     return psycopg2.connect(
-    host="aws-1-ap-southeast-1.pooler.supabase.com",
-    port=6543,  # <-- important: pooler uses 6543
-    database="postgres",
-    user="postgres.ioxwfemawqhuqwkmshoc",
-    password="ZavXqAKfvdBvKRUKrjhQZoMYypyHLQes",
-    sslmode="require"
+        host=os.getenv("host", "aws-1-ap-southeast-1.pooler.supabase.com"),
+        port=int(os.getenv("port", 6543)),
+        database=os.getenv("database", "postgres"),
+        user=os.getenv("user", "postgres.ioxwfemawqhuqwkmshoc"),
+        password=os.getenv("password", "ZavXqAKfvdBvKRUKrjhQZoMYypyHLQes"),
+        sslmode="require"
     )
 
 print("Connected to MySQL")
