@@ -258,39 +258,37 @@
 })();
 </script>
 
-  <!-- Ads Box Functions -->
-<script>
-(function(){
-  const adsBox = document.getElementById('adsBox');
-  const ADS_API = "{{ url_for('api_random_ad') }}";
-  const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+ <!-- Ads Box Functions -->
+  <script>
+  (function(){
+    const adsBox   = document.getElementById('adsBox');
+    const ADS_API  = "{{ url_for('api_random_ad') }}";
+    const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
-  function renderAd(ad){
-    if(!adsBox) return;
-    const hasText = !!(ad.title || ad.desc);
-    adsBox.classList.toggle('has-text', hasText);
-    adsBox.innerHTML = `
-      <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
-        <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
-        ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
-        ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
-      </a>
-    `;
-  }
+    function renderAd(ad){
+      if(!adsBox) return;
+      adsBox.innerHTML = `
+        <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+          <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+          ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
+          ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
+        </a>
+      `;
+    }
 
-  async function loadAd(){
-    try{
-      const res = await fetch(ADS_API, {cache:'no-store'});
-      if(!res.ok) return;
-      const data = await res.json();
-      if(data?.ok && data.ad) renderAd(data.ad);
-    }catch(_){}
-  }
+    async function loadAd(){
+      try{
+        const res = await fetch(ADS_API, {cache:'no-store'});
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data?.ok && data.ad) renderAd(data.ad);
+      }catch(_){}
+    }
 
-  loadAd();
-  setInterval(loadAd, 10000);
-})();
-</script>
+    loadAd();
+    setInterval(loadAd, 10_000);
+  })();
+  </script>
 
   <!-- Logout modal wiring (AFTER modal element) -->
   <script>
