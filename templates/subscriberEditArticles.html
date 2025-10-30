@@ -212,5 +212,57 @@
   </script>
 
   {% include 'partials/chatbot.html' %}
+
+    <footer class="site-footer" role="contentinfo" aria-label="Site footer">
+  <div class="footer-container">
+
+    <div class="footer-top">
+      <a class="footer-brand" href="{{ url_for('subscriberHomepage') }}">EchoPress</a>
+
+      <nav class="footer-links" aria-label="Key links">
+        <ul>
+          <li><a href="{{ url_for('subscriber_my_articles') }}">My Articles</a></li>
+          <li><a href="{{ url_for('subscriber_bookmarks') }}">Bookmarks</a></li>
+          <li><a href="{{ url_for('profile') }}">My Profile</a></li>
+          <li><a href="{{ url_for('subscriberCreateArticle') }}">Create Story</a></li>
+          <li><a href="{{ url_for('donate_form') }}">Donate</a></li>
+        </ul>
+      </nav>
+    </div>
+
+      <div class="footer-grid">
+        <div class="footer-support">
+          <h3>Support EchoPress</h3>
+          <p>Your contribution keeps independent journalism alive.</p>
+          <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
+
+          <!-- Moved here: centered social links under Donate -->
+          <ul class="footer-social" aria-label="Social links">
+            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
+            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+          </ul>
+        </div>
+      </div>
+
+    <div class="footer-legal">
+      <address class="footer-contact">
+        Newsroom: <a href="mailto:newsdesk@echopress.com">Email Us</a> ·
+        Ads: <a href="mailto:ads@echopress.com">Email Us</a> ·
+      </address>
+      <p class="footer-copy">© <span id="footer-year"></span> EchoPress. All rights reserved.</p>
+    </div>
+
+  </div><!-- /footer-container -->
+</footer>
+
+<script>
+  (function(){
+    var y = document.getElementById('footer-year');
+    if (y) y.textContent = new Date().getFullYear();
+  })();
+</script>
+
 </body>
 </html>
