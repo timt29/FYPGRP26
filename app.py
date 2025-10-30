@@ -1091,8 +1091,10 @@ def subscriber_api_bookmarks():
     return jsonify(rows)
 
 # --- (MW) Subscriber comment functions ------
+from datetime import datetime, timezone
+from flask import jsonify, request, session
+
 def _timeago(ts):
-    # naive, good-enough "x min ago"
     if not ts:
         return ""
     if isinstance(ts, str):
@@ -1104,23 +1106,35 @@ def _timeago(ts):
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=timezone.utc)
     delta = int((now - ts).total_seconds())
-    if delta < 60:  return "just now"
+    if delta < 60:   return "just now"
     if delta < 3600: return f"{delta//60}m ago"
-    if delta < 86400: return f"{delta//3600}h ago"
+    if delta < 86400:return f"{delta//3600}h ago"
     return f"{delta//86400}d ago"
+
+def _to_iso(dt):
+    try:    return dt.isoformat()
+    except: return None
+
+def _norm_img(p: str | None) -> str | None:
+    if not p: return None
+    if p.startswith("http"): return p
+    if p.startswith("/static/"): return p
+    if p.startswith("../static/"): return p.replace("../static", "/static")
+    if p.startswith("./static/"):  return p.replace("./static", "/static")
+    return "/static/profilePictures/" + p.lstrip("/")
 
 @app.get("/subscriber/api/comments")
 @login_required("Subscriber")
 def subscriber_api_comments():
-    from flask import jsonify, request, session
+    from app import get_db_connection  # if your factory exposes it here
 
     article_id = int(request.args.get("article_id", 0))
-    uid = session.get("userID")  # <- use the correct session key
+    uid = session.get("userID")  # your session key
 
     conn = get_db_connection()
     cur = conn.cursor(dictionary=True)
 
-    # 1) Load comments for this article (include parent fields)
+    # 1) comments + author name + author image
     cur.execute("""
         SELECT
             c.commentID,
@@ -1131,7 +1145,8 @@ def subscriber_api_comments():
             c.userID,
             c.is_reply,
             c.reply_to_comment_id,
-            u.name AS author,
+            u.name  AS author,
+            u.image AS author_image,
             (c.userID = %s) AS mine
         FROM comments c
         JOIN users u ON u.userID = c.userID
@@ -1140,28 +1155,20 @@ def subscriber_api_comments():
     """, (uid, article_id))
     rows = cur.fetchall()
 
-    # 2) Load my reaction (like/dislike) for these comments, if any
+    # 2) my reactions for these comments
     my_reaction_map = {}
     if rows:
-        comment_ids = [str(r["commentID"]) for r in rows]
-        in_clause = ",".join(comment_ids)
+        ids = [r["commentID"] for r in rows]
+        placeholders = ",".join(["%s"] * len(ids))
         cur.execute(f"""
             SELECT commentID, reaction
             FROM comment_reactions
-            WHERE userID = %s AND commentID IN ({in_clause})
-        """, (uid,))
+            WHERE userID = %s AND commentID IN ({placeholders})
+        """, (uid, *ids))
         for r in cur.fetchall():
             my_reaction_map[r["commentID"]] = r["reaction"]
 
-    cur.close()
-    conn.close()
-
-    # Helper to ISO-date
-    def to_iso(dt):
-        try:
-            return dt.isoformat()
-        except Exception:
-            return None
+    cur.close(); conn.close()
 
     out = []
     for r in rows:
@@ -1170,21 +1177,21 @@ def subscriber_api_comments():
             "text": r["comment_text"],
             "likes": int(r["likes"] or 0),
             "dislikes": int(r["dislikes"] or 0),
-            "created_at": to_iso(r["created_at"]),
+            "created_at": _to_iso(r["created_at"]),
             "author": r["author"] or "Anonymous",
+            "author_image": _norm_img(r.get("author_image")),
             "mine": bool(r["mine"]),
-            "my_reaction": my_reaction_map.get(r["commentID"]),  # "like" | "dislike" | None
+            "my_reaction": my_reaction_map.get(r["commentID"]),
             "is_reply": bool(r.get("is_reply")),
-            "parent_id": r.get("reply_to_comment_id")  # null or int
+            "parent_id": r.get("reply_to_comment_id")
         })
-
     return jsonify(out)
-
 
 @app.post("/subscriber/api/comments")
 @login_required("Subscriber")
 def subscriber_api_comment_create():
-    from flask import request, jsonify, session
+    from app import get_db_connection
+
     uid = session.get("userID")
     article_id = request.form.get("articleID")
     text = request.form.get("text", "").strip()
@@ -1196,7 +1203,7 @@ def subscriber_api_comment_create():
     conn = get_db_connection()
     cur = conn.cursor(dictionary=True)
 
-    # ✅ Ensure 1-level replies only (reply to top-level)
+    # Ensure 1-level replies only (reply to top-level)
     top_parent_id = None
     if parent_id:
         try:
@@ -1204,7 +1211,6 @@ def subscriber_api_comment_create():
             cur.execute("SELECT reply_to_comment_id FROM comments WHERE commentID=%s", (pid,))
             row = cur.fetchone()
             if row:
-                # if the parent already has a parent, use that (force top-level)
                 top_parent_id = row["reply_to_comment_id"] or pid
             else:
                 top_parent_id = pid
@@ -1213,22 +1219,20 @@ def subscriber_api_comment_create():
 
     cur.close()
     cur = conn.cursor()
-
     cur.execute("""
         INSERT INTO comments (articleID, userID, comment_text, is_reply, reply_to_comment_id)
         VALUES (%s, %s, %s, %s, %s)
     """, (article_id, uid, text, bool(top_parent_id), top_parent_id))
 
     conn.commit()
-    cur.close()
-    conn.close()
-
+    cur.close(); conn.close()
     return jsonify({"ok": True})
-
 
 @app.put("/subscriber/api/comments/<int:comment_id>")
 @login_required("Subscriber")
 def subscriber_api_comment_update(comment_id):
+    from app import get_db_connection
+
     uid = session.get("userID")
     text = (request.json.get("text") or "").strip()
     if not text:
@@ -1236,7 +1240,6 @@ def subscriber_api_comment_update(comment_id):
 
     conn = get_db_connection()
     cur = conn.cursor()
-    # ensure ownership
     cur.execute("SELECT userID FROM comments WHERE commentID=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
@@ -1252,6 +1255,8 @@ def subscriber_api_comment_update(comment_id):
 @app.delete("/subscriber/api/comments/<int:comment_id>")
 @login_required("Subscriber")
 def subscriber_api_comment_delete(comment_id):
+    from app import get_db_connection
+
     uid = session.get("userID")
     conn = get_db_connection()
     cur = conn.cursor()
@@ -1269,22 +1274,21 @@ def subscriber_api_comment_delete(comment_id):
 @app.post("/subscriber/api/comments/<int:comment_id>/react")
 @login_required("Subscriber")
 def subscriber_api_comment_react(comment_id):
+    from app import get_db_connection
+
     uid = session.get("userID")
     action = (request.json.get("action") or "").lower()  # "like"|"dislike"|"clear"
-
     if action not in ("like", "dislike", "clear"):
         return jsonify(ok=False, message="Invalid action"), 400
 
     conn = get_db_connection()
     cur = conn.cursor()
 
-    # read current
-    cur.execute("""SELECT reaction FROM comment_reactions WHERE commentID=%s AND userID=%s""",
+    cur.execute("SELECT reaction FROM comment_reactions WHERE commentID=%s AND userID=%s",
                 (comment_id, uid))
     row = cur.fetchone()
     prev = row[0] if row else None
 
-    # counters first (get current counts)
     cur.execute("SELECT likes, dislikes FROM comments WHERE commentID=%s", (comment_id,))
     cd = cur.fetchone()
     if not cd:
@@ -1292,158 +1296,130 @@ def subscriber_api_comment_react(comment_id):
         return jsonify(ok=False, message="Comment not found"), 404
     likes, dislikes = cd
 
-    # apply transitions
     if action == "clear":
-        if prev == "like":
-            likes = max(0, likes - 1)
-        elif prev == "dislike":
-            dislikes = max(0, dislikes - 1)
+        if prev == "like":    likes    = max(0, likes - 1)
+        elif prev == "dislike": dislikes = max(0, dislikes - 1)
         if prev:
             cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userID=%s",
                         (comment_id, uid))
     else:
         if prev == action:
-            # toggle off same action
-            if action == "like":   likes = max(0, likes - 1)
-            else:                  dislikes = max(0, dislikes - 1)
+            if action == "like": likes = max(0, likes - 1)
+            else:                dislikes = max(0, dislikes - 1)
             cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userID=%s",
                         (comment_id, uid))
             action = "clear"
         else:
-            # switch or create
-            if prev == "like":
-                likes = max(0, likes - 1)
-            elif prev == "dislike":
-                dislikes = max(0, dislikes - 1)
-            if action == "like":
-                likes += 1
-            else:
-                dislikes += 1
+            if prev == "like": likes = max(0, likes - 1)
+            elif prev == "dislike": dislikes = max(0, dislikes - 1)
+            if action == "like": likes += 1
+            else:                dislikes += 1
             cur.execute("""
                 INSERT INTO comment_reactions (commentID, userID, reaction)
                 VALUES (%s,%s,%s)
                 ON DUPLICATE KEY UPDATE reaction=VALUES(reaction), updated_at=CURRENT_TIMESTAMP
             """, (comment_id, uid, action))
 
-    # persist counters
     cur.execute("UPDATE comments SET likes=%s, dislikes=%s WHERE commentID=%s",
                 (likes, dislikes, comment_id))
     conn.commit()
     cur.close(); conn.close()
 
-    return jsonify(ok=True, likes=likes, dislikes=dislikes, state=None if action=="clear" else action)
+    return jsonify(ok=True, likes=likes, dislikes=dislikes,
+                   state=None if action=="clear" else action)
 
 @app.route("/subscriber/report_article", methods=["POST"])
 @login_required("Subscriber")
 def report_article():
-    data = request.get_json() or {}
-    article_id = data.get("articleID") or data.get("id")
-    reason = data.get("reason")
-    details = data.get("details", "")
-    
-    reporter_id = session.get("userID")
-    reporter_name = session.get("user") 
-    
-    if not reporter_id:
-        return jsonify({"ok": False, "message": "User not logged in."}), 401
+    data = request.get_json(silent=True) or {}
+    # frontend sends "id"; keep backward compat with "articleID"
+    article_id = data.get("id") or data.get("articleID")
+    reason     = (data.get("reason") or "").strip()
+    details    = (data.get("details") or "").strip()
 
+    reporter_id   = session.get("userID")
+    reporter_name = (session.get("user") or "").strip()
+
+    if not reporter_id:
+        return jsonify(ok=False, message="User not logged in."), 401
     if not article_id or not reason:
-        return jsonify({"ok": False, "message": "Article ID and reason are required."}), 400
+        return jsonify(ok=False, message="Article ID and reason are required."), 400
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
+    cur  = conn.cursor(dictionary=True)
     try:
-        # Step 1: Get article author (by name)
-        cursor.execute("SELECT author FROM articles WHERE articleID = %s", (article_id,))
-        article = cursor.fetchone()
+        # 1) verify article exists + author name
+        cur.execute("SELECT author FROM articles WHERE articleID = %s", (article_id,))
+        row = cur.fetchone()
+        if not row:
+            return jsonify(ok=False, message="Article not found."), 404
 
-        if not article:
-            return jsonify({"ok": False, "message": "Article not found."}), 404
+        # 2) block self-report (by author name, case-insensitive)
+        art_author = (row.get("author") or "").strip()
+        if art_author and reporter_name and art_author.lower() == reporter_name.lower():
+            return jsonify(ok=False, message="You cannot report your own article."), 403
 
-        # Step 2: Check if reporter is the author (by comparing names)
-        if article["author"].strip().lower() == reporter_name.strip().lower():
-            return jsonify({
-                "ok": False,
-                "message": "User cannot report their own published article."
-            }), 403
-
-        # Step 3: Prevent duplicate reports
-        cursor.execute(
-            "SELECT 1 FROM article_reports WHERE article_id = %s AND reporter_id = %s",
+        # 3) de-dupe (same user reporting same article)
+        cur.execute(
+            "SELECT 1 FROM article_reports WHERE article_id = %s AND reporter_id = %s LIMIT 1",
             (article_id, reporter_id)
         )
-        if cursor.fetchone():
-            return jsonify({"ok": False, "message": "You have already reported this article."}), 400
+        if cur.fetchone():
+            return jsonify(ok=False, message="You have already reported this article."), 400
 
-        # Step 4: Insert new report
-        cursor.execute(
-            """
+        # 4) insert
+        cur.execute("""
             INSERT INTO article_reports (article_id, reporter_id, reason, details, created_at)
             VALUES (%s, %s, %s, %s, NOW())
-            """,
-            (article_id, reporter_id, reason, details)
-        )
+        """, (article_id, reporter_id, reason, details))
         conn.commit()
-        return jsonify({"ok": True, "message": "Report submitted successfully."})
-
+        return jsonify(ok=True, message="Report submitted successfully.")
     except mysql.connector.Error as err:
-        print("Database error:", err)
-        return jsonify({
-            "ok": False,
-            "message": "An internal error occurred while submitting your report."
-        }), 500
-
+        conn.rollback()
+        print("DB error:", err)
+        return jsonify(ok=False, message="Internal error while submitting report."), 500
     finally:
-        cursor.close()
-        conn.close()
+        cur.close(); conn.close()
 
 @app.route("/subscriber/report_comment", methods=["POST"])
 @login_required("Subscriber")
 def report_comment():
-    data = request.get_json() or {}
-    comment_id = data.get("commentID") or data.get("id")
-    reason = data.get("reason")
-    details = data.get("details", "")
-    
+    data = request.get_json(silent=True) or {}
+    # frontend sends "id"; keep backward compat with "commentID"
+    comment_id = data.get("id") or data.get("commentID")
+    reason     = (data.get("reason") or "").strip()
+    details    = (data.get("details") or "").strip()
+
     reporter_id = session.get("userID")
     if not reporter_id:
-        return jsonify({"ok": False, "message": "User not logged in."}), 401
-
+        return jsonify(ok=False, message="User not logged in."), 401
     if not comment_id or not reason:
-        return jsonify({"ok": False, "message": "Comment ID and reason are required."}), 400
+        return jsonify(ok=False, message="Comment ID and reason are required."), 400
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
+    cur  = conn.cursor(dictionary=True)
     try:
-        # Step 1: Prevent duplicate reports from same user
-        cursor.execute(
-            "SELECT 1 FROM comment_reports WHERE comment_id = %s AND reporter_id = %s",
+        # 1) de-dupe (same user reporting same comment)
+        cur.execute(
+            "SELECT 1 FROM comment_reports WHERE comment_id = %s AND reporter_id = %s LIMIT 1",
             (comment_id, reporter_id)
         )
-        if cursor.fetchone():
-            return jsonify({"ok": False, "message": "You have already reported this comment."}), 400
+        if cur.fetchone():
+            return jsonify(ok=False, message="You have already reported this comment."), 400
 
-        # Step 2: Insert new report
-        cursor.execute(
-            """
+        # 2) insert
+        cur.execute("""
             INSERT INTO comment_reports (comment_id, reporter_id, reason, details, created_at)
             VALUES (%s, %s, %s, %s, NOW())
-            """,
-            (comment_id, reporter_id, reason, details)
-        )
+        """, (comment_id, reporter_id, reason, details))
         conn.commit()
-        return jsonify({"ok": True, "message": "Report submitted successfully."})
-
+        return jsonify(ok=True, message="Report submitted successfully.")
     except mysql.connector.Error as err:
-        print("Database error:", err)
-        return jsonify({"ok": False, "message": "An error occurred while submitting your report."}), 500
-
+        conn.rollback()
+        print("DB error:", err)
+        return jsonify(ok=False, message="Internal error while submitting report."), 500
     finally:
-        cursor.close()
-        conn.close()
-
+        cur.close(); conn.close()
 
 # (MW) --------------Profile page----------------
 def save_profile_image(file_storage):

@@ -5,10 +5,11 @@
   <title>{{ article.title }} — EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/EchoPressLogo.png') }}" type="image/png" />
+
+  <!-- Styles -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/accessibility_toolbar.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-
 </head>
 <body>
 
@@ -42,7 +43,7 @@
   <!-- Page -->
   <main class="page">
 
-    <!-- ===== ARTICLE VIEW (hidden when showing results) ===== -->
+    <!-- ===== ARTICLE VIEW ===== -->
     <section id="articleSection" class="feed">
       <article id="articleRoot" class="article-card detail article-view" data-article-id="{{ article.articleID }}">
         <header class="article-header">
@@ -67,70 +68,69 @@
               <button id="ttsResume" class="btn btn-ghost">Continue</button>
               <button id="ttsReplay" class="btn btn-ghost">Replay</button>
 
-                <label>Speaker:
-                  <select id="ttsGender">
-                    <option value="auto" selected>Auto</option>
-                    <option value="female">Female</option>
-                    <option value="male">Male</option>
-                  </select>
-                </label>
+              <label>Speaker:
+                <select id="ttsGender">
+                  <option value="auto" selected>Auto</option>
+                  <option value="female">Female</option>
+                  <option value="male">Male</option>
+                </select>
+              </label>
 
-                <label>Speed:
-                  <select id="ttsRate">
-                    <option value="0.5">0.5×</option>
-                    <option value="1" selected>1×</option>
-                    <option value="2">2×</option>
-                  </select>
-                </label>
+              <label>Speed:
+                <select id="ttsRate">
+                  <option value="0.5">0.5×</option>
+                  <option value="1" selected>1×</option>
+                  <option value="2">2×</option>
+                </select>
+              </label>
             </div>
           </div>
         </div>
 
+        <!-- Translate -->
         <div style="margin: 15px 20px;">
-              <label for="language">Translate to:</label>
-              <select id="language" onchange="translateArticle()">
-                <option value="en">English (Default)</option>
-                <optgroup label="Asian Languages">
-                  <option value="zh-CN">Chinese (Simplified)</option>
-                  <option value="ms">Malay</option>
-                  <option value="ko">Korean</option>
-                  <option value="ja">Japanese</option>
-                  <option value="vi">Vietnamese</option>
-                </optgroup>
+          <label for="language">Translate to:</label>
+          <select id="language" onchange="translateArticle()">
+            <option value="en">English (Default)</option>
+            <optgroup label="Asian Languages">
+              <option value="zh-CN">Chinese (Simplified)</option>
+              <option value="ms">Malay</option>
+              <option value="ko">Korean</option>
+              <option value="ja">Japanese</option>
+              <option value="vi">Vietnamese</option>
+            </optgroup>
+            <optgroup label="European Languages">
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="nl">Dutch</option>
+              <option value="ru">Russian</option>
+              <option value="it">Italian</option>
+              <option value="pt">Portuguese</option>
+            </optgroup>
+          </select>
+        </div>
 
-                <optgroup label="European Languages">
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="nl">Dutch</option>
-                  <option value="ru">Russian</option>
-                  <option value="it">Italian</option>
-                  <option value="pt">Portuguese</option>
-                </optgroup>
-              </select>
-            </div>
-
-          {% if summary_points %}
-            <div class="summary-box">
-              <h3>Summary</h3>
-              <ul id="summaryList">
-                {% for point in summary_points %}
-                  <li>{{ point | safe }}</li>
-                {% endfor %}
-              </ul>
-            </div>
-          {% endif %}
+        {% if summary_points %}
+        <div class="summary-box">
+          <h3>Summary</h3>
+          <ul id="summaryList">
+            {% for point in summary_points %}
+              <li>{{ point | safe }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
 
         <!-- Two-column body: text + image -->
         <div class="article-body two-col">
           <div class="article-content">
             {{ article.content | safe }}
           </div>
-
           {% if article.image %}
-            <div class="thumb-wrap side">
-              <img src="{{ article.image }}" alt="Article image">
-            </div>
+          <div class="thumb-wrap side">
+            <img src="{{ article.image }}" alt="Article image">
+          </div>
           {% endif %}
         </div>
 
@@ -142,7 +142,7 @@
         </div>
 
         <div class="action-buttons">
-          <button id="reportBtn" class="btn btn-ghost" title="Report">
+          <button id="articleReportBtn" class="btn btn-ghost" title="Report">
             <img src="{{ url_for('static', filename='img/report.jpg') }}" alt="Report" style="width:20px; vertical-align:middle;" />
             <span>Report</span>
           </button>
@@ -155,21 +155,16 @@
       </article>
 
       <!-- Comments -->
-      <section class="card comments">
-        <h3 class="comments-title">Comments</h3>
-
-        <!-- Create -->
-        <form id="cForm" class="comment-form" autocomplete="off">
-          <textarea id="cInput" class="comment-input" rows="3" placeholder="Add a comment…"></textarea>
-          <button id="cSend" type="submit" class="btn btn-primary">Send</button>
+      <section id="comments" class="section">
+        <form id="cForm" class="comment-form">
+          <textarea id="cInput" class="comment-input" placeholder="Add a comment here."></textarea>
+          <button type="submit" class="btn btn-primary">Send</button>
         </form>
-
-        <!-- List -->
-        <div id="cList" class="comment-list"></div>
+        <div id="cList" class="comment-list" style="margin-top:12px;"></div>
       </section>
     </section>
 
-    <!-- ===== SEARCH RESULTS (in-page; hides article view) ===== -->
+    <!-- ===== SEARCH RESULTS ===== -->
     <section id="resultsSection" class="feed hidden" aria-live="polite" aria-busy="false">
       <div class="results-header">
         <h2 class="results-title">Search results</h2>
@@ -191,7 +186,7 @@
     <span id="toastMsg">Done.</span>
   </div>
 
-    <!-- Logout Confirmation Modal -->
+  <!-- Logout Confirmation Modal -->
   <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal" role="document">
       <h2>Log out?</h2>
@@ -201,6 +196,74 @@
       </div>
     </div>
   </div>
+
+  <!-- Footer -->
+  <footer class="site-footer" role="contentinfo" aria-label="Site footer">
+    <div class="footer-container">
+      <div class="footer-top">
+        <a class="footer-brand" href="{{ url_for('subscriberHomepage') }}">EchoPress</a>
+        <nav class="footer-links" aria-label="Key links">
+          <ul>
+            <li><a href="{{ url_for('subscriber_my_articles') }}">My Articles</a></li>
+            <li><a href="{{ url_for('subscriber_bookmarks') }}">Bookmarks</a></li>
+            <li><a href="{{ url_for('profile') }}">My Profile</a></li>
+            <li><a href="{{ url_for('subscriberCreateArticle') }}">Create Story</a></li>
+            <li><a href="{{ url_for('donate_form') }}">Donate</a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <div class="footer-grid">
+        <div class="footer-support">
+          <h3>Support EchoPress</h3>
+          <p>Your contribution keeps independent journalism alive.</p>
+          <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
+          <ul class="footer-social" aria-label="Social links">
+            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
+            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-legal">
+        <address class="footer-contact">
+          Newsroom: <a href="mailto:newsdesk@echopress.com">Email Us</a> ·
+          Ads: <a href="mailto:ads@echopress.com">Email Us</a> ·
+        </address>
+        <p class="footer-copy">© <span id="footer-year"></span> EchoPress. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===== Shared Report Modal (single) ===== -->
+  <div id="reportOverlay" class="report-modal-overlay" aria-hidden="true">
+    <div class="report-modal-card" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+      <h3 id="reportTitle" class="report-modal-title">Report</h3>
+
+      <div class="report-modal-body">
+        <label for="reportReason">Reason:</label>
+        <select id="reportReason">
+          <option value="">-- Select a reason --</option>
+          <option value="spam">Spam</option>
+          <option value="inappropriate">Inappropriate</option>
+          <option value="harassment">Harassment</option>
+          <option value="other">Other</option>
+        </select>
+
+        <label for="reportNote">Additional details (optional):</label>
+        <textarea id="reportNote" rows="4" placeholder="Describe the issue…"></textarea>
+      </div>
+
+      <div class="report-modal-actions">
+        <button type="button" id="reportCancel" class="btn btn-light">Cancel</button>
+        <button type="button" id="reportSubmit" class="btn btn-primary">Submit Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Scripts ===== -->
 
   <!-- Topbar menu toggle -->
   <script>
@@ -218,879 +281,756 @@
 
   <!-- In-page Subscriber Search -->
   <script>
-  (function(){
-    const API_URL      = "{{ url_for('subscriber_search_api') }}";
-    const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
-    const PLACEHOLDER  = "{{ url_for('static', filename='img/placeholder.png') }}";
+    (function(){
+      const API_URL      = "{{ url_for('subscriber_search_api') }}";
+      const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
+      const PLACEHOLDER  = "{{ url_for('static', filename='img/placeholder.png') }}";
 
-    const form   = document.getElementById('subSearchForm');
-    const input  = document.getElementById('subSearchQ');
-    const articleSection = document.getElementById('articleSection');
-    const resultsSection = document.getElementById('resultsSection');
-    const resultsFeed    = document.getElementById('resultsFeed');
-    const closeBtn       = document.getElementById('closeResults');
+      const form   = document.getElementById('subSearchForm');
+      const input  = document.getElementById('subSearchQ');
+      const articleSection = document.getElementById('articleSection');
+      const resultsSection = document.getElementById('resultsSection');
+      const resultsFeed    = document.getElementById('resultsFeed');
+      const closeBtn       = document.getElementById('closeResults');
 
-    const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    const trunc = (t, n=220) => (!t ? "" : (t=t.trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
+      const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      const trunc = (t, n=220) => (!t ? "" : (t=t.trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
 
-    function imageCandidates(raw) {
-      let v = (raw ?? "").toString().trim();
-      const downs = v.toLowerCase();
-      if (!v || downs === "null" || downs === "none" || downs === "undefined") return [];
-
-      const fname = v.split("/").pop();
-      const list = [];
-
-      if (/^https?:\/\//i.test(v)) list.push(v);
-      if (/static\//i.test(v)) list.push(v.startsWith("/") ? v : "/" + v);
-      if (!/^https?:\/\//i.test(v) && /\/./.test(v)) {
-        list.push(v.startsWith("/") ? v : "/" + v);
-        list.push("/static/" + v.replace(/^\/+/, ""));
+      function imageCandidates(raw) {
+        let v = (raw ?? "").toString().trim();
+        const downs = v.toLowerCase();
+        if (!v || downs === "null" || downs === "none" || downs === "undefined") return [];
+        const fname = v.split("/").pop();
+        const list = [];
+        if (/^https?:\/\//i.test(v)) list.push(v);
+        if (/static\//i.test(v)) list.push(v.startsWith("/") ? v : "/" + v);
+        if (!/^https?:\/\//i.test(v) && /\/./.test(v)) {
+          list.push(v.startsWith("/") ? v : "/" + v);
+          list.push("/static/" + v.replace(/^\/+/, ""));
+        }
+        if (fname && !v.includes("/")) {
+          list.push("/static/uploads/" + fname);
+          list.push("/static/img/" + fname);
+        }
+        return [...new Set(list)];
       }
-      if (fname && !v.includes("/")) {
-        list.push("/static/uploads/" + fname);
-        list.push("/static/img/" + fname);
+
+      function attachImageLoader(img, candidates) {
+        if (!candidates.length) { img.src = PLACEHOLDER; return; }
+        let idx = 0;
+        function tryNext() {
+          if (idx >= candidates.length) { img.src = PLACEHOLDER; return; }
+          img.src = candidates[idx++];
+        }
+        img.onerror = tryNext;
+        tryNext();
       }
-      return [...new Set(list)];
-    }
 
-    function attachImageLoader(img, candidates) {
-      if (!candidates.length) { img.src = PLACEHOLDER; return; }
-      let idx = 0;
-      function tryNext() {
-        if (idx >= candidates.length) { img.src = PLACEHOLDER; return; }
-        img.src = candidates[idx++];
+      function card(a){
+        const rawImage = a.image ?? a.image_url ?? a.imagePath ?? a.imageName ?? a.cover;
+        const cands = imageCandidates(rawImage);
+        const id = `img_${a.articleID}_${Math.random().toString(36).slice(2)}`;
+
+        const html = `
+          <article class="article-card open-article" data-id="${a.articleID}" role="button" tabindex="0">
+            <div class="text">
+              <h3>${esc(a.title)}</h3>
+              <p class="desc">${esc(trunc(a.content))}</p>
+            </div>
+            <div class="thumb-wrap"><img id="${id}" alt=""></div>
+          </article>`;
+        queueMicrotask(() => {
+          const img = document.getElementById(id);
+          if (img) attachImageLoader(img, cands);
+        });
+        return html;
       }
-      img.onerror = tryNext;
-      tryNext();
-    }
 
-    function card(a){
-      const rawImage = a.image ?? a.image_url ?? a.imagePath ?? a.imageName ?? a.cover;
-      const cands = imageCandidates(rawImage);
-      const id = `img_${a.articleID}_${Math.random().toString(36).slice(2)}`;
+      async function runSearch(q){
+        resultsSection.setAttribute('aria-busy','true');
+        resultsFeed.innerHTML = "";
+        try{
+          const p = new URLSearchParams({ q, limit: "20" });
+          const res = await fetch(`${API_URL}?${p.toString()}`);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const rows = await res.json();
+          resultsFeed.innerHTML = rows.length ? rows.map(card).join("") : "<p>No articles found.</p>";
+        }catch(err){
+          console.error(err);
+          resultsFeed.innerHTML = `<p style="color:#b00">Failed to load results.</p>`;
+        }finally{
+          resultsSection.setAttribute('aria-busy','false');
+        }
+      }
 
-      const html = `
-        <article class="article-card open-article" data-id="${a.articleID}" role="button" tabindex="0">
-          <div class="text">
-            <h3>${esc(a.title)}</h3>
-            <p class="desc">${esc(trunc(a.content))}</p>
-          </div>
-          <div class="thumb-wrap"><img id="${id}" alt=""></div>
-        </article>`;
-      queueMicrotask(() => {
-        const img = document.getElementById(id);
-        if (img) attachImageLoader(img, cands);
+      function showResults(){ articleSection.classList.add('hidden'); resultsSection.classList.remove('hidden'); }
+      function hideResults(){ resultsSection.classList.add('hidden'); articleSection.classList.remove('hidden'); }
+
+      if (form){
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const q = (input.value || '').trim();
+          if (!q) { hideResults(); return; }
+          showResults();
+          runSearch(q);
+        });
+      }
+      if (closeBtn) closeBtn.addEventListener('click', hideResults);
+      if (input) input.addEventListener('input', () => { if (input.value.trim()==="") hideResults(); });
+
+      resultsFeed.addEventListener('click', (e) => {
+        const el = e.target.closest('.open-article');
+        if (!el) return;
+        const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
+        window.location.href = url;
       });
-      return html;
-    }
-
-    async function runSearch(q){
-      resultsSection.setAttribute('aria-busy','true');
-      resultsFeed.innerHTML = "";
-      try{
-        const p = new URLSearchParams({ q, limit: "20" });
-        const res = await fetch(`${API_URL}?${p.toString()}`);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        const rows = await res.json();
-        resultsFeed.innerHTML = rows.length ? rows.map(card).join("") : "<p>No articles found.</p>";
-      }catch(err){
-        console.error(err);
-        resultsFeed.innerHTML = `<p style="color:#b00">Failed to load results.</p>`;
-      }finally{
-        resultsSection.setAttribute('aria-busy','false');
-      }
-    }
-
-    function showResults(){ articleSection.classList.add('hidden'); resultsSection.classList.remove('hidden'); }
-    function hideResults(){ resultsSection.classList.add('hidden'); articleSection.classList.remove('hidden'); }
-
-    if (form){
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const q = (input.value || '').trim();
-        if (!q) { hideResults(); return; }
-        showResults();
-        runSearch(q);
+      resultsFeed.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        const el = e.target.closest('.open-article');
+        if (!el) return;
+        const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
+        window.location.href = url;
       });
-    }
-    if (closeBtn) closeBtn.addEventListener('click', hideResults);
-    if (input) input.addEventListener('input', () => { if (input.value.trim()==="") hideResults(); });
-
-    resultsFeed.addEventListener('click', (e) => {
-      const el = e.target.closest('.open-article');
-      if (!el) return;
-      const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
-      window.location.href = url;
-    });
-    resultsFeed.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      const el = e.target.closest('.open-article');
-      if (!el) return;
-      const url = VIEW_URL_TPL.replace(/0$/, el.dataset.id);
-      window.location.href = url;
-    });
-  })();
+    })();
   </script>
 
   <!-- Bookmark + TTS -->
   <script>
-  (function(){
-    // --- bookmark (unchanged) ---
-    const toast   = document.getElementById('toast');
-    const msgEl   = document.getElementById('toastMsg');
-    const showToast = (m) => { msgEl.textContent = m || 'Done.'; toast.classList.add('show'); setTimeout(()=> toast.classList.remove('show'), 1400); };
+    (function(){
+      const toast   = document.getElementById('toast');
+      const msgEl   = document.getElementById('toastMsg');
+      const showToast = (m) => { msgEl.textContent = m || 'Done.'; toast.classList.add('show'); setTimeout(()=> toast.classList.remove('show'), 1400); };
 
-    const bookmarkBtn = document.getElementById('bookmarkBtn');
-    const articleRoot = document.getElementById('articleRoot');
-    const articleID   = parseInt(articleRoot?.dataset.articleId || '0', 10);
-    const endpoint    = "{{ url_for('subscriber_toggle_pin') }}";
+      const bookmarkBtn = document.getElementById('bookmarkBtn');
+      const articleRoot = document.getElementById('articleRoot');
+      const articleID   = parseInt(articleRoot?.dataset.articleId || '0', 10);
+      const endpoint    = "{{ url_for('subscriber_toggle_pin') }}";
 
-    if (bookmarkBtn){
-      bookmarkBtn.addEventListener('click', async () => {
-        if (!articleID){ showToast('Missing article ID.'); return; }
-        try{
-          const res  = await fetch(endpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ articleID })
-          });
-          const data = await res.json().catch(()=> ({}));
-          if (!res.ok || !data.ok){ throw new Error(data.message || ('HTTP '+res.status)); }
-          const nowBookmarked = data.state === 'pinned';
-          bookmarkBtn.setAttribute('aria-pressed', nowBookmarked ? 'true' : 'false');
-          const label = bookmarkBtn.querySelector('.label');
-          if (label) label.textContent = nowBookmarked ? 'Remove Bookmark' : 'Add Bookmark';
-          showToast(nowBookmarked ? 'Bookmarked.' : 'Removed from bookmarks.');
-        }catch(err){
-          showToast('Unable to update bookmark.');
-          console.error(err);
-        }
-      });
-    }
-
-    // --- TTS with language + gender + rate controls ---
-    const ttsStart  = document.getElementById('ttsStart');
-    const ttsCtrls  = document.getElementById('ttsControls');
-    const ttsPause  = document.getElementById('ttsPause');
-    const ttsResume = document.getElementById('ttsResume');
-    const ttsReplay = document.getElementById('ttsReplay');
-    const rateSel   = document.getElementById('ttsRate');
-    const genderSel = document.getElementById('ttsGender');
-    const langSel   = document.getElementById('language');
-
-    window.currentTTSLang = window.currentTTSLang || 'en';
-
-    function mapLang(code){
-      const m = {'en':'en-US','zh-CN':'zh-CN','ms':'ms-MY','ko':'ko-KR','ja':'ja-JP','vi':'vi-VN','es':'es-ES','fr':'fr-FR','de':'de-DE','nl':'nl-NL','ru':'ru-RU','it':'it-IT','pt':'pt-PT'};
-      return m[code] || 'en-US';
-    }
-
-    let allVoices = [];
-    if ('speechSynthesis' in window){
-      const load = () => allVoices = speechSynthesis.getVoices() || [];
-      load(); speechSynthesis.onvoiceschanged = load;
-    }
-
-    function genderGuess(name){
-      const n = (name||'').toLowerCase();
-      if (/female|woman|feminine/.test(n)) return 'female';
-      if (/male|man|masculine/.test(n))   return 'male';
-      return 'unknown';
-    }
-    function pickVoice(langCode, genderPref){
-      if (!allVoices.length) return null;
-      const want = mapLang(langCode).toLowerCase();
-      const prefix = want.split('-')[0];
-      let cands = allVoices.filter(v => {
-        const vl = (v.lang||'').toLowerCase();
-        return vl === want || vl.startsWith(prefix + '-');
-      });
-      if (genderPref !== 'auto'){
-        const g = cands.filter(v => genderGuess(v.name) === genderPref);
-        if (g.length) cands = g;
+      if (bookmarkBtn){
+        bookmarkBtn.addEventListener('click', async () => {
+          if (!articleID){ showToast('Missing article ID.'); return; }
+          try{
+            const res  = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ articleID })
+            });
+            const data = await res.json().catch(()=> ({}));
+            if (!res.ok || !data.ok){ throw new Error(data.message || ('HTTP '+res.status)); }
+            const nowBookmarked = data.state === 'pinned';
+            bookmarkBtn.setAttribute('aria-pressed', nowBookmarked ? 'true' : 'false');
+            const label = bookmarkBtn.querySelector('.label');
+            if (label) label.textContent = nowBookmarked ? 'Remove Bookmark' : 'Add Bookmark';
+            showToast(nowBookmarked ? 'Bookmarked.' : 'Removed from bookmarks.');
+          }catch(err){
+            showToast('Unable to update bookmark.');
+            console.error(err);
+          }
+        });
       }
-      if (!cands.length) cands = allVoices.slice();
-      const local = cands.filter(v => v.localService);
-      return local[0] || cands[0] || null;
-    }
 
-    function getArticlePlainText(){
-      const el = document.querySelector('.article-content');
-      return el ? el.innerText.trim() : '';
-    }
+      // TTS controls (same as your working version)
+      const ttsStart  = document.getElementById('ttsStart');
+      const ttsCtrls  = document.getElementById('ttsControls');
+      const ttsPause  = document.getElementById('ttsPause');
+      const ttsResume = document.getElementById('ttsResume');
+      const ttsReplay = document.getElementById('ttsReplay');
+      const rateSel   = document.getElementById('ttsRate');
+      const genderSel = document.getElementById('ttsGender');
 
-    function splitForTTS(text, maxLen = 1000){
-      // Similar to translation chunking, but smaller per utterance for stability
-      return splitIntoChunks(text, maxLen);
-    }
+      window.currentTTSLang = window.currentTTSLang || 'en';
+      const mapLang = (code) => ({'en':'en-US','zh-CN':'zh-CN','ms':'ms-MY','ko':'ko-KR','ja':'ja-JP','vi':'vi-VN','es':'es-ES','fr':'fr-FR','de':'de-DE','nl':'nl-NL','ru':'ru-RU','it':'it-IT','pt':'pt-PT'})[code] || 'en-US';
 
-    // (reuse the splitter from translation section)
-    function splitIntoChunks(text, maxLen = 1000) {
-      const parts = [];
-      const paras = String(text || "").split(/\n{2,}/);
-      for (let p of paras) {
-        p = p.trim();
-        if (!p) continue;
-        if (p.length <= maxLen) { parts.push(p); continue; }
-        const sentences = p.split(/(?<=[.!?。！？])\s+/);
-        let buf = "";
-        for (const s of sentences) {
-          if ((buf + " " + s).trim().length <= maxLen) {
-            buf = (buf ? buf + " " : "") + s;
-          } else {
-            if (buf) parts.push(buf);
-            if (s.length <= maxLen) {
-              buf = s;
+      let allVoices = [];
+      if ('speechSynthesis' in window){
+        const load = () => allVoices = speechSynthesis.getVoices() || [];
+        load(); speechSynthesis.onvoiceschanged = load;
+      }
+      const genderGuess = name => (/female|woman|feminine/i.test(name||'')) ? 'female' : (/male|man|masculine/i.test(name||'')) ? 'male' : 'unknown';
+      function pickVoice(langCode, genderPref){
+        if (!allVoices.length) return null;
+        const want = mapLang(langCode).toLowerCase();
+        const prefix = want.split('-')[0];
+        let cands = allVoices.filter(v => (v.lang||'').toLowerCase() === want || (v.lang||'').toLowerCase().startsWith(prefix + '-'));
+        if (genderPref !== 'auto'){
+          const g = cands.filter(v => genderGuess(v.name) === genderPref);
+          if (g.length) cands = g;
+        }
+        if (!cands.length) cands = allVoices.slice();
+        const local = cands.filter(v => v.localService);
+        return local[0] || cands[0] || null;
+      }
+      const getArticlePlainText = () => (document.querySelector('.article-content')?.innerText || '').trim();
+      function splitIntoChunks(text, maxLen = 1000) {
+        const parts = [];
+        const paras = String(text || "").split(/\n{2,}/);
+        for (let p of paras) {
+          p = p.trim();
+          if (!p) continue;
+          if (p.length <= maxLen) { parts.push(p); continue; }
+          const sentences = p.split(/(?<=[.!?。！？])\s+/);
+          let buf = "";
+          for (const s of sentences) {
+            if ((buf + " " + s).trim().length <= maxLen) {
+              buf = (buf ? buf + " " : "") + s;
             } else {
-              let cur = "";
-              for (const w of s.split(/\s+/)) {
-                if ((cur + " " + w).trim().length <= maxLen) cur = (cur ? cur + " " : "") + w;
-                else { if (cur) parts.push(cur); cur = w; }
+              if (buf) parts.push(buf);
+              if (s.length <= maxLen) {
+                buf = s;
+              } else {
+                let cur = "";
+                for (const w of s.split(/\s+/)) {
+                  if ((cur + " " + w).trim().length <= maxLen) cur = (cur ? cur + " " : "") + w;
+                  else { if (cur) parts.push(cur); cur = w; }
+                }
+                if (cur) { parts.push(cur); buf = ""; }
               }
-              if (cur) { parts.push(cur); buf = ""; }
             }
           }
+          if (buf) parts.push(buf);
         }
-        if (buf) parts.push(buf);
+        return parts.length ? parts : [text];
       }
-      return parts.length ? parts : [text];
-    }
 
-    // Speak a queue of chunks with pause/resume support
-    let queue = [];
-    let idx = 0;
-    let currentUtter = null;
-
-    function nextUtter(){
-      if (idx >= queue.length) { currentUtter = null; return; }
-
-      const utter = new SpeechSynthesisUtterance(queue[idx]);
-      utter.lang  = mapLang(window.currentTTSLang);
-      utter.rate  = Math.max(0.1, Math.min(3, parseFloat(rateSel?.value || '1') || 1));
-      utter.pitch = 1.0;
-
-      const v = pickVoice(window.currentTTSLang, (genderSel?.value || 'auto'));
-      if (v) utter.voice = v;
-
-      utter.onend = () => { idx++; nextUtter(); };
-      utter.onerror = () => { idx++; nextUtter(); };
-
-      currentUtter = utter;
-      speechSynthesis.speak(utter);
-    }
-
-    function speakArticle(){
-      if (!('speechSynthesis' in window)) { alert('Reader not supported by this browser.'); return; }
-      speechSynthesis.cancel();
-      queue = splitForTTS(getArticlePlainText(), 1000);
-      idx = 0;
-      if (!queue.length || !queue[0]) return;
-      nextUtter();
-    }
-
-    ttsStart?.addEventListener('click', () => {
-      const text = getArticlePlainText();
-      if (!text) return alert('Nothing to read.');
-      speakArticle();
-      ttsCtrls.classList.remove('hidden');
-      ttsStart.classList.add('hidden');
-    });
-    ttsPause?.addEventListener('click', () => {
-      if (speechSynthesis.speaking && !speechSynthesis.paused) speechSynthesis.pause();
-    });
-    ttsResume?.addEventListener('click', () => {
-      if (speechSynthesis.paused) speechSynthesis.resume();
-    });
-    ttsReplay?.addEventListener('click', () => {
-      speakArticle();
-    });
-
-    [rateSel, genderSel].forEach(sel => sel && sel.addEventListener('change', () => {
-      if (speechSynthesis.speaking) speakArticle(); // restart with new settings
-    }));
-
-    window.addEventListener('beforeunload', () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); });
-
-    // Keep voices in the right language after translation
-    document.getElementById('language')?.addEventListener('change', () => {
-      // window.currentTTSLang is set in translateArticle()
-    });
-  })();
-</script>
-
-  
-<!-- Comments logic -->
-<script>
-document.addEventListener("DOMContentLoaded", initCommentSystem);
-
-function initCommentSystem(){
-  const ARTICLE_ID = {{ article.articleID }};
-  const LIST   = document.getElementById('cList');
-  const FORM   = document.getElementById('cForm');
-  const INPUT  = document.getElementById('cInput');
-
-  const API_LIST   = "{{ url_for('subscriber_api_comments') }}";
-  const API_CREATE = "{{ url_for('subscriber_api_comment_create') }}";
-  const API_EDIT   = (id)=> `/subscriber/api/comments/${id}`;
-  const API_REACT  = (id)=> `/subscriber/api/comments/${id}/react`;
-
-
-  const esc = s => (s||"").replace(/[&<>]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
-
-  // Render single comment (recursive render expects children HTML appended)
-  function renderComment(c, depth = 0){
-    const indentClass = depth > 0 ? 'reply' : '';
-    // reaction aria-pressed states
-    const likePressed = c.my_reaction === 'like' ? 'true' : 'false';
-    const dislikePressed = c.my_reaction === 'dislike' ? 'true' : 'false';
-
-    // comment wrapper includes data-id and data-parent for convenience
-    return `
-      <article class="comment-card ${indentClass}" data-id="${c.commentID}" data-parent="${c.parent_id || ''}" style="margin-left:${Math.min(depth*20, 160)}px;">
-        <div class="comment-meta">
-          <span class="comment-name">${esc(c.author)}</span>
-          <span class="comment-time">${esc(c.created_at ? new Date(c.created_at).toLocaleString() : '')}</span>
-        </div>
-
-        <div class="c-body">
-          <p class="c-text">${esc(c.text)}</p>
-
-          <!-- Inline reply box (hidden by default) -->
-          <div class="c-reply-box" style="display:none; margin-top:8px;">
-            <textarea class="c-reply-input" rows="2" placeholder="Write a reply…"></textarea>
-            <div style="margin-top:6px;">
-              <button class="btn btn-light c-reply-cancel" type="button">Cancel</button>
-              <button class="btn btn-primary c-reply-send" type="button">Reply</button>
-            </div>
-          </div>
-
-          ${c.mine ? `
-            <div class="c-edit" style="display:none;">
-              <textarea class="c-edit-input" rows="3"></textarea>
-              <div class="c-edit-actions">
-                <button class="btn btn-light c-edit-cancel" type="button">Cancel</button>
-                <button class="btn btn-primary c-edit-save"  type="button">Save</button>
-              </div>
-            </div>` : ``}
-        </div>
-
-        <div class="c-actions">
-          <button class="c-like btn btn-ghost" data-val="1" aria-pressed="${likePressed}">
-            👍 <span class="c-like-count">${c.likes}</span>
-          </button>
-          <button class="c-dislike btn btn-ghost" data-val="-1" aria-pressed="${dislikePressed}">
-            👎 <span class="c-dislike-count">${c.dislikes}</span>
-          </button>
-
-          <button class="c-reply-btn btn btn-ghost" type="button">Reply</button>
-
-          ${c.mine ? `
-            <button class="c-edit-btn btn btn-ghost" type="button">Edit</button>
-            <button class="c-del-btn btn btn-ghost" type="button" style="color:#b00;">Delete</button>
-          ` : `
-            <div class="c-more-menu">
-              <button class="c-more-btn btn btn-ghost" type="button">⋯</button>
-              <div class="c-more-dropdown" style="display:none; position:absolute; background:#fff; border:1px solid #ccc; border-radius:6px; padding:6px; z-index:100;">
-                <button class="c-report-btn btn btn-ghost" type="button" style="color:#b00;">Report</button>
-              </div>
-            </div>
-          `}
-        </div>
-
-        <!-- children placeholder -->
-        <div class="c-children"></div>
-      </article>
-    `;
-  }
-
-  function buildTree(flat) {
-  const map = new Map();
-  flat.forEach(r => {
-    map.set(r.commentID, Object.assign({}, r, { children: [] }));
-  });
-
-  const roots = [];
-  map.forEach(node => {
-    const pid = node.parent_id || null;
-    if (pid && map.has(pid)) {
-      map.get(pid).children.push(node);
-    } else {
-      roots.push(node);
-    }
-  });
-
-  // sort: newest-first for roots, oldest-first for replies
-  function sortRec(arr, depth = 0) {
-    arr.sort((a, b) => {
-      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return depth === 0 ? tb - ta : ta - tb;
-    });
-    arr.forEach(n => sortRec(n.children, depth + 1));
-  }
-
-  sortRec(roots);
-  return roots;  // <-- required
-}
-
-
-  // Render tree to HTML
-  function renderTree(nodes, depth=0){
-    return nodes.map(n => {
-      const html = renderComment(n, depth);
-      // render children and wrap after the article
-      const childrenHtml = n.children && n.children.length ? renderTree(n.children, depth+1).join('') : '';
-      return html + childrenHtml;
-    });
-  }
-
-  async function loadComments(){
-    LIST.innerHTML = '';
-    try{
-      const res = await fetch(`${API_LIST}?article_id=${ARTICLE_ID}`);
-      const rows = res.ok ? await res.json() : [];
-      if (!rows.length){
-        LIST.innerHTML = '<p class="c-empty">Be the first to comment.</p>';
-        return;
+      let queue = [], idx = 0, currentUtter = null;
+      function nextUtter(){
+        if (idx >= queue.length) { currentUtter = null; return; }
+        const utter = new SpeechSynthesisUtterance(queue[idx]);
+        utter.lang  = mapLang(window.currentTTSLang);
+        utter.rate  = Math.max(0.1, Math.min(3, parseFloat(rateSel?.value || '1') || 1));
+        utter.pitch = 1.0;
+        const v = pickVoice(window.currentTTSLang, (genderSel?.value || 'auto'));
+        if (v) utter.voice = v;
+        utter.onend = () => { idx++; nextUtter(); };
+        utter.onerror = () => { idx++; nextUtter(); };
+        currentUtter = utter;
+        speechSynthesis.speak(utter);
       }
-      const tree = buildTree(rows);
-      const html = renderTree(tree).join('');
-      LIST.innerHTML = html;
-    }catch(e){
-      console.error(e);
-      LIST.innerHTML = '<p class="c-empty">Failed to load comments.</p>';
-    }
-  }
-
-  // Create top-level comment
-  FORM?.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const text = (INPUT.value||'').trim();
-    if (!text) return;
-    const fd = new FormData();
-    fd.set('articleID', ARTICLE_ID);
-    fd.set('text', text);
-    try{
-      const res = await fetch(API_CREATE, { method:'POST', body: fd });
-      const data = res.ok ? await res.json() : null;
-      if (res.ok && data?.ok){
-        INPUT.value='';
-        await loadComments();
-      } else {
-        console.error('Create failed', data);
+      function speakArticle(){
+        if (!('speechSynthesis' in window)) { alert('Reader not supported by this browser.'); return; }
+        speechSynthesis.cancel();
+        queue = splitIntoChunks(getArticlePlainText(), 1000);
+        idx = 0;
+        if (!queue.length || !queue[0]) return;
+        nextUtter();
       }
-    }catch(err){ console.error(err); }
-  });
-
-  // Delegated actions
-  LIST.addEventListener('click', async (e)=>{
-    const card = e.target.closest('.comment-card');
-    if (!card) return;
-    const id = card.dataset.id;
-
-    // Like/Dislike
-    if (e.target.closest('.c-like') || e.target.closest('.c-dislike')){
-      const isLike = !!e.target.closest('.c-like');
-      const action = isLike ? 'like' : 'dislike';
-      try{
-        const res = await fetch(API_REACT(id), {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ action })
-        });
-        const data = res.ok ? await res.json() : null;
-        if (data?.ok){
-          const likeEl = card.querySelector('.c-like-count');
-          const disEl  = card.querySelector('.c-dislike-count');
-          if (likeEl) likeEl.textContent = data.likes;
-          if (disEl)  disEl.textContent  = data.dislikes;
-          const likeBtn = card.querySelector('.c-like');
-          const disBtn  = card.querySelector('.c-dislike');
-          if (likeBtn) likeBtn.setAttribute('aria-pressed', data.state==='like' ? 'true':'false');
-          if (disBtn)  disBtn.setAttribute('aria-pressed', data.state==='dislike' ? 'true':'false');
-        }
-      }catch(err){ console.error(err); }
-      return;
-    }
-
-    // Reply button toggles inline reply box
-    if (e.target.closest('.c-reply-btn')){
-      const replyBox = card.querySelector('.c-reply-box');
-      if (!replyBox) return;
-      replyBox.style.display = replyBox.style.display === 'none' ? 'block' : 'none';
-      const ta = replyBox.querySelector('.c-reply-input');
-      if (ta) { 
-        const author = card.querySelector('.comment-name')?.textContent || '';
-        ta.value = `@${author} `;   // pre-fill with @username
-        ta.focus();
-        // Optional: move cursor to end
-        ta.selectionStart = ta.selectionEnd = ta.value.length;
-      }
-      return;
-    }
-
-    // Cancel inline reply
-    if (e.target.closest('.c-reply-cancel')){
-      const replyBox = card.querySelector('.c-reply-box');
-      if (replyBox) replyBox.style.display = 'none';
-      return;
-    }
-
-    // Send inline reply
-    if (e.target.closest('.c-reply-send')){
-      const replyBox = card.querySelector('.c-reply-box');
-      if (!replyBox) return;
-      const ta = replyBox.querySelector('.c-reply-input');
-      const text = (ta.value || '').trim();
-      if (!text) return;
-      const fd = new FormData();
-      fd.set('articleID', ARTICLE_ID);
-      fd.set('text', text);
-      fd.set('parent_id', id);
-      try{
-        const res = await fetch(API_CREATE, { method:'POST', body: fd });
-        const data = res.ok ? await res.json() : null;
-        if (res.ok && data?.ok){
-          // Option: expand and reload comments
-          await loadComments();
-        } else {
-          console.error('Reply failed', data);
-        }
-      }catch(err){ console.error(err); }
-      return;
-    }
-
-    // Enter edit mode
-    if (e.target.closest('.c-edit-btn')){
-      const bodyEl   = card.querySelector('.c-text');
-      const editWrap = card.querySelector('.c-edit');
-      const input    = card.querySelector('.c-edit-input');
-      if (!editWrap || !bodyEl || !input) return;
-      editWrap.style.display = 'block';
-      bodyEl.style.display = 'none';
-      input.value = bodyEl.textContent;
-      input.focus();
-      return;
-    }
-
-    // Cancel edit
-    if (e.target.closest('.c-edit-cancel')){
-      const bodyEl   = card.querySelector('.c-text');
-      const editWrap = card.querySelector('.c-edit');
-      if (editWrap) editWrap.style.display = 'none';
-      if (bodyEl) bodyEl.style.display = 'block';
-      return;
-    }
-
-    // Save edit
-    if (e.target.closest('.c-edit-save')){
-      const input = card.querySelector('.c-edit-input');
-      const newText = (input.value||'').trim();
-      if (!newText) return;
-      try{
-        const res = await fetch(API_EDIT(id), {
-          method:'PUT', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ text: newText })
-        });
-        if (res.ok) loadComments();
-      }catch(err){ console.error(err); }
-      return;
-    }
-
-    // Delete
-    if (e.target.closest('.c-del-btn')){
-      if (!confirm('Delete this comment?')) return;
-      try{
-        const res = await fetch(API_EDIT(id), { method:'DELETE' });
-        if (res.ok) loadComments();
-      }catch(err){ console.error(err); }
-      return;
-    }
-  });
-
-
-  // Dropdown (⋯) menu toggle + report button handling
-  LIST.addEventListener('click', (e) => {
-    const moreBtn = e.target.closest('.c-more-btn');
-    const reportBtn = e.target.closest('.c-report-btn');
-    const card = e.target.closest('.comment-card');
-    if (!card) return;
-
-    // Toggle dropdown
-    if (moreBtn) {
-      const menu = card.querySelector('.c-more-dropdown');
-      if (menu) {
-        const isVisible = menu.style.display === 'block';
-        // close all other dropdowns
-        document.querySelectorAll('.c-more-dropdown').forEach(m => m.style.display = 'none');
-        menu.style.display = isVisible ? 'none' : 'block';
-      }
-      e.stopPropagation();
-      return;
-    }
-
-      
-  // Report button inside dropdown
-  if (reportBtn) {
-    const commentId = card.dataset.id;
-    const modal = document.getElementById('reportModal');
-    const title = modal.querySelector('.report-modal-title');
-    const form = document.getElementById('reportForm');
-
-    // Change modal to "Report Comment"
-    if (title) title.textContent = 'Report Comment';
-    modal.classList.add('show');
-    modal.dataset.targetType = 'comment';
-    modal.dataset.targetId = commentId;
-
-    // Close dropdown
-    document.querySelectorAll('.c-more-dropdown').forEach(m => m.style.display = 'none');
-    e.stopPropagation();
-  }
-});
-
-// Close dropdown when clicking elsewhere
-document.addEventListener('click', () => {
-  document.querySelectorAll('.c-more-dropdown').forEach(m => m.style.display = 'none');
-});
-
-
-  // initial load
-  loadComments();
-
-} // close initCommentSystem
-
-</script>
-
-<div id="reportModal" class="report-modal-overlay">
-  <div class="report-modal-card">
-    <h2 class="report-modal-title">Report Article</h2>
-    <div class="report-modal-body">
-      <form id="reportForm">
-        <label for="reason">Reason:</label>
-        <select id="reason" name="reason" required>
-          <option value="">-- Select a reason --</option>
-          <option value="spam">Spam or misleading</option>
-          <option value="inappropriate">Inappropriate content</option>
-          <option value="plagiarism">Plagiarism</option>
-          <option value="other">Other</option>
-        </select>
-
-        <label for="details">Additional details (optional):</label>
-        <textarea id="details" name="details" rows="4" placeholder="Describe the issue…"></textarea>
-
-        <div class="report-modal-actions">
-          <button type="button" id="closeReport" class="btn btn-light">Cancel</button>
-          <button type="submit" class="btn btn-primary">Submit Report</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<script>
-(function(){
-  const reportBtn    = document.getElementById("reportBtn");
-  const reportModal  = document.getElementById("reportModal");
-  const closeBtn     = document.getElementById("closeReport");
-  const form         = document.getElementById("reportForm");
-
-  if (!reportBtn || !reportModal) return;
-
-  // Open modal for article
-  reportBtn.addEventListener("click", () => {
-    const title = reportModal.querySelector(".report-modal-title");
-    if (title) title.textContent = "Report Article";
-    
-    // reset dataset to article
-    reportModal.dataset.targetType = "article";
-    reportModal.dataset.targetId = "{{ article.articleID }}";
-
-    reportModal.classList.add("show");
-  });
-
-  // Close modal (cancel button)
-  closeBtn.addEventListener("click", () => {
-    reportModal.classList.remove("show");
-    form.reset();
-  });
-
-  // Close modal if click outside card
-  reportModal.addEventListener("click", (e) => {
-    const card = reportModal.querySelector(".report-modal-card");
-    if (!card.contains(e.target)) {
-      reportModal.classList.remove("show");
-      form.reset();
-    }
-  });
-
-  // Submit report
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const reason    = document.getElementById("reason").value;
-    const details   = document.getElementById("details").value;
-    // Detect target (article or comment)
-    const modalType = reportModal.dataset.targetType || 'article';
-    const targetId  = reportModal.dataset.targetId || {{ article.articleID }};
-    const endpoint  = modalType === 'comment'
-      ? "/subscriber/report_comment"   // your colleague can later implement this route
-      : "/subscriber/report_article";
-
-    fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: targetId,
-        reason,
-        details,
-        type: modalType
-      })
-    })
-
-    .then(res => res.json())
-    .then(data => {
-      alert(data.message || "Report submitted successfully.");
-      reportModal.classList.remove("show");
-      form.reset();
-    })
-    .catch(err => {
-      console.error(err);
-      alert("Failed to submit report.");
-    });
-  });
-})();
-</script>
-
-
-
-<!-- 🟦 Share Button Script -->
-<script>
-(function() {
-  const shareBtn = document.getElementById("shareBtn");
-  if (!shareBtn) return;
-
-  shareBtn.addEventListener("click", () => {
-    const url = window.location.href;
-    const titleEl = document.querySelector(".article-title");
-    const title = titleEl ? titleEl.innerText : document.title;
-
-    if (navigator.share) {
-      navigator.share({
-        title: title,
-        url: url
-      }).catch(err => console.error("Share failed:", err));
-    } else {
-      navigator.clipboard.writeText(url).then(() => {
-        alert("Link copied to clipboard!");
+      ttsStart?.addEventListener('click', () => {
+        const text = getArticlePlainText();
+        if (!text) return alert('Nothing to read.');
+        speakArticle();
+        ttsCtrls.classList.remove('hidden');
+        ttsStart.classList.add('hidden');
       });
-    }
-  });
-})();
-</script>
-
-<!-- Ads Box Functions -->
-  <script>
-  (function(){
-    const adsBox   = document.getElementById('adsBox');
-    const ADS_API  = "{{ url_for('api_random_ad') }}";
-    const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-
-    function renderAd(ad){
-      if(!adsBox) return;
-      adsBox.innerHTML = `
-        <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
-          <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
-          ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
-          ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
-        </a>
-      `;
-    }
-
-    async function loadAd(){
-      try{
-        const res = await fetch(ADS_API, {cache:'no-store'});
-        if(!res.ok) return;
-        const data = await res.json();
-        if(data?.ok && data.ad) renderAd(data.ad);
-      }catch(_){}
-    }
-
-    loadAd();
-    setInterval(loadAd, 10_000); // your 10s rotation
-  })();
+      ttsPause?.addEventListener('click', () => {
+        if (speechSynthesis.speaking && !speechSynthesis.paused) speechSynthesis.pause();
+      });
+      ttsResume?.addEventListener('click', () => {
+        if (speechSynthesis.paused) speechSynthesis.resume();
+      });
+      ttsReplay?.addEventListener('click', () => {
+        speakArticle();
+      });
+      [rateSel, genderSel].forEach(sel => sel && sel.addEventListener('change', () => {
+        if (speechSynthesis.speaking) speakArticle();
+      }));
+      window.addEventListener('beforeunload', () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); });
+    })();
   </script>
 
-<!-- Multilingual Support Functions -->
-      <script>
-       let originalTitle = "";
-  let originalContent = "";
-  let originalSummary = [];
+  <!-- Comments + Report logic -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // ---------- Constants ----------
+      const ARTICLE_ID = Number(document.getElementById('articleRoot')?.dataset.articleId || 0);
+      const LIST   = document.getElementById('cList');
+      const FORM   = document.getElementById('cForm');
+      const INPUT  = document.getElementById('cInput');
 
-  window.addEventListener("DOMContentLoaded", () => {
-    // Title lives in .article-title (not .main-title)
-    originalTitle = document.querySelector(".article-title")?.innerText || "";
+      // API endpoints
+      const API_LIST   = "{{ url_for('subscriber_api_comments') }}";
+      const API_CREATE = "{{ url_for('subscriber_api_comment_create') }}";
+      const API_EDIT   = (id)=> `/subscriber/api/comments/${id}`;
+      const API_REACT  = (id)=> `/subscriber/api/comments/${id}/react`;
+      const API_R_ART  = "/subscriber/report_article";
+      const API_R_COMM = "/subscriber/report_comment";
 
-    // Content lives in .article-content (HTML). Use innerText to translate plain text.
-    const contentEl = document.querySelector(".article-content");
-    originalContent = contentEl ? contentEl.innerText : "";
+      // Shared report modal nodes
+      const overlay   = document.getElementById('reportOverlay');
+      const modalCard = overlay?.querySelector('.report-modal-card');   
+      const titleEl   = overlay?.querySelector('.report-modal-title')   
+                      || overlay?.querySelector('.report-title');
 
-    // Summary points (if rendered)
-    originalSummary = Array.from(document.querySelectorAll("#summaryList li")).map(li => li.innerText);
-  });
+      const reasonSel = document.getElementById('reportReason');
+      const noteTxt   = document.getElementById('reportNote');
+      const btnCancel = document.getElementById('reportCancel');
+      const btnSubmit = document.getElementById('reportSubmit');
 
-  async function translateArticle() {
-    const lang = document.getElementById("language")?.value;
-    if (!lang) return;
+      let reportTarget = { type: null, id: null };
 
-    // Restore original
-    if (lang === "en") {
-      const tEl = document.querySelector(".article-title");
-      if (tEl) tEl.innerText = originalTitle;
+      // ---------- Utilities ----------
+      const esc = s => (s||"").replace(/[&<>]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+      const initials = name => {
+        const parts = String(name||'').trim().split(/\s+/).slice(0,2);
+        return parts.map(p => (p[0]||'').toUpperCase()).join('') || 'U';
+      };
+      const fmtDate = iso => {
+        if(!iso) return '';
+        const d = new Date(iso);
+        if(isNaN(d)) return iso;
+        const dd = String(d.getDate()).padStart(2,'0');
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const yyyy = d.getFullYear();
+        let h = d.getHours(), ampm = h>=12?'PM':'AM'; h = h%12 || 12;
+        const HH = String(h).padStart(2,'0');
+        const mi = String(d.getMinutes()).padStart(2,'0');
+        const ss = String(d.getSeconds()).padStart(2,'0');
+        return `${dd}/${mm}/${yyyy}, ${HH}:${mi}:${ss} ${ampm}`;
+      };
 
-      const cEl = document.querySelector(".article-content");
-      if (cEl) cEl.innerText = originalContent;
+      // ---------- Comment rendering ----------
+      function renderComment(c, depth = 0){
+        const indent = Math.min(depth*20, 160);
+        const likePressed    = c.my_reaction === 'like' ? 'true' : 'false';
+        const dislikePressed = c.my_reaction === 'dislike' ? 'true' : 'false';
 
-      const items = document.querySelectorAll("#summaryList li");
-      originalSummary.forEach((t, i) => { if (items[i]) items[i].innerText = t; });
-      return;
-    }
+        // avatar + name → link to subscriberProfileView.html (to be built later)
+        const profileId = c.author_id || c.userID || "";
+        const profileHref = `/subscriberProfileView.html?id=${encodeURIComponent(profileId)}`;
 
-    // Translate current article
-    try {
-      const res = await fetch("/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: originalTitle,
-          content: originalContent,
-          summary: originalSummary,
-          target_lang: lang
-        })
+        const avatarHtml = c.author_image
+          ? `<a class="c-avatar" href="${profileHref}" aria-label="${esc(c.author)}"><img src="${esc(c.author_image)}" alt=""></a>`
+          : `<a class="c-avatar" href="${profileHref}" aria-label="${esc(c.author)}">${esc(initials(c.author))}</a>`;
+
+        const nameHtml = `<a class="comment-name" href="${profileHref}">${esc(c.author)}</a>`;
+
+        // Right-side actions (kebab only if not mine)
+        const right = `
+          <div class="c-right-actions">
+            ${c.mine ? `
+              <span class="c-own-actions">
+                <button class="c-edit-btn btn btn-ghost" type="button">Edit</button>
+                <button class="c-del-btn  btn btn-ghost" type="button" style="color:#b00;">Delete</button>
+              </span>` : `
+              <div class="c-more-menu">
+                <button class="c-more-btn btn btn-ghost" type="button" aria-haspopup="true" aria-expanded="false">⋯</button>
+                <div class="c-more-dropdown" role="menu">
+                  <button class="btn btn-ghost c-report-btn" type="button" role="menuitem">Report</button>
+                  <button class="btn btn-ghost c-hide-btn"   type="button" role="menuitem">Hide comment</button>
+                </div>
+              </div>`}
+          </div>`;
+
+        return `
+          <article class="comment-card ${depth>0?'reply':''}" data-id="${c.commentID}"
+                   data-parent="${c.parent_id || ''}" style="margin-left:${indent}px;">
+            <div class="comment-meta">
+              ${avatarHtml}
+              ${nameHtml}
+              <span class="comment-time">${esc(fmtDate(c.created_at))}</span>
+            </div>
+
+            <div class="c-body">
+              <p class="c-text">${esc(c.text)}</p>
+
+              <div class="c-reply-box" style="display:none; margin-top:8px;">
+                <textarea class="c-reply-input" placeholder="Write a reply…"></textarea>
+                <div style="margin-top:6px; display:flex; gap:8px;">
+                  <button class="btn btn-light c-reply-cancel" type="button">Cancel</button>
+                  <button class="btn btn-primary c-reply-send"  type="button">Reply</button>
+                </div>
+              </div>
+
+              ${c.mine ? `
+                <div class="c-edit" style="display:none;">
+                  <textarea class="c-edit-input"></textarea>
+                  <div class="c-edit-actions">
+                    <button class="btn btn-light c-edit-cancel" type="button">Cancel</button>
+                    <button class="btn btn-primary c-edit-save"  type="button">Save</button>
+                  </div>
+                </div>` : ``}
+            </div>
+
+            <div class="c-actions">
+              <div class="c-left-actions">
+                <button class="c-like btn btn-ghost" data-val="1" aria-pressed="${likePressed}">
+                  👍 <span class="c-like-count">${c.likes}</span>
+                </button>
+                <button class="c-dislike btn btn-ghost" data-val="-1" aria-pressed="${dislikePressed}">
+                  👎 <span class="c-dislike-count">${c.dislikes}</span>
+                </button>
+                <button class="c-reply-btn btn btn-ghost" type="button">Reply</button>
+              </div>
+              ${right}
+            </div>
+
+            <div class="c-children"></div>
+          </article>`;
+      }
+
+      function buildTree(flat) {
+        const map = new Map();
+        flat.forEach(r => map.set(r.commentID, {...r, children: []}));
+        const roots = [];
+        map.forEach(node => {
+          const pid = node.parent_id || null;
+          if (pid && map.has(pid)) map.get(pid).children.push(node);
+          else roots.push(node);
+        });
+        (function sortRec(arr, depth=0){
+          arr.sort((a,b)=>{
+            const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return depth===0 ? tb-ta : ta-tb; // newest-first roots, oldest-first replies
+          });
+          arr.forEach(n=>sortRec(n.children, depth+1));
+        })(roots);
+        return roots;
+      }
+      function renderTree(nodes, depth=0){
+        return nodes.map(n => {
+          const html = renderComment(n, depth);
+          const kids = n.children?.length ? renderTree(n.children, depth+1).join('') : '';
+          return html + kids;
+        });
+      }
+
+      async function loadComments(){
+        LIST.innerHTML = '';
+        try{
+          const res  = await fetch(`${API_LIST}?article_id=${ARTICLE_ID}`);
+          const rows = res.ok ? await res.json() : [];
+          if(!rows.length){ LIST.innerHTML = '<p class="c-empty">Be the first to comment.</p>'; return; }
+          const tree = buildTree(rows);
+          LIST.innerHTML = renderTree(tree).join('');
+        }catch(err){
+          console.error(err);
+          LIST.innerHTML = '<p class="c-empty">Failed to load comments.</p>';
+        }
+      }
+
+      // Create new top-level comment
+      FORM?.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        const text = (INPUT.value||'').trim();
+        if (!text) return;
+        const fd = new FormData();
+        fd.set('articleID', ARTICLE_ID);
+        fd.set('text', text);
+        try{
+          const res = await fetch(API_CREATE, { method:'POST', body: fd });
+          const data = res.ok ? await res.json() : null;
+          if (res.ok && data?.ok){ INPUT.value=''; await loadComments(); }
+        }catch(err){ console.error(err); }
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
 
-      const tEl = document.querySelector(".article-title");
-      if (tEl) tEl.innerText = data.title || originalTitle;
+      // Delegated comment actions
+      LIST.addEventListener('click', async (e)=>{
+        const card = e.target.closest('.comment-card'); if (!card) return;
+        const id = card.dataset.id;
 
-      const cEl = document.querySelector(".article-content");
-      if (cEl) cEl.innerText = data.content || originalContent;
+        // Like/Dislike
+        if (e.target.closest('.c-like') || e.target.closest('.c-dislike')){
+          const action = e.target.closest('.c-like') ? 'like' : 'dislike';
+          try{
+            const res = await fetch(API_REACT(id), {
+              method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ action })
+            });
+            const data = res.ok ? await res.json() : null;
+            if (data?.ok){
+              card.querySelector('.c-like-count').textContent    = data.likes;
+              card.querySelector('.c-dislike-count').textContent = data.dislikes;
+              card.querySelector('.c-like')   .setAttribute('aria-pressed', data.state==='like' ? 'true':'false');
+              card.querySelector('.c-dislike').setAttribute('aria-pressed', data.state==='dislike' ? 'true':'false');
+            }
+          }catch(err){ console.error(err); }
+          return;
+        }
 
-      const items = document.querySelectorAll("#summaryList li");
-      (data.summary || []).forEach((t, i) => { if (items[i]) items[i].innerText = t; });
-    } catch (err) {
-      console.error("Translation error:", err);
+        // Reply toggle
+        if (e.target.closest('.c-reply-btn')){
+          const box = card.querySelector('.c-reply-box'); if (!box) return;
+          box.style.display = box.style.display === 'none' ? 'block' : 'none';
+          const ta = box.querySelector('.c-reply-input');
+          if (ta){
+            const name = card.querySelector('.comment-name')?.textContent || '';
+            ta.value = `@${name} `;
+            ta.focus();
+            ta.selectionStart = ta.selectionEnd = ta.value.length;
+          }
+          return;
+        }
+
+        // Cancel reply
+        if (e.target.closest('.c-reply-cancel')){
+          const box = card.querySelector('.c-reply-box'); if (box) box.style.display = 'none';
+          return;
+        }
+
+        // Send reply
+        if (e.target.closest('.c-reply-send')){
+          const box = card.querySelector('.c-reply-box'); if (!box) return;
+          const ta = box.querySelector('.c-reply-input'); const text = (ta.value||'').trim();
+          if (!text) return;
+          const fd = new FormData();
+          fd.set('articleID', ARTICLE_ID); fd.set('text', text); fd.set('parent_id', id);
+          try{
+            const res = await fetch(API_CREATE, { method:'POST', body: fd });
+            const data = res.ok ? await res.json() : null;
+            if (res.ok && data?.ok) await loadComments();
+          }catch(err){ console.error(err); }
+          return;
+        }
+
+        // Edit on
+        if (e.target.closest('.c-edit-btn')){
+          const body = card.querySelector('.c-text');
+          const wrap = card.querySelector('.c-edit');
+          const input= card.querySelector('.c-edit-input');
+          if (!wrap || !body || !input) return;
+          wrap.style.display='block'; body.style.display='none'; input.value = body.textContent; input.focus();
+          return;
+        }
+
+        // Edit cancel
+        if (e.target.closest('.c-edit-cancel')){
+          const body = card.querySelector('.c-text'); const wrap = card.querySelector('.c-edit');
+          if (wrap) wrap.style.display='none'; if (body) body.style.display='block';
+          return;
+        }
+
+        // Edit save
+        if (e.target.closest('.c-edit-save')){
+          const input = card.querySelector('.c-edit-input'); const newText = (input.value||'').trim();
+          if (!newText) return;
+          try{
+            const res = await fetch(API_EDIT(id), { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: newText }) });
+            if (res.ok) loadComments();
+          }catch(err){ console.error(err); }
+          return;
+        }
+
+        // Delete
+        if (e.target.closest('.c-del-btn')){
+          if (!confirm('Delete this comment?')) return;
+          try{
+            const res = await fetch(API_EDIT(id), { method:'DELETE' });
+            if (res.ok) loadComments();
+          }catch(err){ console.error(err); }
+          return;
+        }
+
+        // ⋯ dropdown toggle
+        if (e.target.closest('.c-more-btn')){
+          const menu = card.querySelector('.c-more-dropdown');
+          if (menu){
+            const open = menu.style.display === 'block';
+            document.querySelectorAll('.c-more-dropdown').forEach(m=>m.style.display='none');
+            menu.style.display = open ? 'none' : 'block';
+          }
+          e.stopPropagation();
+          return;
+        }
+
+        // Report comment
+        if (e.target.closest('.c-report-btn')){
+          document.querySelectorAll('.c-more-dropdown').forEach(m=>m.style.display='none');
+          openReport('comment', Number(id));
+          e.stopPropagation();
+          return;
+        }
+
+        // Hide / Show comment
+        if (e.target.closest('.c-hide-btn')){
+          const body = card.querySelector('.c-body');
+          const actions = card.querySelector('.c-actions');
+          if (!card.querySelector('.c-hidden')){
+            const ph = document.createElement('div');
+            ph.className = 'c-hidden';
+            ph.innerHTML = `Comment hidden. <button class="btn btn-ghost c-show-btn" type="button">Show</button>`;
+            card.appendChild(ph);
+          }
+          if (body) body.style.display = 'none';
+          if (actions) actions.style.display = 'none';
+          document.querySelectorAll('.c-more-dropdown').forEach(m=>m.style.display='none');
+          return;
+        }
+        if (e.target.closest('.c-show-btn')){
+          const body = card.querySelector('.c-body');
+          const actions = card.querySelector('.c-actions');
+          const ph = card.querySelector('.c-hidden');
+          if (body) body.style.display = '';
+          if (actions) actions.style.display = '';
+          if (ph) ph.remove();
+          return;
+        }
+      });
+
+      document.addEventListener('click', () => {
+        document.querySelectorAll('.c-more-dropdown').forEach(m=>m.style.display='none');
+      });
+
+      // Article report
+      document.getElementById('articleReportBtn')?.addEventListener('click', () => {
+        openReport('article', ARTICLE_ID);
+      });
+
+      // Report modal helpers
+      function openReport(type, id){
+        reportTarget = { type, id };
+        if (titleEl)  titleEl.textContent = (type === 'article') ? 'Report Article' : 'Report Comment';
+        if (reasonSel) reasonSel.value = '';
+        if (noteTxt)   noteTxt.value   = '';
+        overlay?.classList.add('show');               // CSS: .report-modal-overlay.show { display:flex }
+        overlay?.setAttribute('aria-hidden', 'false');
+      }
+
+      function closeReport(){
+        overlay?.classList.remove('show');
+        overlay?.setAttribute('aria-hidden', 'true');
+        reportTarget = { type:null, id:null };
+      }
+
+      // prevent clicks INSIDE the modal from closing it
+      modalCard?.addEventListener('click', (e) => e.stopPropagation());
+
+      // only clicks on the dark overlay (outside the card) should close
+      overlay?.addEventListener('click', (e) => {
+        if (e.target === overlay) closeReport();
+      });
+
+      btnCancel?.addEventListener('click', closeReport);
+
+      btnSubmit?.addEventListener('click', async () => {
+        if (!reportTarget.type || !reportTarget.id) return;
+        const reason  = (reasonSel?.value || '').trim();
+        const details = (noteTxt?.value || '').trim();
+        if (!reason){ alert('Please select a reason.'); return; }
+
+        const path = (reportTarget.type === 'article') ? API_R_ART : API_R_COMM;
+
+        try{
+          const res = await fetch(path, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ id: Number(reportTarget.id), reason, details })
+          });
+          const data = await res.json().catch(()=> ({}));
+          if (res.ok && data?.ok){
+            alert('Report submitted. Thank you.');
+            closeReport();
+          }else{
+            alert(data?.message || 'Failed to submit report.');
+          }
+        }catch(err){
+          console.error(err);
+          alert('Failed to submit report.');
+        }
+      });
+
+      // Initial comments load
+      loadComments();
+    });
+  </script>
+
+  <!-- Share -->
+  <script>
+    (function() {
+      const shareBtn = document.getElementById("shareBtn");
+      if (!shareBtn) return;
+      shareBtn.addEventListener("click", () => {
+        const url = window.location.href;
+        const titleEl = document.querySelector(".article-title");
+        const title = titleEl ? titleEl.innerText : document.title;
+        if (navigator.share) {
+          navigator.share({ title, url }).catch(err => console.error("Share failed:", err));
+        } else {
+          navigator.clipboard.writeText(url).then(() => alert("Link copied to clipboard!"));
+        }
+      });
+    })();
+  </script>
+
+  <!-- Ads Box -->
+  <script>
+    (function(){
+      const adsBox   = document.getElementById('adsBox');
+      const ADS_API  = "{{ url_for('api_random_ad') }}";
+      const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      function renderAd(ad){
+        if(!adsBox) return;
+        adsBox.innerHTML = `
+          <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+            <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+            ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
+            ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
+          </a>
+        `;
+      }
+      async function loadAd(){
+        try{
+          const res = await fetch(ADS_API, {cache:'no-store'});
+          if(!res.ok) return;
+          const data = await res.json();
+          if(data?.ok && data.ad) renderAd(data.ad);
+        }catch(_){}
+      }
+      loadAd();
+      setInterval(loadAd, 10_000);
+    })();
+  </script>
+
+  <!-- Translate helpers -->
+  <script>
+    let originalTitle = "", originalContent = "", originalSummary = [];
+    window.addEventListener("DOMContentLoaded", () => {
+      originalTitle = document.querySelector(".article-title")?.innerText || "";
+      const contentEl = document.querySelector(".article-content");
+      originalContent = contentEl ? contentEl.innerText : "";
+      originalSummary = Array.from(document.querySelectorAll("#summaryList li")).map(li => li.innerText);
+    });
+    async function translateArticle() {
+      const lang = document.getElementById("language")?.value;
+      if (!lang) return;
+      if (lang === "en") {
+        const tEl = document.querySelector(".article-title"); if (tEl) tEl.innerText = originalTitle;
+        const cEl = document.querySelector(".article-content"); if (cEl) cEl.innerText = originalContent;
+        const items = document.querySelectorAll("#summaryList li");
+        originalSummary.forEach((t, i) => { if (items[i]) items[i].innerText = t; });
+        window.currentTTSLang = 'en'; return;
+      }
+      try {
+        const res = await fetch("/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: originalTitle,
+            content: originalContent,
+            summary: originalSummary,
+            target_lang: lang
+          })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        const tEl = document.querySelector(".article-title");
+        if (tEl) tEl.innerText = data.title || originalTitle;
+        const cEl = document.querySelector(".article-content");
+        if (cEl) cEl.innerText = data.content || originalContent;
+        const items = document.querySelectorAll("#summaryList li");
+        (data.summary || []).forEach((t, i) => { if (items[i]) items[i].innerText = t; });
+        window.currentTTSLang = lang;
+      } catch (err) {
+        console.error("Translation error:", err);
+      }
     }
-  }
-</script>
+  </script>
 
-  <!-- Logout modal wiring (AFTER modal element) -->
+  <!-- Logout modal wiring -->
   <script>
     (function () {
       const modal   = document.getElementById('logoutModal');
       const confirm = document.getElementById('logoutConfirm');
       const cancel  = document.getElementById('logoutCancel');
-
       document.querySelectorAll('.logout-link').forEach(a => {
         a.addEventListener('click', (e) => {
           e.preventDefault();
@@ -1099,86 +1039,30 @@ document.addEventListener('click', () => {
           modal.setAttribute('aria-hidden', 'false');
         });
       });
-
       function closeModal() {
         modal.classList.remove('show');
         modal.setAttribute('aria-hidden', 'true');
         delete modal.dataset.href;
       }
-
       if (cancel)  cancel.addEventListener('click', closeModal);
       if (confirm) confirm.addEventListener('click', () => {
         const href = modal.dataset.href || "{{ url_for('logout') }}";
         window.location.href = href;
       });
-
       modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
       });
+      // Footer year
+      const y = document.getElementById('footer-year'); if (y) y.textContent = new Date().getFullYear();
+      // bfcache
+      window.addEventListener('pageshow', function(event) { if (event.persisted) window.location.reload(); });
     })();
-
-    // Fix back/forward cache so the page refreshes correctly
-    window.addEventListener('pageshow', function(event) {
-      if (event.persisted) {
-        window.location.reload();
-      }
-    });
   </script>
 
-<script src="{{ url_for('static', filename='js/accessibility_toolbar.js') }}"></script>
-{% include 'partials/chatbot.html' %}
-
-  <footer class="site-footer" role="contentinfo" aria-label="Site footer">
-  <div class="footer-container">
-
-    <div class="footer-top">
-      <a class="footer-brand" href="{{ url_for('subscriberHomepage') }}">EchoPress</a>
-
-      <nav class="footer-links" aria-label="Key links">
-        <ul>
-          <li><a href="{{ url_for('subscriber_my_articles') }}">My Articles</a></li>
-          <li><a href="{{ url_for('subscriber_bookmarks') }}">Bookmarks</a></li>
-          <li><a href="{{ url_for('profile') }}">My Profile</a></li>
-          <li><a href="{{ url_for('subscriberCreateArticle') }}">Create Story</a></li>
-          <li><a href="{{ url_for('donate_form') }}">Donate</a></li>
-        </ul>
-      </nav>
-    </div>
-
-      <div class="footer-grid">
-        <div class="footer-support">
-          <h3>Support EchoPress</h3>
-          <p>Your contribution keeps independent journalism alive.</p>
-          <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
-
-          <!-- Moved here: centered social links under Donate -->
-          <ul class="footer-social" aria-label="Social links">
-            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
-            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
-            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
-            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
-          </ul>
-        </div>
-      </div>
-
-    <div class="footer-legal">
-      <address class="footer-contact">
-        Newsroom: <a href="mailto:newsdesk@echopress.com">Email Us</a> ·
-        Ads: <a href="mailto:ads@echopress.com">Email Us</a> ·
-      </address>
-      <p class="footer-copy">© <span id="footer-year"></span> EchoPress. All rights reserved.</p>
-    </div>
-
-  </div><!-- /footer-container -->
-</footer>
-
-<script>
-  (function(){
-    var y = document.getElementById('footer-year');
-    if (y) y.textContent = new Date().getFullYear();
-  })();
-</script>
+  <!-- Accessibility widget + Chatbot include -->
+  <script src="{{ url_for('static', filename='js/accessibility_toolbar.js') }}"></script>
+  {% include 'partials/chatbot.html' %}
 
 </body>
 </html>
