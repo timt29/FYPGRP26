@@ -22,7 +22,8 @@ from utils.profanity_filter import contains_profanity, censor_text
 from utils.content_analyzer import analyze_content
 from typing import Optional
 from utils.chatbot import getChatbotResponse
-
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import nltk
 
 # Path to bundled nltk_data (inside your repo)
@@ -36,6 +37,7 @@ print(sent_tokenize("Hello world. This is a test."))
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Replace with a secure key
 
+'''
 # ---------- DB ----------
 def get_db_connection():
     return mysql.connector.connect(
@@ -46,15 +48,14 @@ def get_db_connection():
     )
 '''
 def get_db_connection():
-    return mysql.connector.connect(
-
-        host="shortline.proxy.rlwy.net",
-        user="root",
-        password="ZavXqAKfvdBvKRUKrjhQZoMYypyHLQes",
-        database="railway",
-        port=52559
+    return psycopg2.connect(
+        host=os.environ.get("DB_HOST"),
+        port=os.environ.get("DB_PORT"),
+        database=os.environ.get("DB_NAME"),
+        user=os.environ.get("DB_USER"),
+        password=os.environ.get("DB_PASSWORD")
     )
-'''
+
 print("Connected to MySQL")
 # ---------- Auth wrapper ---------- # (YY)
 def login_required(role=None):
