@@ -8,3 +8,4 @@ rapidfuzz
 PyMuPDF
 python-docx
 transformers
+torch
