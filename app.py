@@ -1115,12 +1115,17 @@ def _to_iso(dt):
     try:    return dt.isoformat()
     except: return None
 
-def _norm_img(p: str | None) -> str | None:
-    if not p: return None
-    if p.startswith("http"): return p
-    if p.startswith("/static/"): return p
-    if p.startswith("../static/"): return p.replace("../static", "/static")
-    if p.startswith("./static/"):  return p.replace("./static", "/static")
+def _norm_img(p: Optional[str]) -> Optional[str]:
+    if not p:
+        return None
+    if p.startswith("http"):
+        return p
+    if p.startswith("/static/"):
+        return p
+    if p.startswith("../static/"):
+        return p.replace("../static", "/static")
+    if p.startswith("./static/"):
+        return p.replace("./static", "/static")
     return "/static/profilePictures/" + p.lstrip("/")
 
 @app.get("/subscriber/api/comments")
