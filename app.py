@@ -48,15 +48,46 @@ def get_db_connection():
     )
 '''
 
+import socket
+
 def get_db_connection():
-    return psycopg2.connect(
-        host=os.getenv("host", "db.ioxwfemawqhuqwkmshoc.supabase.co"),
-        port=int(os.getenv("port", 5432)),
-        database=os.getenv("database", "postgres"),
-        user=os.getenv("user", "postgres.ioxwfemawqhuqwkmshoc"),
-        password=os.getenv("password", "ZavXqAKfvdBvKRUKrjhQZoMYypyHLQes"),
-        sslmode="require"
-    )
+    # Environment variables
+    pooled_host = os.getenv("pooled_host", "aws-1-ap-southeast-1.pooler.supabase.com")
+    direct_host = os.getenv("host", "db.ioxwfemawqhuqwkmshoc.supabase.co")
+    database = os.getenv("database", "postgres")
+    user = os.getenv("user", "postgres.ioxwfemawqhuqwkmshoc")
+    password = os.getenv("password", "ZavXqAKfvdBvKRUKrjhQZoMYypyHLQes")
+
+    # Try pooled connection first (port 6543)
+    try:
+        conn = psycopg2.connect(
+            host=pooled_host,
+            port=int(os.getenv("pooled_port", 6543)),
+            database=database,
+            user=user,
+            password=password,
+            sslmode="require"
+        )
+        print("Connected via pooled connection (6543)")
+        return conn
+    except psycopg2.OperationalError as e:
+        print(f"Pooled connection failed: {e}")
+        # Fallback: resolve IPv4 for direct connection
+        try:
+            direct_host_ipv4 = socket.gethostbyname(direct_host)
+            conn = psycopg2.connect(
+                host=direct_host_ipv4,
+                port=int(os.getenv("port", 5432)),
+                database=database,
+                user=user,
+                password=password,
+                sslmode="require"
+            )
+            print("Connected via direct connection (5432)")
+            return conn
+        except psycopg2.OperationalError as e2:
+            print(f"Direct connection failed: {e2}")
+            raise ConnectionError("Cannot connect to Supabase on either pooled or direct host.")
 
 print("Connected to MySQL")
 
