@@ -7,3 +7,4 @@ deep-translator
 rapidfuzz
 PyMuPDF
 python-docx
+transformers
