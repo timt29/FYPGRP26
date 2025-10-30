@@ -120,7 +120,6 @@ def article(article_id):
 #(MW) ----- Increment views (+1 once per session per article)
 @app.route("/api/article/<int:article_id>/view", methods=["POST"])
 def api_article_view_beacon(article_id: int):
-    from flask import session, jsonify
 
     # Track which article IDs this session has viewed
     viewed_key = "viewed_articles"
@@ -957,8 +956,7 @@ def subscriber_api_my_articles():
             {base_select}
             INNER JOIN article_reports ar ON ar.article_id = a.articleID
             WHERE a.author = %s
-              AND ar.status = 'reviewed'
-              AND a.status = 'pending_revision'
+              AND ar.status = 'pending'
             GROUP BY a.articleID
             ORDER BY MAX(ar.updated_at) DESC
             LIMIT %s OFFSET %s
@@ -1091,8 +1089,6 @@ def subscriber_api_bookmarks():
     return jsonify(rows)
 
 # --- (MW) Subscriber comment functions ------
-from datetime import datetime, timezone
-from flask import jsonify, request, session
 
 def _timeago(ts):
     if not ts:
@@ -1886,8 +1882,6 @@ def donate_submit():
     2) INSERT into donations (master)
     3) INSERT into donation_info (detail)
     """
-    from flask import request, redirect, url_for, session, flash
-    import decimal
 
     method = (request.form.get("payment_method") or "").strip().lower()
     amount_raw = (request.form.get("donation_amount") or "").strip()
