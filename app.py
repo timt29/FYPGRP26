@@ -50,7 +50,7 @@ def get_db_connection():
 
 def get_db_connection():
     return psycopg2.connect(
-        host=os.getenv("host", "aws-1-ap-southeast-1.supabase.com"),
+        host=os.getenv("host", "db.ioxwfemawqhuqwkmshoc.supabase.co"),
         port=int(os.getenv("port", 5432)),
         database=os.getenv("database", "postgres"),
         user=os.getenv("user", "postgres.ioxwfemawqhuqwkmshoc"),
