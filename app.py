@@ -787,7 +787,14 @@ def subscriber_search_api():
     params.extend([limit, offset])
     cur.execute(sql, tuple(params))
     rows = cur.fetchall()
-    cur.close(); conn.close()
+    
+    for r in rows:
+        html = r.get("content") or ""
+        r["content_html"]  = html
+        r["content_plain"] = re.sub(r"<[^>]+>", "", html)
+
+    cur.close()
+    conn.close()
     return jsonify(rows)
 
 # (MW)

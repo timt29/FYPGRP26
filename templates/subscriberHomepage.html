@@ -125,12 +125,12 @@
   </script>
 
   <!-- Articles + Search (hero + grouped rows) -->
-  <script>
+<script>
   (async function () {
-    const heroEl   = document.getElementById("hero");
-    const heroDivider = document.getElementById("heroDivider");
-    const rowsEl   = document.getElementById("rows");
-    const API_URL  = "{{ url_for('subscriber_search_api') }}";
+    const heroEl       = document.getElementById("hero");
+    const heroDivider  = document.getElementById("heroDivider");
+    const rowsEl       = document.getElementById("rows");
+    const API_URL      = "{{ url_for('subscriber_search_api') }}";
     const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
     const ACTIVE_CAT   = "{{ active_category|default('Trending') }}";
     const tabAll       = document.getElementById("tabAll");
@@ -139,8 +139,22 @@
 
     let lastCategory = ACTIVE_CAT;
     const placeholder = "{{ url_for('static', filename='img/placeholder.png') }}";
+
     const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    const truncate = (t, n=240) => (!t ? "" : (t=t.trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
+
+    function sanitizeBasic(html){
+      const allowed = new Set(["B","STRONG","I","EM","U","S","BR","P"]);
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html || "";
+      [...tpl.content.querySelectorAll("*")].forEach(el => {
+        if (!allowed.has(el.tagName)) {
+          el.replaceWith(...el.childNodes);
+        } else {
+          [...el.attributes].forEach(a => el.removeAttribute(a.name));
+        }
+      });
+      return tpl.innerHTML;
+    }
 
     function normImage(img) {
       if (!img) return placeholder;
@@ -148,23 +162,25 @@
       if (img.startsWith("/static/")) return img;
       if (img.startsWith("../static/")) return img.replace("../static", "/static");
       if (img.startsWith("./static/"))  return img.replace("./static",  "/static");
-      return "/static/img/" + img; // bare filename fallback
+      return "/static/img/" + img;
     }
 
     function heroCard(a) {
       const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
       const img  = normImage(a.image);
+
+      const previewHtml = sanitizeBasic(a.content_html || a.content || a.content_plain || "");
+
       return `
         <a class="hero-link" href="${href}">
           <div class="hero-text">
             <h1 class="hero-title">${esc(a.title)}</h1>
-            <p class="hero-desc">${esc(truncate(a.content || ""))}</p>
+            <p class="hero-desc">${previewHtml}</p>
           </div>
-          <div class="hero-media">
-            <img src="${img}" alt="">
-          </div>
+          <div class="hero-media"><img src="${img}" alt=""></div>
         </a>`;
     }
+
 
     // One cell inside a 2-up row (title left, photo right)
     function cell(a) {
@@ -185,7 +201,7 @@
       const chunks = [];
       for (let i = 0; i < items.length; i += 2) {
         const a = items[i];
-        const b = items[i+1];
+        const b = items[i + 1];
         chunks.push(`
           <div class="row-group">
             ${cell(a)}
@@ -195,11 +211,13 @@
         `);
       }
       // remove last trailing hr for neatness
-      if (chunks.length) chunks[chunks.length-1] = chunks[chunks.length-1].replace(/<hr class="hr">\s*$/, "");
+      if (chunks.length) {
+        chunks[chunks.length - 1] = chunks[chunks.length - 1].replace(/<hr class="hr">\s*$/, "");
+      }
       return chunks.join("");
     }
 
-    async function loadArticles(cat, q){
+    async function loadArticles(cat, q) {
       heroEl.classList.add("hidden");
       heroEl.innerHTML = "";
       heroDivider.classList.add("hidden");
@@ -208,20 +226,20 @@
       const p = new URLSearchParams();
       if (cat) p.set("cat", cat);
       if (q)   p.set("q", q);
-      p.set("limit","30");
+      p.set("limit", "30");
 
       try {
         const res = await fetch(`${API_URL}?${p.toString()}`);
-        if(!res.ok){
+        if (!res.ok) {
           rowsEl.innerHTML = `<p style="color:#b00">Failed to load (${res.status}).</p>`;
-          return {rows:[]};
+          return { rows: [] };
         }
         let rows = await res.json();
         if (!Array.isArray(rows)) rows = [];
 
-        if (rows.length === 0){
+        if (rows.length === 0) {
           rowsEl.innerHTML = "<p>No articles found.</p>";
-          return {rows};
+          return { rows };
         }
 
         const latest = rows[0];
@@ -235,10 +253,10 @@
         // Render grouped rows
         rowsEl.innerHTML = renderRows(older);
 
-        return {rows};
+        return { rows };
       } catch (e) {
         rowsEl.innerHTML = `<p style="color:#b00">Failed to load.</p>`;
-        return {rows:[]};
+        return { rows: [] };
       }
     }
 
@@ -254,32 +272,32 @@
       const q   = (searchInput?.value || "").trim();
       if (cat) lastCategory = cat;
 
-      const {rows} = await loadArticles(cat, q);
+      const { rows } = await loadArticles(cat, q);
       if (btn === tabAll && rows.length === 0 && !q) tabAll.classList.add("hidden");
 
-      document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
       btn.classList.add("active");
     });
 
     // SEARCH: show All tab when there are results across categories
-    if (searchForm){
+    if (searchForm) {
       searchForm.addEventListener("submit", async e => {
         e.preventDefault();
         const q = (searchInput.value || "").trim();
-        if (!q){
+        if (!q) {
           tabAll.classList.add("hidden");
           const lastBtn = [...document.querySelectorAll(".tab[data-cat]")].find(b => b.getAttribute("data-cat") === lastCategory);
           await loadArticles(lastCategory, "");
           if (lastBtn) {
-            document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+            document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
             lastBtn.classList.add("active");
           }
           return;
         }
-        const {rows} = await loadArticles("", q); // all categories
-        if (rows.length > 0){
+        const { rows } = await loadArticles("", q); // all categories
+        if (rows.length > 0) {
           tabAll.classList.remove("hidden");
-          document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+          document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
           tabAll.classList.add("active");
         } else {
           tabAll.classList.add("hidden");
@@ -289,18 +307,18 @@
 
     // If the user clears search, restore last category
     searchInput?.addEventListener("input", async () => {
-      if (searchInput.value.trim() === ""){
+      if (searchInput.value.trim() === "") {
         tabAll.classList.add("hidden");
         const lastBtn = [...document.querySelectorAll(".tab[data-cat]")].find(b => b.getAttribute("data-cat") === lastCategory);
         await loadArticles(lastCategory, "");
         if (lastBtn) {
-          document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+          document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
           lastBtn.classList.add("active");
         }
       }
     });
   })();
-  </script>
+</script>
 
   <!-- Ads Box Functions -->
   <script>
@@ -429,7 +447,7 @@
   </script>
 
   <footer class="site-footer" role="contentinfo" aria-label="Site footer">
-  <div class="footer-container"><!-- NEW -->
+  <div class="footer-container">
 
     <div class="footer-top">
       <a class="footer-brand" href="{{ url_for('subscriberHomepage') }}">EchoPress</a>
@@ -461,10 +479,6 @@
         </div>
       </div>
 
-
-
-    </div>
-
     <div class="footer-legal">
       <address class="footer-contact">
         Newsroom: <a href="mailto:newsdesk@echopress.com">Email Us</a> ·
@@ -482,7 +496,5 @@
     if (y) y.textContent = new Date().getFullYear();
   })();
 </script>
-
-
 </body>
 </html>
