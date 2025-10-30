@@ -6,4 +6,4 @@ nltk
 numpy==2.3.3
 deep-translator
 rapidfuzz
-fitz
+PyMuPDF
