@@ -58,6 +58,10 @@ def get_db_connection():
     )
 
 print("Connected to MySQL")
+
+def get_cursor(conn):
+    return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) 
+
 # ---------- Auth wrapper ---------- # (YY)
 def login_required(role=None):
     def wrapper(fn):
@@ -83,7 +87,7 @@ def login_required(role=None):
 @app.route("/")
 def index():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
     cursor.execute("""
         SELECT articleID, title, content, author, published_at, updated_at, image
         FROM articles 
@@ -100,7 +104,7 @@ def index():
 @app.route("/article/<int:article_id>")
 def article(article_id):
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
     cursor.execute("SELECT * FROM articles WHERE articleID = %s", (article_id,))
     article = cursor.fetchone()
     cursor.close()
@@ -131,7 +135,7 @@ def api_article_view_beacon(article_id: int):
         already = set()
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
 
     updated = False
     if article_id not in already:
@@ -156,7 +160,7 @@ def search():
     fallback_articles = []
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     # --- 1. Perform the search ---
     if query:
@@ -196,7 +200,7 @@ def search():
 
 def get_categories():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
     cursor.execute("SELECT name FROM categories")
     categories = cursor.fetchall()
     conn.close()
@@ -209,7 +213,7 @@ def inject_categories():
 @app.route("/category/<category_name>")
 def category(category_name):
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     cursor.execute("""
         SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
@@ -231,7 +235,7 @@ def category(category_name):
 @login_required("Admin")
 def adminHomepage():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     # Fetch user stats
     cursor.execute("SELECT COUNT(*) AS total FROM users")
@@ -263,7 +267,7 @@ def adminHomepage():
 @login_required("Moderator")
 def modHomepage():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     try:
         # Count flagged articles with pending status
@@ -308,7 +312,7 @@ def modHomepage():
 @login_required("Subscriber")
 def subscriberHomepage():
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(conn)
     # (existing warnings query)
     cur.execute("SELECT message, created_at FROM warnings WHERE userID=%s", (session["userID"],))
     warnings = cur.fetchall()
@@ -336,7 +340,7 @@ def api_articles():
     offset = int(request.args.get("offset", 0))
 
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(conn)
 
     params = []
     where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
@@ -376,7 +380,7 @@ def subscriberCreateArticle():
 @login_required("Subscriber")
 def api_categories():
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(conn)
     cur.execute("SELECT categoryID, name FROM categories ORDER BY categoryID ASC")
     rows = cur.fetchall()
     cur.close(); conn.close()
@@ -698,7 +702,7 @@ def api_ai_suggest():
 
     # Fetch categories via MySQL
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
     cur.execute("SELECT categoryID, name FROM categories ORDER BY name")
     categories = cur.fetchall()
     cur.close(); conn.close()
@@ -762,7 +766,7 @@ def subscriber_search_api():
     offset= int(request.args.get("offset", 0))
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
 
     where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
     params = []
@@ -804,7 +808,7 @@ def subscriber_search_api():
 @login_required("Subscriber")
 def subscriber_article_view(article_id):
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
 
     cur.execute("""
         SELECT a.articleID, a.title, a.content, a.author,
@@ -915,7 +919,7 @@ def subscriber_api_my_articles():
     offset = int(request.args.get("offset", 0))
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
 
     base_select = """
         SELECT a.articleID, a.title, a.content, a.draft,
@@ -974,7 +978,7 @@ def subscriber_api_my_articles():
 @login_required("Subscriber")
 def subscriber_edit_article(article_id):
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
     cur.execute("""
         SELECT a.articleID, a.title, a.content, a.catID, a.image, a.draft,
                a.published_at, a.updated_at
@@ -1004,7 +1008,7 @@ def subscriber_update_article(article_id):
     draft_flag = (action != "publish")
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
 
     cur.execute("SELECT author FROM articles WHERE articleID=%s LIMIT 1", (article_id,))
     row = cur.fetchone()
@@ -1066,7 +1070,7 @@ def subscriber_api_bookmarks():
         return jsonify(ok=False, message="Not logged in"), 401
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
     cur.execute("""
         SELECT a.articleID, a.title, a.content, a.author,
                a.published_at, a.updated_at,
@@ -1135,7 +1139,7 @@ def subscriber_api_comments():
     uid = session.get("userID")  # your session key
 
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(conn)
 
     # 1) comments + author name + author image
     cur.execute("""
@@ -1204,7 +1208,7 @@ def subscriber_api_comment_create():
         return jsonify({"ok": False, "error": "Empty comment."}), 400
 
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(conn)
 
     # Ensure 1-level replies only (reply to top-level)
     top_parent_id = None
@@ -1349,7 +1353,7 @@ def report_article():
         return jsonify(ok=False, message="Article ID and reason are required."), 400
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
     try:
         # 1) verify article exists + author name
         cur.execute("SELECT author FROM articles WHERE articleID = %s", (article_id,))
@@ -1400,7 +1404,7 @@ def report_comment():
         return jsonify(ok=False, message="Comment ID and reason are required."), 400
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
     try:
         # 1) de-dupe (same user reporting same comment)
         cur.execute(
@@ -1444,7 +1448,7 @@ def profile():
     uid = session["userID"]
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
     cur.execute("""
         SELECT userID, name, email, usertype, image, bio
         FROM users
@@ -1495,7 +1499,7 @@ def profile_update():
 
     # --- fetch current user values for change detection ---
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
     cur.execute("SELECT name, bio, image FROM users WHERE userID=%s LIMIT 1", (uid,))
     row = cur.fetchone()
     cur.close()
@@ -1539,7 +1543,7 @@ def profile_update():
 @login_required("Subscriber")
 def subscriber_profile_view(user_id: int):
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
 
     cur.execute("""
         SELECT userID, name, email, usertype, image, bio
@@ -1599,7 +1603,7 @@ def subscriber_delete_article(article_id):
     username = session.get("user")  # current logged-in subscriber
 
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(conn)
 
     # Make sure the article belongs to the logged-in user
     cur.execute("SELECT * FROM articles WHERE articleID = %s AND author = %s", (article_id, username))
@@ -1624,7 +1628,7 @@ def subscriber_delete_article(article_id):
 @login_required("Subscriber")
 def api_random_ad():
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
     # Random 1 where visible=1
     cur.execute("""
         SELECT adsID, adsTitle, adsDescription, adsImage, adsWebsite
@@ -1673,7 +1677,7 @@ def subscriber_analytics_my_articles():
     author_name = session.get("user", "")
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
 
     cur.execute("""
         SELECT
@@ -1767,7 +1771,7 @@ def subscriber_analytics_my_donations():
         return jsonify({"error": "unauthorized"}), 401
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur  = conn.cursor(conn)
     try:
         cur.execute("""
             SELECT
@@ -2006,7 +2010,7 @@ def login():
         remember = request.form.get("remember")
 
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(conn)
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
 
@@ -2147,7 +2151,7 @@ def manage_users():
         return redirect(url_for("login"))
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
     cursor.execute("""
         SELECT userID, name, email, usertype
         FROM users
@@ -2193,7 +2197,7 @@ def toggle_suspend():
     user_id = request.form["userID"]
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     cursor.execute("SELECT name, usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
     user = cursor.fetchone()
@@ -2265,7 +2269,7 @@ def view_all_users():
         return redirect(url_for("login"))
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
     cursor.execute("SELECT userID, name, email, usertype FROM users")
     users = cursor.fetchall()
     cursor.close()
@@ -2286,7 +2290,7 @@ def search_account():
     if request.method == "POST":
         search_term = request.form["search_term"]
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(conn)
         cursor.execute("""
             SELECT userID, name, email, usertype
             FROM users
@@ -2339,7 +2343,7 @@ def update_user():
         return redirect(url_for("login"))
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     if request.method == "POST":
         email = request.form["email"]
@@ -2375,7 +2379,7 @@ def manage_user_status():
         return redirect(url_for("login"))
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     if request.method == "POST":
         user_id = request.form.get("userID")
@@ -2433,7 +2437,7 @@ def report_new_users():
         return redirect(url_for("login"))
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     # Example: users created in the last 7 days
     cursor.execute("""
@@ -2458,7 +2462,7 @@ def article_submission():
         return redirect(url_for("login"))
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     # Fetch only articles created by valid users (exclude system/orphan articles)
     cursor.execute("""
@@ -2493,7 +2497,7 @@ def login_activity():
         return redirect(url_for("login"))
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     cursor.execute("""
         SELECT 
@@ -2532,7 +2536,7 @@ def login_activity():
 @login_required("Moderator")
 def flagged_articles():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     cursor.execute("""
         SELECT 
@@ -2565,7 +2569,7 @@ def review_article():
         return redirect("/flaggedArticles")
 
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     try:
         # Fetch the article ID for this report
@@ -2617,7 +2621,7 @@ def review_article():
 @app.route("/getArticle/<int:article_id>")
 def get_article(article_id):
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
     cursor.execute("""
         SELECT title, content, author, published_at, image
         FROM articles
@@ -2638,7 +2642,7 @@ def get_article(article_id):
 @login_required("Moderator")
 def flagged_comments():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     try:
         cursor.execute("""
@@ -2728,7 +2732,7 @@ def reviewComment():
 @app.route("/getComment/<int:comment_id>")
 def get_comment(comment_id):
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
     cursor.execute("""
         SELECT c.commentID, c.comment_text, c.created_at, u.name AS user
         FROM comments c
@@ -2749,7 +2753,7 @@ def get_comment(comment_id):
 @login_required("Moderator")
 def pending_articles():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     try:
         # Fetch articles that are pending approval
@@ -2774,7 +2778,7 @@ def pending_articles():
 @login_required("Moderator")
 def manage_categories():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
     cursor.execute("SELECT * FROM categories")
     categories = cursor.fetchall()
     cursor.close()
@@ -2823,7 +2827,7 @@ def add_category():
 @login_required("Moderator")
 def update_category():
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     if request.method == "POST":
         categoryID = request.form.get("categoryID")
@@ -2856,7 +2860,7 @@ def update_category():
 def delete_category_page():
     search = request.args.get("search", "")
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(conn)
 
     if search:
         cursor.execute("SELECT * FROM categories WHERE name LIKE %s ORDER BY name ASC", ('%' + search + '%',))
