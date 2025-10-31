@@ -25,6 +25,7 @@ from utils.chatbot import getChatbotResponse
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import nltk
+import socket
 
 # Path to bundled nltk_data (inside your repo)
 nltk_data_dir = os.path.join(os.path.dirname(__file__), "nltk_data")
@@ -48,46 +49,52 @@ def get_db_connection():
     )
 '''
 
-import socket
-
 def get_db_connection():
-    # Environment variables
-    pooled_host = os.getenv("pooled_host", "aws-1-ap-southeast-1.pooler.supabase.com")
-    direct_host = os.getenv("host", "db.ioxwfemawqhuqwkmshoc.supabase.co")
     database = os.getenv("database", "postgres")
     user = os.getenv("user", "postgres.ioxwfemawqhuqwkmshoc")
     password = os.getenv("password", "ZavXqAKfvdBvKRUKrjhQZoMYypyHLQes")
 
-    # Try pooled connection first (port 6543)
+    pooled_host = "aws-1-ap-southeast-1.pooler.supabase.com"
+    direct_host = "db.ioxwfemawqhuqwkmshoc.supabase.co"
+
     try:
+        pooled_ipv4 = socket.gethostbyname(pooled_host)
+        print(f"Connecting to pooled IPv4: {pooled_ipv4}:6543")
+
         conn = psycopg2.connect(
-            host=pooled_host,
-            port=int(os.getenv("pooled_port", 6543)),
+            host=pooled_ipv4,
+            port=6543,
             database=database,
             user=user,
             password=password,
             sslmode="require"
         )
-        print("Connected via pooled connection (6543)")
+        print("✅ Connected to Supabase (pooled IPv4)")
         return conn
+
     except psycopg2.OperationalError as e:
-        print(f"Pooled connection failed: {e}")
-        # Fallback: resolve IPv4 for direct connection
+        print(f"❌ Pooled connection failed: {e}")
+
+        # fallback to direct
         try:
-            direct_host_ipv4 = socket.gethostbyname(direct_host)
+            direct_ipv4 = socket.gethostbyname(direct_host)
+            print(f"Connecting to direct IPv4: {direct_ipv4}:5432")
+
             conn = psycopg2.connect(
-                host=direct_host_ipv4,
-                port=int(os.getenv("port", 5432)),
+                host=direct_ipv4,
+                port=5432,
                 database=database,
                 user=user,
                 password=password,
                 sslmode="require"
             )
-            print("Connected via direct connection (5432)")
+            print("✅ Connected to Supabase (direct IPv4)")
             return conn
+
         except psycopg2.OperationalError as e2:
-            print(f"Direct connection failed: {e2}")
-            raise ConnectionError("Cannot connect to Supabase on either pooled or direct host.")
+            print(f"❌ Direct connection failed: {e2}")
+            raise ConnectionError("Could not connect to Supabase via pooled or direct IPv4")
+
 
 print("Connected to MySQL")
 
