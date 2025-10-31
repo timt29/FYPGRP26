@@ -24,7 +24,7 @@ DROP TABLE IF EXISTS `warnings`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `warnings` (
   `warningID` int NOT NULL AUTO_INCREMENT,
-  `userID` int NOT NULL,
+  `userid` int NOT NULL,
   `message` varchar(255) NOT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`warningID`)

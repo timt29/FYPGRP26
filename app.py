@@ -217,7 +217,7 @@ def search():
         cursor.execute("""
             SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
             FROM articles a
-            JOIN categories c ON a.catID = c.categoryID
+            JOIN categories c ON a.catID = c.categoryid
             ORDER BY a.published_at DESC
             LIMIT 10
         """)
@@ -257,7 +257,7 @@ def category(category_name):
     cursor.execute("""
         SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
         FROM articles a
-        JOIN categories c ON a.catID = c.categoryID
+        JOIN categories c ON a.catID = c.categoryid
         WHERE c.name = %s AND a.visible = 1
         ORDER BY a.published_at DESC
     """, (category_name,))
@@ -356,7 +356,7 @@ def subscriberHomepage():
     cur.execute("SELECT message, created_at FROM warnings WHERE userid=%s", (session["userid"],))
     warnings = cur.fetchall()
     # Pull categories dynamically
-    cur.execute("SELECT categoryID, name FROM categories ORDER BY categoryID ASC")
+    cur.execute("SELECT categoryid, name FROM categories ORDER BY categoryid ASC")
     categories = cur.fetchall()
     cur.close(); conn.close()
     # active tab via query param (?cat=Technology), default 'Trending'
@@ -384,7 +384,7 @@ def api_articles():
     params = []
     where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
 
-    join   = "LEFT JOIN categories c ON a.catID = c.categoryID"
+    join   = "LEFT JOIN categories c ON a.catID = c.categoryid"
     if cat:
         where.append("c.name = %s")
         params.append(cat)
@@ -420,7 +420,7 @@ def subscriberCreateArticle():
 def api_categories():
     conn = get_db_connection()
     cur = conn.cursor(conn)
-    cur.execute("SELECT categoryID, name FROM categories ORDER BY categoryID ASC")
+    cur.execute("SELECT categoryid, name FROM categories ORDER BY categoryid ASC")
     rows = cur.fetchall()
     cur.close(); conn.close()
     return jsonify(rows)
@@ -742,7 +742,7 @@ def api_ai_suggest():
     # Fetch categories via MySQL
     conn = get_db_connection()
     cur  = conn.cursor(conn)
-    cur.execute("SELECT categoryID, name FROM categories ORDER BY name")
+    cur.execute("SELECT categoryid, name FROM categories ORDER BY name")
     categories = cur.fetchall()
     cur.close(); conn.close()
     if not categories:
@@ -782,9 +782,9 @@ def api_ai_suggest():
     match = process.extractOne(query, choices, scorer=fuzz.WRatio)
     if match:
         cat_name, score, idx = match
-        cat_id = categories[idx]["categoryID"]
+        cat_id = categories[idx]["categoryid"]
     else:
-        cat_id  = categories[0]["categoryID"]
+        cat_id  = categories[0]["categoryid"]
         cat_name= categories[0]["name"]
 
     return jsonify(
@@ -823,7 +823,7 @@ def subscriber_search_api():
         SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at, a.image, c.name AS category
         FROM articles a
-        LEFT JOIN categories c ON a.catID = c.categoryID
+        LEFT JOIN categories c ON a.catID = c.categoryid
         WHERE {' AND '.join(where)}
         ORDER BY COALESCE(a.published_at, a.updated_at) DESC
         LIMIT %s OFFSET %s
@@ -861,7 +861,7 @@ def subscriber_article_view(article_id):
                END AS image,
                c.name AS category
         FROM articles a
-        LEFT JOIN categories c ON a.catID = c.categoryID
+        LEFT JOIN categories c ON a.catID = c.categoryid
         WHERE a.articleid = %s
           AND a.draft = FALSE
         LIMIT 1
@@ -973,7 +973,7 @@ def subscriber_api_my_articles():
                END AS image,
                c.name AS category
         FROM articles a
-        LEFT JOIN categories c ON a.catID = c.categoryID
+        LEFT JOIN categories c ON a.catID = c.categoryid
     """
 
     rows = []
@@ -1124,7 +1124,7 @@ def subscriber_api_bookmarks():
                sp.pinned_at
         FROM subscriber_pins sp
         JOIN articles a        ON a.articleid = sp.articleid
-        LEFT JOIN categories c ON a.catID = c.categoryID
+        LEFT JOIN categories c ON a.catID = c.categoryid
         WHERE sp.userid = %s
           AND (a.draft IS NULL OR a.draft = FALSE)
         ORDER BY sp.pinned_at DESC
@@ -2869,7 +2869,7 @@ def update_category():
     cursor = get_cursor(conn)
 
     if request.method == "POST":
-        categoryID = request.form.get("categoryID")
+        categoryid = request.form.get("categoryid")
         name = request.form.get("categoryName").strip()
         description = request.form.get("categoryDescription").strip()
 
@@ -2878,8 +2878,8 @@ def update_category():
             return redirect(url_for("update_category"))
 
         cursor.execute(
-            "UPDATE categories SET name=%s, description=%s WHERE categoryID=%s",
-            (name, description, categoryID)
+            "UPDATE categories SET name=%s, description=%s WHERE categoryid=%s",
+            (name, description, categoryid)
         )
         conn.commit()
         flash("Category updated successfully.", "success")
@@ -2913,12 +2913,12 @@ def delete_category_page():
     return render_template("deleteCategory.html", categories=categories)
 
 # Handle actual deletion (YY)
-@app.route("/manageCategories/delete/<int:categoryID>", methods=["POST"])
+@app.route("/manageCategories/delete/<int:categoryid>", methods=["POST"])
 @login_required("Moderator")
-def delete_category(categoryID):
+def delete_category(categoryid):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM categories WHERE categoryID=%s", (categoryID,))
+    cursor.execute("DELETE FROM categories WHERE categoryid=%s", (categoryid,))
     conn.commit()
     cursor.close()
     conn.close()

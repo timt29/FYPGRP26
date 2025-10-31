@@ -41,10 +41,10 @@
                     <tr>
                         <td><label for="categorySelect">Select Category</label></td>
                         <td>
-                            <select id="categorySelect" name="categoryID" required>
+                            <select id="categorySelect" name="categoryid" required>
                                 <option value="">-- Select Category --</option>
                                 {% for category in categories %}
-                                <option value="{{ category.categoryID }}" 
+                                <option value="{{ category.categoryid }}" 
                                         data-name="{{ category.name }}" 
                                         data-description="{{ category.description }}">
                                     {{ category.name }}

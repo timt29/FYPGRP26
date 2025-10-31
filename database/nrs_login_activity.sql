@@ -24,13 +24,13 @@ DROP TABLE IF EXISTS `login_activity`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `login_activity` (
   `activityID` int NOT NULL AUTO_INCREMENT,
-  `userID` int NOT NULL,
+  `userid` int NOT NULL,
   `email` varchar(255) NOT NULL,
   `login_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `ip_address` varchar(45) DEFAULT NULL,
   PRIMARY KEY (`activityID`),
-  KEY `userID` (`userID`),
-  CONSTRAINT `login_activity_ibfk_1` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`)
+  KEY `userid` (`userid`),
+  CONSTRAINT `login_activity_ibfk_1` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`)
 ) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

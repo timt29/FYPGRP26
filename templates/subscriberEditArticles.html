@@ -152,9 +152,9 @@
           select.innerHTML = '<option value="" disabled>Choose one…</option>';
           rows.forEach(r => {
             const opt = document.createElement('option');
-            opt.value = r.categoryID;
+            opt.value = r.categoryid;
             opt.textContent = r.name;
-            if (CURRENT_CAT_ID && Number(CURRENT_CAT_ID) === Number(r.categoryID)) opt.selected = true;
+            if (CURRENT_CAT_ID && Number(CURRENT_CAT_ID) === Number(r.categoryid)) opt.selected = true;
             select.appendChild(opt);
           });
         } catch {

@@ -245,10 +245,10 @@
       try{
         const res = await fetch("{{ url_for('api_categories') }}", { headers:{'X-Requested-With':'XMLHttpRequest'} });
         if (!res.ok) throw new Error('HTTP '+res.status);
-        const rows = await res.json(); // [{categoryID,name}]
+        const rows = await res.json(); // [{categoryid,name}]
         editCategory.innerHTML = '<option value="" disabled selected>Select a category…</option>';
         rows.forEach(r=>{
-          const o=document.createElement('option'); o.value=r.categoryID; o.textContent=r.name; editCategory.appendChild(o);
+          const o=document.createElement('option'); o.value=r.categoryid; o.textContent=r.name; editCategory.appendChild(o);
         });
         importCategoriesLoaded = true;
       }catch(e){
@@ -411,9 +411,9 @@
         try {
           const res = await fetch("{{ url_for('api_categories') }}", { headers:{'X-Requested-With':'XMLHttpRequest'} });
           if (!res.ok) throw new Error('HTTP ' + res.status);
-          const rows = await res.json(); // [{categoryID, name}]
+          const rows = await res.json(); // [{categoryid, name}]
           [...select.querySelectorAll('option')].forEach((o,i)=>{ if(i>0) o.remove(); });
-          rows.forEach(r => { const opt=document.createElement('option'); opt.value=r.categoryID; opt.textContent=r.name; select.appendChild(opt); });
+          rows.forEach(r => { const opt=document.createElement('option'); opt.value=r.categoryid; opt.textContent=r.name; select.appendChild(opt); });
         } catch (e) {
           showToast('Failed to load categories');
         }

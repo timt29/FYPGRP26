@@ -24,17 +24,17 @@ DROP TABLE IF EXISTS `donations`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `donations` (
   `donation_ID` int unsigned NOT NULL AUTO_INCREMENT,
-  `userID` int NOT NULL,
+  `userid` int NOT NULL,
   `donation_amount` decimal(10,2) NOT NULL,
   `payment_method` enum('card','paynow','cash','cheque') NOT NULL,
   `paymentDateTime` datetime NOT NULL,
   `created_By` int NOT NULL,
   `created_At` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`donation_ID`),
-  KEY `idx_user_method_date` (`userID`,`payment_method`,`paymentDateTime`),
+  KEY `idx_user_method_date` (`userid`,`payment_method`,`paymentDateTime`),
   KEY `fk_donations_created_by` (`created_By`),
-  CONSTRAINT `fk_donations_created_by` FOREIGN KEY (`created_By`) REFERENCES `users` (`userID`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_donations_user` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE RESTRICT ON UPDATE CASCADE
+  CONSTRAINT `fk_donations_created_by` FOREIGN KEY (`created_By`) REFERENCES `users` (`userid`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_donations_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

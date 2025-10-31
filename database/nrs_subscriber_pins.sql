@@ -24,14 +24,14 @@ DROP TABLE IF EXISTS `subscriber_pins`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `subscriber_pins` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `userID` int NOT NULL,
-  `articleID` int NOT NULL,
+  `userid` int NOT NULL,
+  `articleid` int NOT NULL,
   `pinned_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_user_article` (`userID`,`articleID`),
-  KEY `fk_pin_article` (`articleID`),
-  CONSTRAINT `fk_pin_article` FOREIGN KEY (`articleID`) REFERENCES `articles` (`articleID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_pin_user` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE
+  UNIQUE KEY `uniq_user_article` (`userid`,`articleid`),
+  KEY `fk_pin_article` (`articleid`),
+  CONSTRAINT `fk_pin_article` FOREIGN KEY (`articleid`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_pin_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

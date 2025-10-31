@@ -34,8 +34,8 @@ CREATE TABLE `article_reports` (
   PRIMARY KEY (`report_id`),
   KEY `fk_report_article` (`article_id`),
   KEY `fk_report_user` (`reporter_id`),
-  CONSTRAINT `fk_report_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`articleID`) ON DELETE CASCADE,
-  CONSTRAINT `fk_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userID`) ON DELETE CASCADE
+  CONSTRAINT `fk_report_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE,
+  CONSTRAINT `fk_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userid`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

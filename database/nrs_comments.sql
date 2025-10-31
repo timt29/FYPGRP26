@@ -24,7 +24,7 @@ DROP TABLE IF EXISTS `comments`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `comments` (
   `commentID` int NOT NULL AUTO_INCREMENT,
-  `articleID` int NOT NULL,
+  `articleid` int NOT NULL,
   `userID` int NOT NULL,
   `comment_text` text NOT NULL,
   `likes` int NOT NULL DEFAULT '0',
@@ -34,10 +34,10 @@ CREATE TABLE `comments` (
   `reply_to_comment_id` int DEFAULT NULL,
   `visible` tinyint NOT NULL DEFAULT '1',
   PRIMARY KEY (`commentID`),
-  KEY `idx_comments_articleID` (`articleID`),
+  KEY `idx_comments_articleID` (`articleid`),
   KEY `idx_comments_userID` (`userID`),
   KEY `idx_comments_parent` (`reply_to_comment_id`),
-  CONSTRAINT `fk_comments_article` FOREIGN KEY (`articleID`) REFERENCES `articles` (`articleID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_comments_article` FOREIGN KEY (`articleid`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_comments_parent` FOREIGN KEY (`reply_to_comment_id`) REFERENCES `comments` (`commentID`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_comments_user` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
