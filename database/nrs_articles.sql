@@ -30,14 +30,14 @@ CREATE TABLE `articles` (
   `published_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL,
   `image` varchar(255) DEFAULT NULL,
-  `catID` int DEFAULT NULL,
+  `catid` int DEFAULT NULL,
   `draft` tinyint(1) DEFAULT '1',
   `visible` tinyint(1) NOT NULL DEFAULT '1',
   `views` int unsigned NOT NULL DEFAULT '0',
   `status` enum('draft','published','reported','pending_revision','pending_approval') NOT NULL DEFAULT 'draft',
   PRIMARY KEY (`articleid`),
-  KEY `catID_idx` (`catID`),
-  CONSTRAINT `catID` FOREIGN KEY (`catID`) REFERENCES `categories` (`categoryid`) ON DELETE CASCADE ON UPDATE CASCADE
+  KEY `catID_idx` (`catid`),
+  CONSTRAINT `catid` FOREIGN KEY (`catid`) REFERENCES `categories` (`categoryid`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

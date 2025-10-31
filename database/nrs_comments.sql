@@ -25,7 +25,7 @@ DROP TABLE IF EXISTS `comments`;
 CREATE TABLE `comments` (
   `commentID` int NOT NULL AUTO_INCREMENT,
   `articleid` int NOT NULL,
-  `userID` int NOT NULL,
+  `userid` int NOT NULL,
   `comment_text` text NOT NULL,
   `likes` int NOT NULL DEFAULT '0',
   `dislikes` int NOT NULL DEFAULT '0',
@@ -35,11 +35,11 @@ CREATE TABLE `comments` (
   `visible` tinyint NOT NULL DEFAULT '1',
   PRIMARY KEY (`commentID`),
   KEY `idx_comments_articleID` (`articleid`),
-  KEY `idx_comments_userID` (`userID`),
+  KEY `idx_comments_userID` (`userid`),
   KEY `idx_comments_parent` (`reply_to_comment_id`),
   CONSTRAINT `fk_comments_article` FOREIGN KEY (`articleid`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_comments_parent` FOREIGN KEY (`reply_to_comment_id`) REFERENCES `comments` (`commentID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_comments_user` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `fk_comments_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

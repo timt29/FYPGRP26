@@ -217,7 +217,7 @@ def search():
         cursor.execute("""
             SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
             FROM articles a
-            JOIN categories c ON a.catID = c.categoryid
+            JOIN categories c ON a.catid = c.categoryid
             ORDER BY a.published_at DESC
             LIMIT 10
         """)
@@ -257,7 +257,7 @@ def category(category_name):
     cursor.execute("""
         SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
         FROM articles a
-        JOIN categories c ON a.catID = c.categoryid
+        JOIN categories c ON a.catid = c.categoryid
         WHERE c.name = %s AND a.visible = 1
         ORDER BY a.published_at DESC
     """, (category_name,))
@@ -384,7 +384,7 @@ def api_articles():
     params = []
     where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
 
-    join   = "LEFT JOIN categories c ON a.catID = c.categoryid"
+    join   = "LEFT JOIN categories c ON a.catid = c.categoryid"
     if cat:
         where.append("c.name = %s")
         params.append(cat)
@@ -534,13 +534,13 @@ def api_articles_create():
     if publish:
         cur.execute("""
         INSERT INTO articles 
-        (title, content, author, published_at, updated_at, image, catID, draft, visible)
+        (title, content, author, published_at, updated_at, image, catid, draft, visible)
         VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, %s)
         """, (title, content, author, image_rel, cat_id, visible))
     else:
         cur.execute("""
         INSERT INTO articles 
-        (title, content, author, published_at, updated_at, image, catID, draft, visible)
+        (title, content, author, published_at, updated_at, image, catid, draft, visible)
         VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
         """, (title, content, author, image_rel, cat_id, visible))
 
@@ -823,7 +823,7 @@ def subscriber_search_api():
         SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at, a.image, c.name AS category
         FROM articles a
-        LEFT JOIN categories c ON a.catID = c.categoryid
+        LEFT JOIN categories c ON a.catid = c.categoryid
         WHERE {' AND '.join(where)}
         ORDER BY COALESCE(a.published_at, a.updated_at) DESC
         LIMIT %s OFFSET %s
@@ -861,7 +861,7 @@ def subscriber_article_view(article_id):
                END AS image,
                c.name AS category
         FROM articles a
-        LEFT JOIN categories c ON a.catID = c.categoryid
+        LEFT JOIN categories c ON a.catid = c.categoryid
         WHERE a.articleid = %s
           AND a.draft = FALSE
         LIMIT 1
@@ -973,7 +973,7 @@ def subscriber_api_my_articles():
                END AS image,
                c.name AS category
         FROM articles a
-        LEFT JOIN categories c ON a.catID = c.categoryid
+        LEFT JOIN categories c ON a.catid = c.categoryid
     """
 
     rows = []
@@ -1019,7 +1019,7 @@ def subscriber_edit_article(article_id):
     conn = get_db_connection()
     cur  = conn.cursor(conn)
     cur.execute("""
-        SELECT a.articleid, a.title, a.content, a.catID, a.image, a.draft,
+        SELECT a.articleid, a.title, a.content, a.catid, a.image, a.draft,
                a.published_at, a.updated_at
         FROM articles a
         WHERE a.articleid = %s AND a.author = %s
@@ -1075,7 +1075,7 @@ def subscriber_update_article(article_id):
         image_file.save(image_path)
 
     # Build UPDATE
-    fields = ["title=%s", "content=%s", "catID=%s", "draft=%s", "updated_at=NOW()"]
+    fields = ["title=%s", "content=%s", "catid=%s", "draft=%s", "updated_at=NOW()"]
     params = [title, content, category_id, draft_flag]
 
     if not draft_flag:
@@ -1124,7 +1124,7 @@ def subscriber_api_bookmarks():
                sp.pinned_at
         FROM subscriber_pins sp
         JOIN articles a        ON a.articleid = sp.articleid
-        LEFT JOIN categories c ON a.catID = c.categoryid
+        LEFT JOIN categories c ON a.catid = c.categoryid
         WHERE sp.userid = %s
           AND (a.draft IS NULL OR a.draft = FALSE)
         ORDER BY sp.pinned_at DESC
@@ -2513,7 +2513,7 @@ def article_submission():
         a.published_at,
         a.updated_at,
         a.image,
-        a.catID,
+        a.catid,
         a.draft
     FROM articles a
     INNER JOIN users u ON a.author = u.name

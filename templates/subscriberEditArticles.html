@@ -141,7 +141,7 @@
       const showToast= (m)=>{ msgEl.textContent=m||'Done.'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1400); };
 
       // Prefill: which category is current?
-      const CURRENT_CAT_ID = {{ article.catID if article.catID is not none else 'null' }};
+      const CURRENT_CAT_ID = {{ article.catid if article.catid is not none else 'null' }};
 
       // 1) Populate categories and select current
       async function loadCategories() {
