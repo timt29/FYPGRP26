@@ -807,7 +807,7 @@ def subscriber_search_api():
     conn = get_db_connection()
     cur  = get_cursor(conn)
 
-    where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
+    where  = ["a.draft = 0", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
     params = []
 
     if cat:
