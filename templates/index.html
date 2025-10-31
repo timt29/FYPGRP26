@@ -45,7 +45,7 @@
     {% for article in articles %}
       <article class="article">
         <div class="text">
-          <a href="{{ url_for('article', article_id=article['articleID']) }}" style="color:#000;text-decoration:none;">
+          <a href="{{ url_for('article', article_id=article['articleid']) }}" style="color:#000;text-decoration:none;">
             <h2>{{ article['title'] }}</h2>
           </a>
           <p>{{ article['content'][:250] }}...</p>
@@ -63,7 +63,7 @@
     {% for article in fallback_articles %}
       <article class="article small-article">
         <div class="text">
-          <a href="{{ url_for('article', article_id=article['articleID']) }}" style="color:#000;text-decoration:none;">
+          <a href="{{ url_for('article', article_id=article['articleid']) }}" style="color:#000;text-decoration:none;">
             <h2>{{ article['title'] }}</h2>
           </a>
           <p>{{ article['content'][:250] }}...</p>
