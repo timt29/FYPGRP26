@@ -24,16 +24,16 @@ DROP TABLE IF EXISTS `comment_reactions`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `comment_reactions` (
   `reactionID` bigint NOT NULL AUTO_INCREMENT,
-  `commentID` int NOT NULL,
+  `commentid` int NOT NULL,
   `userid` int NOT NULL,
   `reaction` enum('like','dislike') NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`reactionID`),
-  UNIQUE KEY `uniq_comment_user` (`commentID`,`userid`),
-  KEY `idx_comment` (`commentID`),
+  UNIQUE KEY `uniq_comment_user` (`commentid`,`userid`),
+  KEY `idx_comment` (`commentid`),
   KEY `idx_user` (`userid`),
-  CONSTRAINT `fk_react_comment` FOREIGN KEY (`commentID`) REFERENCES `comments` (`commentID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_react_comment` FOREIGN KEY (`commentid`) REFERENCES `comments` (`commentid`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_react_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

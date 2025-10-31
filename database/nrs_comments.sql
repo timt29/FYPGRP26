@@ -23,7 +23,7 @@ DROP TABLE IF EXISTS `comments`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `comments` (
-  `commentID` int NOT NULL AUTO_INCREMENT,
+  `commentid` int NOT NULL AUTO_INCREMENT,
   `articleid` int NOT NULL,
   `userid` int NOT NULL,
   `comment_text` text NOT NULL,
@@ -33,12 +33,12 @@ CREATE TABLE `comments` (
   `is_reply` tinyint(1) NOT NULL DEFAULT '0',
   `reply_to_comment_id` int DEFAULT NULL,
   `visible` tinyint NOT NULL DEFAULT '1',
-  PRIMARY KEY (`commentID`),
+  PRIMARY KEY (`commentid`),
   KEY `idx_comments_articleID` (`articleid`),
   KEY `idx_comments_userID` (`userid`),
   KEY `idx_comments_parent` (`reply_to_comment_id`),
   CONSTRAINT `fk_comments_article` FOREIGN KEY (`articleid`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_comments_parent` FOREIGN KEY (`reply_to_comment_id`) REFERENCES `comments` (`commentID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_comments_parent` FOREIGN KEY (`reply_to_comment_id`) REFERENCES `comments` (`commentid`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_comments_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;

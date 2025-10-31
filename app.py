@@ -1183,7 +1183,7 @@ def subscriber_api_comments():
     # 1) comments + author name + author image
     cur.execute("""
         SELECT
-            c.commentID,
+            c.commentid,
             c.comment_text,
             c.likes,
             c.dislikes,
@@ -1204,22 +1204,22 @@ def subscriber_api_comments():
     # 2) my reactions for these comments
     my_reaction_map = {}
     if rows:
-        ids = [r["commentID"] for r in rows]
+        ids = [r["commentid"] for r in rows]
         placeholders = ",".join(["%s"] * len(ids))
         cur.execute(f"""
-            SELECT commentID, reaction
+            SELECT commentid, reaction
             FROM comment_reactions
-            WHERE userid = %s AND commentID IN ({placeholders})
+            WHERE userid = %s AND commentid IN ({placeholders})
         """, (uid, *ids))
         for r in cur.fetchall():
-            my_reaction_map[r["commentID"]] = r["reaction"]
+            my_reaction_map[r["commentid"]] = r["reaction"]
 
     cur.close(); conn.close()
 
     out = []
     for r in rows:
         out.append({
-            "commentID": r["commentID"],
+            "commentid": r["commentid"],
             "text": r["comment_text"],
             "likes": int(r["likes"] or 0),
             "dislikes": int(r["dislikes"] or 0),
@@ -1227,7 +1227,7 @@ def subscriber_api_comments():
             "author": r["author"] or "Anonymous",
             "author_image": _norm_img(r.get("author_image")),
             "mine": bool(r["mine"]),
-            "my_reaction": my_reaction_map.get(r["commentID"]),
+            "my_reaction": my_reaction_map.get(r["commentid"]),
             "is_reply": bool(r.get("is_reply")),
             "parent_id": r.get("reply_to_comment_id")
         })
@@ -1254,7 +1254,7 @@ def subscriber_api_comment_create():
     if parent_id:
         try:
             pid = int(parent_id)
-            cur.execute("SELECT reply_to_comment_id FROM comments WHERE commentID=%s", (pid,))
+            cur.execute("SELECT reply_to_comment_id FROM comments WHERE commentid=%s", (pid,))
             row = cur.fetchone()
             if row:
                 top_parent_id = row["reply_to_comment_id"] or pid
@@ -1286,14 +1286,14 @@ def subscriber_api_comment_update(comment_id):
 
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT userid FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("SELECT userid FROM comments WHERE commentid=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
         cur.close(); conn.close(); return jsonify(ok=False, message="Not found"), 404
     if row[0] != uid:
         cur.close(); conn.close(); return jsonify(ok=False, message="Forbidden"), 403
 
-    cur.execute("UPDATE comments SET comment_text=%s WHERE commentID=%s", (text, comment_id))
+    cur.execute("UPDATE comments SET comment_text=%s WHERE commentid=%s", (text, comment_id))
     conn.commit()
     cur.close(); conn.close()
     return jsonify(ok=True)
@@ -1306,13 +1306,13 @@ def subscriber_api_comment_delete(comment_id):
     uid = session.get("userid")
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT userid FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("SELECT userid FROM comments WHERE commentid=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
         cur.close(); conn.close(); return jsonify(ok=False, message="Not found"), 404
     if row[0] != uid:
         cur.close(); conn.close(); return jsonify(ok=False, message="Forbidden"), 403
-    cur.execute("DELETE FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("DELETE FROM comments WHERE commentid=%s", (comment_id,))
     conn.commit()
     cur.close(); conn.close()
     return jsonify(ok=True)
@@ -1330,12 +1330,12 @@ def subscriber_api_comment_react(comment_id):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT reaction FROM comment_reactions WHERE commentID=%s AND userid=%s",
+    cur.execute("SELECT reaction FROM comment_reactions WHERE commentid=%s AND userid=%s",
                 (comment_id, uid))
     row = cur.fetchone()
     prev = row[0] if row else None
 
-    cur.execute("SELECT likes, dislikes FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("SELECT likes, dislikes FROM comments WHERE commentid=%s", (comment_id,))
     cd = cur.fetchone()
     if not cd:
         cur.close(); conn.close()
@@ -1346,13 +1346,13 @@ def subscriber_api_comment_react(comment_id):
         if prev == "like":    likes    = max(0, likes - 1)
         elif prev == "dislike": dislikes = max(0, dislikes - 1)
         if prev:
-            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userid=%s",
+            cur.execute("DELETE FROM comment_reactions WHERE commentid=%s AND userid=%s",
                         (comment_id, uid))
     else:
         if prev == action:
             if action == "like": likes = max(0, likes - 1)
             else:                dislikes = max(0, dislikes - 1)
-            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userid=%s",
+            cur.execute("DELETE FROM comment_reactions WHERE commentid=%s AND userid=%s",
                         (comment_id, uid))
             action = "clear"
         else:
@@ -1361,12 +1361,12 @@ def subscriber_api_comment_react(comment_id):
             if action == "like": likes += 1
             else:                dislikes += 1
             cur.execute("""
-                INSERT INTO comment_reactions (commentID, userid, reaction)
+                INSERT INTO comment_reactions (commentid, userid, reaction)
                 VALUES (%s,%s,%s)
                 ON DUPLICATE KEY UPDATE reaction=VALUES(reaction), updated_at=CURRENT_TIMESTAMP
             """, (comment_id, uid, action))
 
-    cur.execute("UPDATE comments SET likes=%s, dislikes=%s WHERE commentID=%s",
+    cur.execute("UPDATE comments SET likes=%s, dislikes=%s WHERE commentid=%s",
                 (likes, dislikes, comment_id))
     conn.commit()
     cur.close(); conn.close()
@@ -1431,8 +1431,8 @@ def report_article():
 @login_required("Subscriber")
 def report_comment():
     data = request.get_json(silent=True) or {}
-    # frontend sends "id"; keep backward compat with "commentID"
-    comment_id = data.get("id") or data.get("commentID")
+    # frontend sends "id"; keep backward compat with "commentid"
+    comment_id = data.get("id") or data.get("commentid")
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
 
@@ -2687,14 +2687,14 @@ def flagged_comments():
         cursor.execute("""
             SELECT 
                 cr.report_id,
-                cr.comment_id AS commentID,
+                cr.comment_id AS commentid,
                 c.comment_text,
                 u.name AS user,      -- join users to get name
                 cr.reason AS flagged_reason,
                 cr.details AS flagged_details,
                 cr.created_at AS flagged_at
             FROM comment_reports cr
-            LEFT JOIN comments c ON cr.comment_id = c.commentID
+            LEFT JOIN comments c ON cr.comment_id = c.commentid
             LEFT JOIN users u ON c.userid = u.userid   -- get the comment author's name
             WHERE cr.status = 'pending'
             ORDER BY cr.created_at DESC
@@ -2714,7 +2714,7 @@ def flagged_comments():
 @app.route("/reviewComment", methods=["POST"])
 @login_required("Moderator")
 def reviewComment():
-    comment_id = request.form.get("commentID")
+    comment_id = request.form.get("commentid")
     action = request.form.get("action")  # "approve" or "reject"
 
     if not comment_id or action not in ("approve", "reject"):
@@ -2740,7 +2740,7 @@ def reviewComment():
             )
             # Hide the comment from public
             cursor.execute(
-                "UPDATE comments SET visible = 0 WHERE commentID = %s",
+                "UPDATE comments SET visible = 0 WHERE commentid = %s",
                 (comment_id,)
             )
         elif action == "reject":
@@ -2751,7 +2751,7 @@ def reviewComment():
             )
             # Ensure comment stays visible
             cursor.execute(
-                "UPDATE comments SET visible = 1 WHERE commentID = %s",
+                "UPDATE comments SET visible = 1 WHERE commentid = %s",
                 (comment_id,)
             )
 
@@ -2773,10 +2773,10 @@ def get_comment(comment_id):
     conn = get_db_connection()
     cursor = get_cursor(conn)
     cursor.execute("""
-        SELECT c.commentID, c.comment_text, c.created_at, u.name AS user
+        SELECT c.commentid, c.comment_text, c.created_at, u.name AS user
         FROM comments c
         JOIN users u ON c.userid = u.userid
-        WHERE c.commentID = %s
+        WHERE c.commentid = %s
     """, (comment_id,))
     comment = cursor.fetchone()
     cursor.close()

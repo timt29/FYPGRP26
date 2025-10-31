@@ -621,7 +621,7 @@
           </div>`;
 
         return `
-          <article class="comment-card ${depth>0?'reply':''}" data-id="${c.commentID}"
+          <article class="comment-card ${depth>0?'reply':''}" data-id="${c.commentid}"
                    data-parent="${c.parent_id || ''}" style="margin-left:${indent}px;">
             <div class="comment-meta">
               ${avatarHtml}
@@ -669,7 +669,7 @@
 
       function buildTree(flat) {
         const map = new Map();
-        flat.forEach(r => map.set(r.commentID, {...r, children: []}));
+        flat.forEach(r => map.set(r.commentid, {...r, children: []}));
         const roots = [];
         map.forEach(node => {
           const pid = node.parent_id || null;

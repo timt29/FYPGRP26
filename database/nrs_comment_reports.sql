@@ -34,7 +34,7 @@ CREATE TABLE `comment_reports` (
   PRIMARY KEY (`report_id`),
   UNIQUE KEY `unique_report` (`comment_id`,`reporter_id`),
   KEY `fk_comment_report_user` (`reporter_id`),
-  CONSTRAINT `fk_comment_report` FOREIGN KEY (`comment_id`) REFERENCES `comments` (`commentID`) ON DELETE CASCADE,
+  CONSTRAINT `fk_comment_report` FOREIGN KEY (`comment_id`) REFERENCES `comments` (`commentid`) ON DELETE CASCADE,
   CONSTRAINT `fk_comment_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userid`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
