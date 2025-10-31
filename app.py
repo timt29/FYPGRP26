@@ -107,7 +107,7 @@ def login_required(role=None):
         @wraps(fn)
         def decorated_view(*args, **kwargs):
             # If no session → force logout
-            if "userID" not in session:
+            if "userid" not in session:
                 session.clear()
                 return redirect(url_for("login"))
 
@@ -353,7 +353,7 @@ def subscriberHomepage():
     conn = get_db_connection()
     cur = conn.cursor(conn)
     # (existing warnings query)
-    cur.execute("SELECT message, created_at FROM warnings WHERE userID=%s", (session["userID"],))
+    cur.execute("SELECT message, created_at FROM warnings WHERE userid=%s", (session["userid"],))
     warnings = cur.fetchall()
     # Pull categories dynamically
     cur.execute("SELECT categoryID, name FROM categories ORDER BY categoryID ASC")
@@ -463,7 +463,7 @@ def moderate_article(cur, title, content):
                     VALUES (%s, %s, %s, %s, 'pending', NOW(), NOW())
                 """, (
                     article_id,
-                    session.get("userID") or 0,
+                    session.get("userid") or 0,
                     "AI moderation",
                     moderation_result.get("reason", "")
                 ))
@@ -882,8 +882,8 @@ def subscriber_article_view(article_id):
 
     # Pin state
     cur.execute(
-        "SELECT 1 FROM subscriber_pins WHERE userID=%s AND articleid=%s LIMIT 1",
-        (session["userID"], article_id)
+        "SELECT 1 FROM subscriber_pins WHERE userid=%s AND articleid=%s LIMIT 1",
+        (session["userid"], article_id)
     )
     is_pinned = cur.fetchone() is not None
     cur.close(); conn.close()
@@ -919,9 +919,9 @@ def subscriber_toggle_pin():
     # Check current state
     cur.execute("""
         SELECT id FROM subscriber_pins
-        WHERE userID=%s AND articleid=%s
+        WHERE userid=%s AND articleid=%s
         LIMIT 1
-    """, (session["userID"], article_id))
+    """, (session["userid"], article_id))
     row = cur.fetchone()
 
     if row:
@@ -932,9 +932,9 @@ def subscriber_toggle_pin():
     else:
         try:
             cur.execute("""
-                INSERT INTO subscriber_pins (userID, articleid)
+                INSERT INTO subscriber_pins (userid, articleid)
                 VALUES (%s, %s)
-            """, (session["userID"], article_id))
+            """, (session["userid"], article_id))
             conn.commit()
             cur.close(); conn.close()
             return jsonify(ok=True, state="pinned", message="Article pinned")
@@ -1104,7 +1104,7 @@ def subscriber_bookmarks():
 @app.route("/subscriber/api/bookmarks")
 @login_required("Subscriber")
 def subscriber_api_bookmarks():
-    uid = session.get("userID")
+    uid = session.get("userid")
     if uid is None:
         return jsonify(ok=False, message="Not logged in"), 401
 
@@ -1125,7 +1125,7 @@ def subscriber_api_bookmarks():
         FROM subscriber_pins sp
         JOIN articles a        ON a.articleid = sp.articleid
         LEFT JOIN categories c ON a.catID = c.categoryID
-        WHERE sp.userID = %s
+        WHERE sp.userid = %s
           AND (a.draft IS NULL OR a.draft = FALSE)
         ORDER BY sp.pinned_at DESC
     """, (uid,))
@@ -1175,7 +1175,7 @@ def subscriber_api_comments():
     from app import get_db_connection  # if your factory exposes it here
 
     article_id = int(request.args.get("article_id", 0))
-    uid = session.get("userID")  # your session key
+    uid = session.get("userid")  # your session key
 
     conn = get_db_connection()
     cur = conn.cursor(conn)
@@ -1188,14 +1188,14 @@ def subscriber_api_comments():
             c.likes,
             c.dislikes,
             c.created_at,
-            c.userID,
+            c.userid,
             c.is_reply,
             c.reply_to_comment_id,
             u.name  AS author,
             u.image AS author_image,
-            (c.userID = %s) AS mine
+            (c.userid = %s) AS mine
         FROM comments c
-        JOIN users u ON u.userID = c.userID
+        JOIN users u ON u.userid = c.userid
         WHERE c.articleid = %s AND c.visible = 1
         ORDER BY c.created_at DESC
     """, (uid, article_id))
@@ -1209,7 +1209,7 @@ def subscriber_api_comments():
         cur.execute(f"""
             SELECT commentID, reaction
             FROM comment_reactions
-            WHERE userID = %s AND commentID IN ({placeholders})
+            WHERE userid = %s AND commentID IN ({placeholders})
         """, (uid, *ids))
         for r in cur.fetchall():
             my_reaction_map[r["commentID"]] = r["reaction"]
@@ -1238,7 +1238,7 @@ def subscriber_api_comments():
 def subscriber_api_comment_create():
     from app import get_db_connection
 
-    uid = session.get("userID")
+    uid = session.get("userid")
     article_id = request.form.get("articleid")
     text = request.form.get("text", "").strip()
     parent_id = request.form.get("parent_id")
@@ -1266,7 +1266,7 @@ def subscriber_api_comment_create():
     cur.close()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO comments (articleid, userID, comment_text, is_reply, reply_to_comment_id)
+        INSERT INTO comments (articleid, userid, comment_text, is_reply, reply_to_comment_id)
         VALUES (%s, %s, %s, %s, %s)
     """, (article_id, uid, text, bool(top_parent_id), top_parent_id))
 
@@ -1279,14 +1279,14 @@ def subscriber_api_comment_create():
 def subscriber_api_comment_update(comment_id):
     from app import get_db_connection
 
-    uid = session.get("userID")
+    uid = session.get("userid")
     text = (request.json.get("text") or "").strip()
     if not text:
         return jsonify(ok=False, message="text required"), 400
 
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT userID FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("SELECT userid FROM comments WHERE commentID=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
         cur.close(); conn.close(); return jsonify(ok=False, message="Not found"), 404
@@ -1303,10 +1303,10 @@ def subscriber_api_comment_update(comment_id):
 def subscriber_api_comment_delete(comment_id):
     from app import get_db_connection
 
-    uid = session.get("userID")
+    uid = session.get("userid")
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT userID FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("SELECT userid FROM comments WHERE commentID=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
         cur.close(); conn.close(); return jsonify(ok=False, message="Not found"), 404
@@ -1322,7 +1322,7 @@ def subscriber_api_comment_delete(comment_id):
 def subscriber_api_comment_react(comment_id):
     from app import get_db_connection
 
-    uid = session.get("userID")
+    uid = session.get("userid")
     action = (request.json.get("action") or "").lower()  # "like"|"dislike"|"clear"
     if action not in ("like", "dislike", "clear"):
         return jsonify(ok=False, message="Invalid action"), 400
@@ -1330,7 +1330,7 @@ def subscriber_api_comment_react(comment_id):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT reaction FROM comment_reactions WHERE commentID=%s AND userID=%s",
+    cur.execute("SELECT reaction FROM comment_reactions WHERE commentID=%s AND userid=%s",
                 (comment_id, uid))
     row = cur.fetchone()
     prev = row[0] if row else None
@@ -1346,13 +1346,13 @@ def subscriber_api_comment_react(comment_id):
         if prev == "like":    likes    = max(0, likes - 1)
         elif prev == "dislike": dislikes = max(0, dislikes - 1)
         if prev:
-            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userID=%s",
+            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userid=%s",
                         (comment_id, uid))
     else:
         if prev == action:
             if action == "like": likes = max(0, likes - 1)
             else:                dislikes = max(0, dislikes - 1)
-            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userID=%s",
+            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userid=%s",
                         (comment_id, uid))
             action = "clear"
         else:
@@ -1361,7 +1361,7 @@ def subscriber_api_comment_react(comment_id):
             if action == "like": likes += 1
             else:                dislikes += 1
             cur.execute("""
-                INSERT INTO comment_reactions (commentID, userID, reaction)
+                INSERT INTO comment_reactions (commentID, userid, reaction)
                 VALUES (%s,%s,%s)
                 ON DUPLICATE KEY UPDATE reaction=VALUES(reaction), updated_at=CURRENT_TIMESTAMP
             """, (comment_id, uid, action))
@@ -1383,7 +1383,7 @@ def report_article():
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
 
-    reporter_id   = session.get("userID")
+    reporter_id   = session.get("userid")
     reporter_name = (session.get("user") or "").strip()
 
     if not reporter_id:
@@ -1436,7 +1436,7 @@ def report_comment():
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
 
-    reporter_id = session.get("userID")
+    reporter_id = session.get("userid")
     if not reporter_id:
         return jsonify(ok=False, message="User not logged in."), 401
     if not comment_id or not reason:
@@ -1484,14 +1484,14 @@ def save_profile_image(file_storage):
 @app.route("/profile")
 @login_required("Subscriber")
 def profile():
-    uid = session["userID"]
+    uid = session["userid"]
 
     conn = get_db_connection()
     cur  = conn.cursor(conn)
     cur.execute("""
-        SELECT userID, name, email, usertype, image, bio
+        SELECT userid, name, email, usertype, image, bio
         FROM users
-        WHERE userID=%s
+        WHERE userid=%s
         LIMIT 1
     """, (uid,))
     u = cur.fetchone()
@@ -1529,7 +1529,7 @@ def profile():
 @app.route("/profile/update", methods=["POST"])
 @login_required("Subscriber")
 def profile_update():
-    uid = session["userID"]
+    uid = session["userid"]
     next_url = request.form.get("next") or request.referrer or url_for("subscriberHomepage")
 
     name = (request.form.get("name") or "").strip()
@@ -1539,7 +1539,7 @@ def profile_update():
     # --- fetch current user values for change detection ---
     conn = get_db_connection()
     cur  = conn.cursor(conn)
-    cur.execute("SELECT name, bio, image FROM users WHERE userID=%s LIMIT 1", (uid,))
+    cur.execute("SELECT name, bio, image FROM users WHERE userid=%s LIMIT 1", (uid,))
     row = cur.fetchone()
     cur.close()
 
@@ -1562,10 +1562,10 @@ def profile_update():
     try:
         cur = conn.cursor()
         if new_img:
-            cur.execute("UPDATE users SET name=%s, bio=%s, image=%s WHERE userID=%s",
+            cur.execute("UPDATE users SET name=%s, bio=%s, image=%s WHERE userid=%s",
                         (name, bio, new_img, uid))
         else:
-            cur.execute("UPDATE users SET name=%s, bio=%s WHERE userID=%s",
+            cur.execute("UPDATE users SET name=%s, bio=%s WHERE userid=%s",
                         (name, bio, uid))
         conn.commit()
     except Exception as e:
@@ -1585,9 +1585,9 @@ def subscriber_profile_view(user_id: int):
     cur  = conn.cursor(conn)
 
     cur.execute("""
-        SELECT userID, name, email, usertype, image, bio
+        SELECT userid, name, email, usertype, image, bio
         FROM users
-        WHERE userID = %s
+        WHERE userid = %s
         LIMIT 1
     """, (user_id,))
     u = cur.fetchone()
@@ -1621,7 +1621,7 @@ def subscriber_profile_view(user_id: int):
     cur.close(); conn.close()
 
     profile = {
-        "id": u["userID"],
+        "id": u["userid"],
         "display_name": u["name"],
         "email": u["email"],
         "usertype": u["usertype"],
@@ -1805,7 +1805,7 @@ def _row_donation(idx, row):
 @app.get("/subscriber/api/analytics/my-donations")
 @login_required("Subscriber")
 def subscriber_analytics_my_donations():
-    uid = session.get("userID")
+    uid = session.get("userid")
     if not uid:
         return jsonify({"error": "unauthorized"}), 401
 
@@ -1822,7 +1822,7 @@ def subscriber_analytics_my_donations():
             FROM donations AS d
             LEFT JOIN donation_info AS di
               ON di.donation_ID = d.donation_ID
-            WHERE d.userID = %s
+            WHERE d.userid = %s
             ORDER BY d.paymentDateTime DESC, d.donation_ID DESC
         """, (uid,))
         recs = cur.fetchall() or []
@@ -1859,7 +1859,7 @@ def subscriber_analytics_my_donations():
 @app.get("/subscriber/api/analytics/overview")
 @login_required("Subscriber")
 def subscriber_analytics_overview():
-    user_id     = session.get("userID")
+    user_id     = session.get("userid")
     author_name = session.get("user", "")
 
     conn = get_db_connection()
@@ -1874,7 +1874,7 @@ def subscriber_analytics_overview():
         total_views = int((cur.fetchone() or [0])[0] or 0)
 
         # bookmarks by me
-        cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userID = %s", (user_id,))
+        cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userid = %s", (user_id,))
         total_bookmarks = int((cur.fetchone() or [0])[0] or 0)
 
         # comment reactions by me
@@ -1884,7 +1884,7 @@ def subscriber_analytics_overview():
                   COALESCE(SUM(reaction='like'),0),
                   COALESCE(SUM(reaction='dislike'),0)
                 FROM comment_reactions
-                WHERE userID = %s
+                WHERE userid = %s
             """, (user_id,))
             row = cur.fetchone() or [0, 0]
             likes_by_me, dislikes_by_me = int(row[0] or 0), int(row[1] or 0)
@@ -1892,7 +1892,7 @@ def subscriber_analytics_overview():
             likes_by_me, dislikes_by_me = 0, 0
 
         # contributed amount from donations
-        cur.execute("SELECT COALESCE(SUM(donation_amount),0) FROM donations WHERE userID=%s", (user_id,))
+        cur.execute("SELECT COALESCE(SUM(donation_amount),0) FROM donations WHERE userid=%s", (user_id,))
         contributed_amount = float((cur.fetchone() or [0])[0] or 0.0)
 
     finally:
@@ -1965,7 +1965,7 @@ def donate_submit():
             flash("PayNow reference is required.", "danger")
             return redirect(url_for("donate_form"))
 
-    user_id = session.get("userID")
+    user_id = session.get("userid")
     if not user_id:
         flash("You are not logged in.", "danger")
         return redirect(url_for("login"))
@@ -1978,7 +1978,7 @@ def donate_submit():
         cur.execute(
             """
             INSERT INTO donations
-              (userID, donation_amount, payment_method, paymentDateTime, created_By)
+              (userid, donation_amount, payment_method, paymentDateTime, created_By)
             VALUES
               (%s, %s, %s, NOW(), %s)
             """,
@@ -2024,7 +2024,7 @@ def donate_submit():
         # MySQL error 1452 is "Cannot add or update a child row: a foreign key constraint fails"
         msg = str(e)
         if "foreign key constraint fails" in msg.lower():
-            flash("Insert failed: your user account (userID) must exist in 'users' table.", "danger")
+            flash("Insert failed: your user account (userid) must exist in 'users' table.", "danger")
         else:
             flash(f"Could not save donation: {e}", "danger")
         conn.rollback()
@@ -2066,19 +2066,19 @@ def login():
                 cursor.execute("""
                     UPDATE users
                     SET is_logged_in = TRUE, last_active = NOW()
-                    WHERE userID = %s
-                """, (user["userID"],))
+                    WHERE userid = %s
+                """, (user["userid"],))
 
                 # ✅ Record login activity (optional but useful)
                 cursor.execute("""
-                    INSERT INTO login_activity (userID, email, login_time, ip_address)
+                    INSERT INTO login_activity (userid, email, login_time, ip_address)
                     VALUES (%s, %s, NOW(), %s)
-                """, (user["userID"], user["email"], request.remote_addr))
+                """, (user["userid"], user["email"], request.remote_addr))
 
                 conn.commit()
 
                 # ✅ Set session data
-                session["userID"] = user["userID"]
+                session["userid"] = user["userid"]
                 session["usertype"] = user["usertype"]
                 session["user"] = user["name"]
 
@@ -2139,14 +2139,14 @@ def register():
 @app.route("/logout")
 def logout():
     # Update database to mark user inactive before clearing session
-    if "userID" in session:
-        user_id = session["userID"]
+    if "userid" in session:
+        user_id = session["userid"]
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE users 
             SET is_logged_in = FALSE, last_active = NOW()
-            WHERE userID = %s
+            WHERE userid = %s
         """, (user_id,))
         conn.commit()
         cursor.close()
@@ -2161,14 +2161,14 @@ def logout():
 
 @app.before_request
 def update_last_active():
-    if "userID" in session:
+    if "userid" in session:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE users
             SET last_active = NOW()
-            WHERE userID = %s
-        """, (session["userID"],))
+            WHERE userid = %s
+        """, (session["userid"],))
         conn.commit()
         cursor.close()
         conn.close()
@@ -2185,14 +2185,14 @@ def add_no_cache_headers(response):
 @app.route("/manageUsers")
 @login_required("Moderator")
 def manage_users():
-    if "userID" not in session or session.get("usertype") != "Moderator":
+    if "userid" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
         return redirect(url_for("login"))
 
     conn = get_db_connection()
     cursor = get_cursor(conn)
     cursor.execute("""
-        SELECT userID, name, email, usertype
+        SELECT userid, name, email, usertype
         FROM users
         WHERE usertype IN ('Subscriber', 'Author', 'Suspended')
     """)
@@ -2205,18 +2205,18 @@ def manage_users():
 @app.route("/warnUser", methods=["POST"])
 @login_required("Moderator")
 def warn_user():
-    if "userID" not in session or session.get("usertype") != "Moderator":
+    if "userid" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
         return redirect(url_for("login"))
 
-    warned_user_id = request.form.get("userID")
+    warned_user_id = request.form.get("userid")
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     warning_message = "You have received a warning from the moderator."
     cursor.execute(
-        "INSERT INTO warnings (userID, message) VALUES (%s, %s)",
+        "INSERT INTO warnings (userid, message) VALUES (%s, %s)",
         (warned_user_id, warning_message)
     )
     conn.commit()
@@ -2229,16 +2229,16 @@ def warn_user():
 @app.route("/toggleSuspend", methods=["POST"])
 @login_required("Moderator")
 def toggle_suspend():
-    if "userID" not in session or session.get("usertype") != "Moderator":
+    if "userid" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
         return redirect(url_for("login"))
 
-    user_id = request.form["userID"]
+    user_id = request.form["userid"]
 
     conn = get_db_connection()
     cursor = get_cursor(conn)
 
-    cursor.execute("SELECT name, usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
+    cursor.execute("SELECT name, usertype, previous_usertype FROM users WHERE userid = %s", (user_id,))
     user = cursor.fetchone()
 
     if user:
@@ -2247,14 +2247,14 @@ def toggle_suspend():
             cursor.execute("""
                 UPDATE users
                 SET usertype = %s, previous_usertype = NULL
-                WHERE userID = %s
+                WHERE userid = %s
             """, (restored_type, user_id))
             flash(f"{user['name']} has been unsuspended.")
         else:
             cursor.execute("""
                 UPDATE users
                 SET previous_usertype = usertype, usertype = 'Suspended'
-                WHERE userID = %s
+                WHERE userid = %s
             """, (user_id,))
             flash(f"{user['name']} has been suspended.")
 
@@ -2303,13 +2303,13 @@ def forgot_password():
 @app.route("/viewAllUsers")
 @login_required("Admin")
 def view_all_users():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
     conn = get_db_connection()
     cursor = get_cursor(conn)
-    cursor.execute("SELECT userID, name, email, usertype FROM users")
+    cursor.execute("SELECT userid, name, email, usertype FROM users")
     users = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -2319,7 +2319,7 @@ def view_all_users():
 @app.route("/searchAccount", methods=["GET", "POST"])
 @login_required("Admin")
 def search_account():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2331,7 +2331,7 @@ def search_account():
         conn = get_db_connection()
         cursor = get_cursor(conn)
         cursor.execute("""
-            SELECT userID, name, email, usertype
+            SELECT userid, name, email, usertype
             FROM users
             WHERE name LIKE %s OR email LIKE %s
         """, (f"%{search_term}%", f"%{search_term}%"))
@@ -2344,7 +2344,7 @@ def search_account():
 @app.route("/createUser", methods=["GET", "POST"])
 @login_required("Admin")
 def create_user():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2377,7 +2377,7 @@ def create_user():
 @app.route("/updateUser", methods=["GET", "POST"])
 @login_required("Admin")
 def update_user():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2413,7 +2413,7 @@ def update_user():
 @app.route("/manageUserStatus", methods=["GET", "POST"])
 @login_required("Admin")
 def manage_user_status():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2421,11 +2421,11 @@ def manage_user_status():
     cursor = get_cursor(conn)
 
     if request.method == "POST":
-        user_id = request.form.get("userID")
+        user_id = request.form.get("userid")
         action = request.form.get("action")
 
         # Get current user info
-        cursor.execute("SELECT usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
+        cursor.execute("SELECT usertype, previous_usertype FROM users WHERE userid = %s", (user_id,))
         user = cursor.fetchone()
 
         if not user:
@@ -2436,7 +2436,7 @@ def manage_user_status():
                     flash("You cannot suspend an Admin account.")
                 elif user["usertype"] != "Suspended":
                     cursor.execute(
-                        "UPDATE users SET previous_usertype = usertype, usertype = 'Suspended' WHERE userID = %s",
+                        "UPDATE users SET previous_usertype = usertype, usertype = 'Suspended' WHERE userid = %s",
                         (user_id,)
                     )
                     flash("User suspended successfully.")
@@ -2444,7 +2444,7 @@ def manage_user_status():
             elif action == "reactivate":
                 if user["usertype"] == "Suspended" and user["previous_usertype"]:
                     cursor.execute(
-                        "UPDATE users SET usertype = previous_usertype, previous_usertype = NULL WHERE userID = %s",
+                        "UPDATE users SET usertype = previous_usertype, previous_usertype = NULL WHERE userid = %s",
                         (user_id,)
                     )
                     flash("User reactivated successfully.")
@@ -2455,13 +2455,13 @@ def manage_user_status():
                 if user["usertype"] == "Admin":
                     flash("You cannot delete an Admin account.")
                 else:
-                    cursor.execute("DELETE FROM users WHERE userID = %s", (user_id,))
+                    cursor.execute("DELETE FROM users WHERE userid = %s", (user_id,))
                     flash("User deleted successfully.")
 
         conn.commit()
 
     # Fetch all users
-    cursor.execute("SELECT userID, name, email, usertype, previous_usertype FROM users")
+    cursor.execute("SELECT userid, name, email, usertype, previous_usertype FROM users")
     users = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -2471,7 +2471,7 @@ def manage_user_status():
 @app.route("/newUsers")
 @login_required("Admin")
 def report_new_users():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2480,7 +2480,7 @@ def report_new_users():
 
     # Example: users created in the last 7 days
     cursor.execute("""
-        SELECT userID, name, email, usertype, created_at
+        SELECT userid, name, email, usertype, created_at
         FROM users
         WHERE created_at >= NOW() - INTERVAL 7 DAY
         ORDER BY created_at DESC
@@ -2496,7 +2496,7 @@ def report_new_users():
 @login_required("Admin")
 def article_submission():
     # Ensure only Admins can access
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2531,7 +2531,7 @@ def article_submission():
 @app.route("/loginActivity")
 @login_required("Admin")
 def login_activity():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2540,7 +2540,7 @@ def login_activity():
 
     cursor.execute("""
         SELECT 
-            userID, 
+            userid, 
             email,
             is_logged_in,
             last_active
@@ -2695,7 +2695,7 @@ def flagged_comments():
                 cr.created_at AS flagged_at
             FROM comment_reports cr
             LEFT JOIN comments c ON cr.comment_id = c.commentID
-            LEFT JOIN users u ON c.userID = u.userID   -- get the comment author's name
+            LEFT JOIN users u ON c.userid = u.userid   -- get the comment author's name
             WHERE cr.status = 'pending'
             ORDER BY cr.created_at DESC
         """)
@@ -2775,7 +2775,7 @@ def get_comment(comment_id):
     cursor.execute("""
         SELECT c.commentID, c.comment_text, c.created_at, u.name AS user
         FROM comments c
-        JOIN users u ON c.userID = u.userID
+        JOIN users u ON c.userid = u.userid
         WHERE c.commentID = %s
     """, (comment_id,))
     comment = cursor.fetchone()

@@ -62,14 +62,14 @@
                 <tbody>
                     {% for a in articles %}
                     <tr>
-                        <td>{{ a.articleID }}</td>
+                        <td>{{ a.articleid }}</td>
                         <td>{{ a.title }}</td>
                         <td>{{ a.author }}</td>
                         <td>{{ a.article_created }}</td>
                         <td>{{ a.flagged_reason }}</td>
                         <td>{{ a.flagged_at }}</td>
                         <td>
-                            <button type="button" class="view-btn" onclick="viewArticle({{ a.articleID }})">View</button>
+                            <button type="button" class="view-btn" onclick="viewArticle({{ a.articleid }})">View</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -166,7 +166,7 @@
             let articles = [
             {% for a in articles %}
             {
-                id: {{ a.articleID }},
+                id: {{ a.articleid }},
                 reportID: {{ a.report_id }},
                 rowIndex: {{ loop.index0 }}
             },
@@ -175,9 +175,9 @@
 
         let currentIndex = 0;
 
-        async function viewArticle(articleID) {
+        async function viewArticle(articleid) {
             try {
-                const res = await fetch(`/getArticle/${articleID}`);
+                const res = await fetch(`/getArticle/${articleid}`);
                 if (!res.ok) throw new Error("Failed to fetch article.");
                 const article = await res.json();
 
@@ -194,7 +194,7 @@
                     imgEl.style.display = 'none';
                 }
 
-                currentIndex = articles.findIndex(a => a.id === articleID);
+                currentIndex = articles.findIndex(a => a.id === articleid);
 
                 // Enable/disable navigation buttons
                 document.getElementById('prevArticle').disabled = currentIndex <= 0;

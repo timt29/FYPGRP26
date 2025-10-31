@@ -166,7 +166,7 @@
     }
 
     function heroCard(a) {
-      const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+      const href = VIEW_URL_TPL.replace(/0$/, a.articleid);
       const img  = normImage(a.image);
 
       const previewHtml = sanitizeBasic(a.content_html || a.content || a.content_plain || "");
@@ -184,7 +184,7 @@
 
     // One cell inside a 2-up row (title left, photo right)
     function cell(a) {
-      const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+      const href = VIEW_URL_TPL.replace(/0$/, a.articleid);
       const img  = normImage(a.image);
       return `
         <a class="cell" href="${href}">

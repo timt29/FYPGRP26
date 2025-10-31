@@ -151,10 +151,10 @@
   }
   function card(a) {
     const img  = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
-    const href = EDIT_TPL.replace(/0$/, a.articleID);
+    const href = EDIT_TPL.replace(/0$/, a.articleid);
     const snippet = safeSnippet(a.content, 220);
     return `
-      <article class="article-card my-article article-with-delete" data-id="${a.articleID}">
+      <article class="article-card my-article article-with-delete" data-id="${a.articleid}">
         <a class="card-link" href="${href}" aria-label="${esc(a.title)}">
           <div class="text">
             <div class="card-top">
@@ -169,7 +169,7 @@
           </div>
           <div class="thumb-wrap"><img src="${img}" alt=""></div>
         </a>
-        <button class="article-delete-btn danger" data-id="${a.articleID}" title="Delete this article">🗑 Delete</button>
+        <button class="article-delete-btn danger" data-id="${a.articleid}" title="Delete this article">🗑 Delete</button>
       </article>`;
   }
   function renderList(items) {

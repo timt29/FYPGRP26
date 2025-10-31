@@ -38,6 +38,7 @@
           <div class="text">
             <h1 class="main-title">{{ article['title'] }}</h1>
 
+
             {% include 'partials/accessibility_toolbar.html' %}
 
             {% if article['image'] %}
@@ -199,8 +200,8 @@
 
     <script>
       (function () {
-        // Try common keys: articleID or id
-        const ARTICLE_ID = {{ article.get('articleID') or article.get('id') or 0 }};
+        // Try common keys: articleid or id
+        const ARTICLE_ID = {{ article.get('articleid') or article.get('id') or 0 }};
         if (!ARTICLE_ID) return;
 
         // Fire a beacon to increment views once per session

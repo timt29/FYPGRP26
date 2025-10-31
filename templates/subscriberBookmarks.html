@@ -94,10 +94,10 @@
 
     function card(a){
       const img  = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
-      const href = VIEW_TPL.replace(/0$/, a.articleID);
+      const href = VIEW_TPL.replace(/0$/, a.articleid);
 
       return `
-        <article class="article-card my-article" data-id="${a.articleID}" style="position:relative;">
+        <article class="article-card my-article" data-id="${a.articleid}" style="position:relative;">
           <a class="card-link" href="${href}" aria-label="${esc(a.title)}">
             <div class="text">
               <div class="card-top">
@@ -115,7 +115,7 @@
 
           <!-- Unpin bottom-right -->
           <div class="card-footer" style="display:flex;justify-content:flex-end;margin-top:10px;">
-            <button type="button" class="btn btn-light btn-unpin" data-id="${a.articleID}">Remove Bookmark</button>
+            <button type="button" class="btn btn-light btn-unpin" data-id="${a.articleid}">Remove Bookmark</button>
           </div>
         </article>
       `;
@@ -141,7 +141,7 @@
         const res = await fetch(TOGGLE, {
           method:"POST",
           headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ articleID: Number(id) })
+          body: JSON.stringify({ articleid: Number(id) })
         });
         const out = await res.json();
         if(!res.ok || !out.ok) throw new Error(out.message || "Failed");

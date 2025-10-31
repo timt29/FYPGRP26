@@ -175,7 +175,7 @@
           return;
         }
         tbody.innerHTML = filtered.map(a => {
-          const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+          const href = VIEW_URL_TPL.replace(/0$/, a.articleid);
           return `<tr>
             <td>${esc(a.title)}</td>
             <td>${fmtInt(a.views)}</td>
