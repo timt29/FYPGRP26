@@ -128,7 +128,7 @@ def index():
     conn = get_db_connection()
     cursor = get_cursor(conn)
     cursor.execute("""
-        SELECT articleID, title, content, author, published_at, updated_at, image
+        SELECT articleid, title, content, author, published_at, updated_at, image
         FROM articles 
         WHERE visible = 1
         ORDER BY published_at DESC
@@ -144,7 +144,7 @@ def index():
 def article(article_id):
     conn = get_db_connection()
     cursor = get_cursor(conn)
-    cursor.execute("SELECT * FROM articles WHERE articleID = %s", (article_id,))
+    cursor.execute("SELECT * FROM articles WHERE articleid = %s", (article_id,))
     article = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -178,14 +178,14 @@ def api_article_view_beacon(article_id: int):
 
     updated = False
     if article_id not in already:
-        cur.execute("UPDATE articles SET views = views + 1 WHERE articleID = %s", (article_id,))
+        cur.execute("UPDATE articles SET views = views + 1 WHERE articleid = %s", (article_id,))
         conn.commit()
         already.add(article_id)
         session[viewed_key] = list(already)
         updated = True
 
     # (Optional) return up-to-date views
-    cur.execute("SELECT COALESCE(views,0) AS views FROM articles WHERE articleID = %s", (article_id,))
+    cur.execute("SELECT COALESCE(views,0) AS views FROM articles WHERE articleid = %s", (article_id,))
     row = cur.fetchone() or {"views": 0}
     cur.close(); conn.close()
 
@@ -204,7 +204,7 @@ def search():
     # --- 1. Perform the search ---
     if query:
         cursor.execute("""
-            SELECT articleID, title, content, author, published_at, updated_at, image
+            SELECT articleid, title, content, author, published_at, updated_at, image
             FROM articles
             WHERE title LIKE %s OR content LIKE %s
             ORDER BY published_at DESC
@@ -215,7 +215,7 @@ def search():
     if not articles:
         no_results = True
         cursor.execute("""
-            SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
+            SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
             FROM articles a
             JOIN categories c ON a.catID = c.categoryID
             ORDER BY a.published_at DESC
@@ -255,7 +255,7 @@ def category(category_name):
     cursor = get_cursor(conn)
 
     cursor.execute("""
-        SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
+        SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
         FROM articles a
         JOIN categories c ON a.catID = c.categoryID
         WHERE c.name = %s AND a.visible = 1
@@ -395,7 +395,7 @@ def api_articles():
         params.extend([like, like])
 
     sql = f"""
-        SELECT a.articleID, a.title, a.content, a.author,
+        SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at, a.image, c.name AS category
         FROM articles a
         {join}
@@ -820,7 +820,7 @@ def subscriber_search_api():
         params.extend([like, like])
 
     sql = f"""
-        SELECT a.articleID, a.title, a.content, a.author,
+        SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at, a.image, c.name AS category
         FROM articles a
         LEFT JOIN categories c ON a.catID = c.categoryID
@@ -850,7 +850,7 @@ def subscriber_article_view(article_id):
     cur  = conn.cursor(conn)
 
     cur.execute("""
-        SELECT a.articleID, a.title, a.content, a.author,
+        SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at,
                CASE
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
@@ -862,7 +862,7 @@ def subscriber_article_view(article_id):
                c.name AS category
         FROM articles a
         LEFT JOIN categories c ON a.catID = c.categoryID
-        WHERE a.articleID = %s
+        WHERE a.articleid = %s
           AND a.draft = FALSE
         LIMIT 1
     """, (article_id,))
@@ -875,14 +875,14 @@ def subscriber_article_view(article_id):
     viewed_key = "viewed_articles"
     already_viewed = set(int(x) for x in session.get(viewed_key, []))
     if article_id not in already_viewed:
-        cur.execute("UPDATE articles SET views = views + 1 WHERE articleID = %s", (article_id,))
+        cur.execute("UPDATE articles SET views = views + 1 WHERE articleid = %s", (article_id,))
         conn.commit()
         already_viewed.add(article_id)
         session[viewed_key] = list(already_viewed)
 
     # Pin state
     cur.execute(
-        "SELECT 1 FROM subscriber_pins WHERE userID=%s AND articleID=%s LIMIT 1",
+        "SELECT 1 FROM subscriber_pins WHERE userID=%s AND articleid=%s LIMIT 1",
         (session["userID"], article_id)
     )
     is_pinned = cur.fetchone() is not None
@@ -908,10 +908,10 @@ def subscriber_article_view(article_id):
 @login_required("Subscriber")
 def subscriber_toggle_pin():
     data = request.get_json(silent=True) or {}
-    article_id = data.get("articleID")
+    article_id = data.get("articleid")
 
     if not article_id:
-        return jsonify(ok=False, message="articleID is required"), 400
+        return jsonify(ok=False, message="articleid is required"), 400
 
     conn = get_db_connection()
     cur  = conn.cursor()
@@ -919,7 +919,7 @@ def subscriber_toggle_pin():
     # Check current state
     cur.execute("""
         SELECT id FROM subscriber_pins
-        WHERE userID=%s AND articleID=%s
+        WHERE userID=%s AND articleid=%s
         LIMIT 1
     """, (session["userID"], article_id))
     row = cur.fetchone()
@@ -932,7 +932,7 @@ def subscriber_toggle_pin():
     else:
         try:
             cur.execute("""
-                INSERT INTO subscriber_pins (userID, articleID)
+                INSERT INTO subscriber_pins (userID, articleid)
                 VALUES (%s, %s)
             """, (session["userID"], article_id))
             conn.commit()
@@ -961,7 +961,7 @@ def subscriber_api_my_articles():
     cur  = conn.cursor(conn)
 
     base_select = """
-        SELECT a.articleID, a.title, a.content, a.draft,
+        SELECT a.articleid, a.title, a.content, a.draft,
                a.status,                        -- expose status to the UI
                a.published_at, a.updated_at,
                CASE
@@ -999,10 +999,10 @@ def subscriber_api_my_articles():
     elif status == "reported":
         sql = f"""
             {base_select}
-            INNER JOIN article_reports ar ON ar.article_id = a.articleID
+            INNER JOIN article_reports ar ON ar.article_id = a.articleid
             WHERE a.author = %s
               AND ar.status = 'pending'
-            GROUP BY a.articleID
+            GROUP BY a.articleid
             ORDER BY MAX(ar.updated_at) DESC
             LIMIT %s OFFSET %s
         """
@@ -1019,10 +1019,10 @@ def subscriber_edit_article(article_id):
     conn = get_db_connection()
     cur  = conn.cursor(conn)
     cur.execute("""
-        SELECT a.articleID, a.title, a.content, a.catID, a.image, a.draft,
+        SELECT a.articleid, a.title, a.content, a.catID, a.image, a.draft,
                a.published_at, a.updated_at
         FROM articles a
-        WHERE a.articleID = %s AND a.author = %s
+        WHERE a.articleid = %s AND a.author = %s
         LIMIT 1
     """, (article_id, session.get("user")))
     article = cur.fetchone()
@@ -1049,7 +1049,7 @@ def subscriber_update_article(article_id):
     conn = get_db_connection()
     cur  = conn.cursor(conn)
 
-    cur.execute("SELECT author FROM articles WHERE articleID=%s LIMIT 1", (article_id,))
+    cur.execute("SELECT author FROM articles WHERE articleid=%s LIMIT 1", (article_id,))
     row = cur.fetchone()
     if not row or row["author"] != session.get("user"):
         cur.close(); conn.close()
@@ -1087,7 +1087,7 @@ def subscriber_update_article(article_id):
 
     params.append(article_id)
 
-    cur.execute(f"UPDATE articles SET {', '.join(fields)} WHERE articleID=%s", params)
+    cur.execute(f"UPDATE articles SET {', '.join(fields)} WHERE articleid=%s", params)
     conn.commit()
     cur.close(); conn.close()
 
@@ -1111,7 +1111,7 @@ def subscriber_api_bookmarks():
     conn = get_db_connection()
     cur  = conn.cursor(conn)
     cur.execute("""
-        SELECT a.articleID, a.title, a.content, a.author,
+        SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at,
                CASE
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
@@ -1123,7 +1123,7 @@ def subscriber_api_bookmarks():
                c.name AS category,
                sp.pinned_at
         FROM subscriber_pins sp
-        JOIN articles a        ON a.articleID = sp.articleID
+        JOIN articles a        ON a.articleid = sp.articleid
         LEFT JOIN categories c ON a.catID = c.categoryID
         WHERE sp.userID = %s
           AND (a.draft IS NULL OR a.draft = FALSE)
@@ -1196,7 +1196,7 @@ def subscriber_api_comments():
             (c.userID = %s) AS mine
         FROM comments c
         JOIN users u ON u.userID = c.userID
-        WHERE c.articleID = %s AND c.visible = 1
+        WHERE c.articleid = %s AND c.visible = 1
         ORDER BY c.created_at DESC
     """, (uid, article_id))
     rows = cur.fetchall()
@@ -1239,7 +1239,7 @@ def subscriber_api_comment_create():
     from app import get_db_connection
 
     uid = session.get("userID")
-    article_id = request.form.get("articleID")
+    article_id = request.form.get("articleid")
     text = request.form.get("text", "").strip()
     parent_id = request.form.get("parent_id")
 
@@ -1266,7 +1266,7 @@ def subscriber_api_comment_create():
     cur.close()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO comments (articleID, userID, comment_text, is_reply, reply_to_comment_id)
+        INSERT INTO comments (articleid, userID, comment_text, is_reply, reply_to_comment_id)
         VALUES (%s, %s, %s, %s, %s)
     """, (article_id, uid, text, bool(top_parent_id), top_parent_id))
 
@@ -1378,8 +1378,8 @@ def subscriber_api_comment_react(comment_id):
 @login_required("Subscriber")
 def report_article():
     data = request.get_json(silent=True) or {}
-    # frontend sends "id"; keep backward compat with "articleID"
-    article_id = data.get("id") or data.get("articleID")
+    # frontend sends "id"; keep backward compat with "articleid"
+    article_id = data.get("id") or data.get("articleid")
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
 
@@ -1395,7 +1395,7 @@ def report_article():
     cur  = conn.cursor(conn)
     try:
         # 1) verify article exists + author name
-        cur.execute("SELECT author FROM articles WHERE articleID = %s", (article_id,))
+        cur.execute("SELECT author FROM articles WHERE articleid = %s", (article_id,))
         row = cur.fetchone()
         if not row:
             return jsonify(ok=False, message="Article not found."), 404
@@ -1603,7 +1603,7 @@ def subscriber_profile_view(user_id: int):
         u["image"] = img.replace("./static", "/static")
 
     cur.execute("""
-        SELECT a.articleID, a.title, a.published_at,
+        SELECT a.articleid, a.title, a.published_at,
                CASE
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
                  WHEN a.image LIKE 'http%%' THEN a.image
@@ -1645,7 +1645,7 @@ def subscriber_delete_article(article_id):
     cur = conn.cursor(conn)
 
     # Make sure the article belongs to the logged-in user
-    cur.execute("SELECT * FROM articles WHERE articleID = %s AND author = %s", (article_id, username))
+    cur.execute("SELECT * FROM articles WHERE articleid = %s AND author = %s", (article_id, username))
     article = cur.fetchone()
 
     if not article:
@@ -1653,7 +1653,7 @@ def subscriber_delete_article(article_id):
         return jsonify({"error": "Article not found or access denied"}), 403
 
     try:
-        cur.execute("DELETE FROM articles WHERE articleID = %s", (article_id,))
+        cur.execute("DELETE FROM articles WHERE articleid = %s", (article_id,))
         conn.commit()
         cur.close(); conn.close()
         return jsonify({"success": True, "deleted_id": article_id})
@@ -1720,7 +1720,7 @@ def subscriber_analytics_my_articles():
 
     cur.execute("""
         SELECT
-            a.articleID,
+            a.articleid,
             a.title,
             a.published_at,
             COALESCE(a.views, 0)          AS views,
@@ -1728,15 +1728,15 @@ def subscriber_analytics_my_articles():
             COALESCE(cc.comment_count, 0) AS comment_count
         FROM articles a
         LEFT JOIN (
-            SELECT articleID, COUNT(*) AS bookmarks
+            SELECT articleid, COUNT(*) AS bookmarks
             FROM subscriber_pins
-            GROUP BY articleID
-        ) bm ON bm.articleID = a.articleID
+            GROUP BY articleid
+        ) bm ON bm.articleid = a.articleid
         LEFT JOIN (
-            SELECT articleID, COUNT(*) AS comment_count
+            SELECT articleid, COUNT(*) AS comment_count
             FROM comments
-            GROUP BY articleID
-        ) cc ON cc.articleID = a.articleID
+            GROUP BY articleid
+        ) cc ON cc.articleid = a.articleid
         WHERE a.draft = 0
           AND a.visible = 1
           AND a.author = %s
@@ -2506,7 +2506,7 @@ def article_submission():
     # Fetch only articles created by valid users (exclude system/orphan articles)
     cursor.execute("""
     SELECT 
-        a.articleID,
+        a.articleid,
         a.title,
         a.content,
         a.author,
@@ -2580,7 +2580,7 @@ def flagged_articles():
     cursor.execute("""
         SELECT 
             ar.report_id,
-            ar.article_id AS articleID,
+            ar.article_id AS articleid,
             a.title,
             a.author,
             a.published_at AS article_created,
@@ -2588,7 +2588,7 @@ def flagged_articles():
             ar.details AS flagged_details,
             ar.created_at AS flagged_at
         FROM article_reports ar
-        LEFT JOIN articles a ON ar.article_id = a.articleID
+        LEFT JOIN articles a ON ar.article_id = a.articleid
         WHERE ar.status = 'pending'
         ORDER BY ar.created_at DESC
     """)
@@ -2629,7 +2629,7 @@ def review_article():
             
             # hide article from public and mark as pending revision
             cursor.execute(
-                "UPDATE articles SET visible = 0, status = 'pending_revision' WHERE articleID = %s",
+                "UPDATE articles SET visible = 0, status = 'pending_revision' WHERE articleid = %s",
                 (article_id,)
             )
         elif action == "reject": # moderator thinks it's okay
@@ -2640,7 +2640,7 @@ def review_article():
             )
             # article stays visible and approved
             cursor.execute(
-                "UPDATE articles SET visible = 1, status = 'published' WHERE articleID = %s",
+                "UPDATE articles SET visible = 1, status = 'published' WHERE articleid = %s",
                 (article_id,)
             )
 
@@ -2664,7 +2664,7 @@ def get_article(article_id):
     cursor.execute("""
         SELECT title, content, author, published_at, image
         FROM articles
-        WHERE articleID = %s
+        WHERE articleid = %s
     """, (article_id,))
     article = cursor.fetchone()
     cursor.close()
@@ -2797,12 +2797,12 @@ def pending_articles():
     try:
         # Fetch articles that are pending approval
         cursor.execute("""
-            SELECT a.articleID, a.title, a.author, a.published_at, a.updated_at, a.visible, a.image,
+            SELECT a.articleid, a.title, a.author, a.published_at, a.updated_at, a.visible, a.image,
                    COUNT(r.report_id) AS num_reports
             FROM articles a
-            LEFT JOIN article_reports r ON a.articleID = r.article_id AND r.status = 'pending'
+            LEFT JOIN article_reports r ON a.articleid = r.article_id AND r.status = 'pending'
             WHERE a.status = 'pending_review'
-            GROUP BY a.articleID
+            GROUP BY a.articleid
             ORDER BY a.updated_at DESC
         """)
         articles = cursor.fetchall()
