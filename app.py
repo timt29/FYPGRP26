@@ -521,7 +521,7 @@ def api_articles_create():
 
     publish = (action == "publish")
     conn = get_db_connection()
-    cur = get_cursor()
+    cur = get_cursor(conn)
 
     # --- Profanity Filter --- #
     profanity_check = check_profanity(title, content)
@@ -914,7 +914,7 @@ def subscriber_toggle_pin():
         return jsonify(ok=False, message="articleid is required"), 400
 
     conn = get_db_connection()
-    cur  = get_cursor()
+    cur  = get_cursor(conn)
 
     # Check current state
     cur.execute("""
@@ -1264,7 +1264,7 @@ def subscriber_api_comment_create():
             top_parent_id = None
 
     cur.close()
-    cur = get_cursor()
+    cur = get_cursor(conn)
     cur.execute("""
         INSERT INTO comments (articleid, userid, comment_text, is_reply, reply_to_comment_id)
         VALUES (%s, %s, %s, %s, %s)
@@ -1285,7 +1285,7 @@ def subscriber_api_comment_update(comment_id):
         return jsonify(ok=False, message="text required"), 400
 
     conn = get_db_connection()
-    cur = get_cursor()
+    cur = get_cursor(conn)
     cur.execute("SELECT userid FROM comments WHERE commentid=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
@@ -1305,7 +1305,7 @@ def subscriber_api_comment_delete(comment_id):
 
     uid = session.get("userid")
     conn = get_db_connection()
-    cur = get_cursor()
+    cur = get_cursor(conn)
     cur.execute("SELECT userid FROM comments WHERE commentid=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
@@ -1328,7 +1328,7 @@ def subscriber_api_comment_react(comment_id):
         return jsonify(ok=False, message="Invalid action"), 400
 
     conn = get_db_connection()
-    cur = get_cursor()
+    cur = get_cursor(conn)
 
     cur.execute("SELECT reaction FROM comment_reactions WHERE commentid=%s AND userid=%s",
                 (comment_id, uid))
@@ -1560,7 +1560,7 @@ def profile_update():
         new_img = save_profile_image(avatar_file)
 
     try:
-        cur = get_cursor()
+        cur = get_cursor(conn)
         if new_img:
             cur.execute("UPDATE users SET name=%s, bio=%s, image=%s WHERE userid=%s",
                         (name, bio, new_img, uid))
@@ -1863,7 +1863,7 @@ def subscriber_analytics_overview():
     author_name = session.get("user", "")
 
     conn = get_db_connection()
-    cur  = get_cursor()
+    cur  = get_cursor(conn)
     try:
         # total views for my published & visible articles
         cur.execute("""
@@ -1972,7 +1972,7 @@ def donate_submit():
 
     # ---- DB insert
     conn = get_db_connection()
-    cur  = get_cursor()
+    cur  = get_cursor(conn)
     try:
         # 1) donations (master)
         cur.execute(
@@ -2120,7 +2120,7 @@ def register():
         password = request.form["password"]
 
         conn = get_db_connection()
-        cursor = get_cursor()
+        cursor = get_cursor(conn)
         try:
             cursor.execute(
                 "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
@@ -2142,7 +2142,7 @@ def logout():
     if "userid" in session:
         user_id = session["userid"]
         conn = get_db_connection()
-        cursor = get_cursor()
+        cursor = get_cursor(conn)
         cursor.execute("""
             UPDATE users 
             SET is_logged_in = FALSE, last_active = NOW()
@@ -2163,7 +2163,7 @@ def logout():
 def update_last_active():
     if "userid" in session:
         conn = get_db_connection()
-        cursor = get_cursor()
+        cursor = get_cursor(conn)
         cursor.execute("""
             UPDATE users
             SET last_active = NOW()
@@ -2212,7 +2212,7 @@ def warn_user():
     warned_user_id = request.form.get("userid")
 
     conn = get_db_connection()
-    cursor = get_cursor()
+    cursor = get_cursor(conn)
 
     warning_message = "You have received a warning from the moderator."
     cursor.execute(
@@ -2278,7 +2278,7 @@ def forgot_password():
             return redirect(url_for("forgot_password"))
 
         conn = get_db_connection()
-        cursor = get_cursor()
+        cursor = get_cursor(conn)
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         user = cursor.fetchone()
 
@@ -2360,7 +2360,7 @@ def create_user():
             return redirect(url_for("create_user"))
 
         conn = get_db_connection()
-        cursor = get_cursor()
+        cursor = get_cursor(conn)
         cursor.execute(
             "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
             (name, email, password, usertype)
@@ -2722,7 +2722,7 @@ def reviewComment():
         return redirect("/flaggedComments")
 
     conn = get_db_connection()
-    cursor = get_cursor()
+    cursor = get_cursor(conn)
 
     try:
         # Get all reports for this comment
@@ -2836,7 +2836,7 @@ def add_category():
             return redirect(url_for("add_category"))
 
         conn = get_db_connection()
-        cursor = get_cursor()
+        cursor = get_cursor(conn)
 
         # Check if category already exists
         cursor.execute("SELECT * FROM categories WHERE name = %s", (name,))
@@ -2917,7 +2917,7 @@ def delete_category_page():
 @login_required("Moderator")
 def delete_category(categoryid):
     conn = get_db_connection()
-    cursor = get_cursor()
+    cursor = get_cursor(conn)
     cursor.execute("DELETE FROM categories WHERE categoryid=%s", (categoryid,))
     conn.commit()
     cursor.close()
