@@ -953,7 +953,7 @@ def subscriber_api_my_articles():
 
         sql = f"""{base_select}
                 WHERE {" AND ".join(where)}
-                ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+                ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleID DESC
                 LIMIT %s OFFSET %s"""
         params += [limit, offset]
         cur.execute(sql, tuple(params))
@@ -965,7 +965,7 @@ def subscriber_api_my_articles():
                 WHERE a.author = %s
                     AND a.visible = 0
                     AND a.status  = 'reported'
-                ORDER BY COALESCE(a.updated_at, a.created_at) DESC
+                ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleID DESC
                 LIMIT %s OFFSET %s"""
         cur.execute(sql, (session.get("user"), limit, offset))
         rows = cur.fetchall()
