@@ -56,6 +56,11 @@
     <aside class="sidebar">
       <button type="button" class="btn btn-primary"
         onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">Create Your Story</button>
+      <button type="button"
+              class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('donate_form') }}'">
+        Donate to EchoPress
+      </button>
       <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </main>
@@ -166,35 +171,61 @@
       const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
       function statusBadge(draft, status) {
         const st = (status || (draft ? "draft" : "published"));
-        if (st === "pending_revision") return '<span class="badge badge-draft">Pending</span>';
-        return draft ? '<span class="badge badge-draft">Draft</span>'
-                    : '<span class="badge badge-published">Published</span>';
+        if (st === "pending_revision" || st === "pending_approval") {
+          return '<span class="badge badge-draft">Pending</span>';
+        }
+        if (st === "reported") {
+          return '<span class="badge badge-reported">Reported</span>';
+        }
+        return draft
+          ? '<span class="badge badge-draft">Draft</span>'
+          : '<span class="badge badge-published">Published</span>';
       }
+
       function card(a) {
-        const id = getId(a);
-        if (!id) return "";
-        const img  = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
-        const href = EDIT_TPL.replace(/0$/, id);
+        const img     = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
+        const id      = a.articleID;
         const snippet = safeSnippet(a.content, 220);
+
+        const isReported = (a.status === 'reported');
+        const isPending  = (a.status === 'pending_revision' || a.status === 'pending_approval');
+
+        const href = "{{ url_for('subscriber_edit_article', article_id=0) }}".replace(/0$/, id);
+
+        const inner = `
+          <div class="text">
+            <div class="card-top">
+              ${statusBadge(!!a.draft, a.status)}
+              ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
+            </div>
+            <h3>${esc(a.title)}</h3>
+            <p class="desc">${snippet}</p>
+            <div class="meta-line">
+              ${a.published_at ? `<span>${a.draft ? "Updated" : "Published"}: ${esc(a.published_at || a.updated_at || "")}</span>` : ""}
+            </div>
+          </div>
+          <div class="thumb-wrap"><img src="${img}" alt=""></div>
+        `;
+
+        // REPORTED → not clickable
+        const wrapperStart = isReported
+          ? `<div class="card-link disabled" aria-label="${esc(a.title)}" aria-disabled="true" tabindex="-1">`
+          : `<a class="card-link" href="${href}" aria-label="${esc(a.title)}">`;
+        const wrapperEnd = isReported ? `</div>` : `</a>`;
+
+        document.addEventListener('click', (e) => {
+          const disabled = e.target.closest('.card-link.disabled');
+          if (disabled) { e.preventDefault(); e.stopPropagation(); }
+        }, true);
+
         return `
-          <article class="article-card my-article article-with-delete" data-id="${id}">
-            <a class="card-link" href="${href}" aria-label="${esc(a.title)}">
-              <div class="text">
-                <div class="card-top">
-                  ${statusBadge(!!a.draft, a.status)}
-                  ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
-                </div>
-                <h3>${esc(a.title)}</h3>
-                <p class="desc">${snippet}</p>
-                <div class="meta-line">
-                  ${a.published_at ? `<span>${a.draft ? "Updated" : "Published"}: ${esc(a.published_at || a.updated_at || "")}</span>` : ""}
-                </div>
-              </div>
-              <div class="thumb-wrap"><img src="${img}" alt=""></div>
-            </a>
+          <article class="article-card my-article article-with-delete ${isReported ? 'is-reported' : ''}" data-id="${id}">
+            ${wrapperStart}${inner}${wrapperEnd}
             <button class="article-delete-btn danger" data-id="${id}" title="Delete this article">🗑 Delete</button>
-          </article>`;
+          </article>
+        `;
       }
+
       function renderList(items) {
         if (!LIST) return;
         const html = (items && items.length)
@@ -384,13 +415,15 @@
           <h3>Support EchoPress</h3>
           <p>Your contribution keeps independent journalism alive.</p>
           <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
-
-          <!-- Moved here: centered social links under Donate -->
           <ul class="footer-social" aria-label="Social links">
-            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
-            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
-            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
-            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+            <li><a href="https://facebook.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/facebook.png') }}" alt="Facebook"></a></li>
+            <li><a href="https://x.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/x.png') }}" alt="X"></a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/instagram.png') }}" alt="Instagram"></a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/linkedin.png') }}" alt="LinkedIn"></a></li>
           </ul>
         </div>
       </div>

@@ -948,27 +948,25 @@ def subscriber_api_my_articles():
         elif status == "drafts":
             where += ["a.draft = TRUE"]
         elif status == "pending":
-            where += ["a.status = 'pending_revision'"]
+            # PENDING = visible=0 and status in ('pending_revision','pending_approval')
+            where += ["a.visible = 0", "a.status IN ('pending_revision','pending_approval')"]
 
         sql = f"""{base_select}
-                  WHERE {" AND ".join(where)}
-                  ORDER BY COALESCE(a.published_at, a.updated_at) DESC
-                  LIMIT %s OFFSET %s"""
+                WHERE {" AND ".join(where)}
+                ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+                LIMIT %s OFFSET %s"""
         params += [limit, offset]
         cur.execute(sql, tuple(params))
         rows = cur.fetchall()
 
     elif status == "reported":
-        sql = f"""
-            {base_select}
-            INNER JOIN article_reports ar ON ar.article_id = a.articleid
-            WHERE a.author = %s
-              AND ar.status = 'reviewed'
-              AND a.status = 'pending_revision'
-            GROUP BY a.articleid
-            ORDER BY MAX(ar.updated_at) DESC
-            LIMIT %s OFFSET %s
-        """
+        # REPORTED = visible=0 and status='reported'
+        sql = f"""{base_select}
+                WHERE a.author = %s
+                    AND a.visible = 0
+                    AND a.status  = 'reported'
+                ORDER BY COALESCE(a.updated_at, a.created_at) DESC
+                LIMIT %s OFFSET %s"""
         cur.execute(sql, (session.get("user"), limit, offset))
         rows = cur.fetchall()
 
@@ -1194,7 +1192,8 @@ def subscriber_api_comments():
             "mine": bool(r["mine"]),
             "my_reaction": my_reaction_map.get(r["commentid"]),
             "is_reply": bool(r.get("is_reply")),
-            "parent_id": r.get("reply_to_comment_id")
+            "parent_id": r.get("reply_to_comment_id"),
+            "author_id": r["userid"],
         })
     return jsonify(out)
 
@@ -1600,6 +1599,27 @@ def subscriber_profile_view(user_id: int):
         profile=profile,    
         articles=articles,  
     )
+
+@app.get("/subscriber/author/<int:author_id>")
+@login_required("Subscriber")
+def subscriber_article_list_by_author(author_id):
+    conn = get_db_connection(); cur = conn.cursor(dictionary=True)
+    # get author profile (optional)
+    cur.execute("SELECT userid, name, image, bio FROM users WHERE userid=%s", (author_id,))
+    author = cur.fetchone()
+
+    # get this author's visible articles
+    cur.execute("""
+        SELECT articleid, title, content, image, published_at, updated_at
+        FROM articles
+        WHERE author = %s AND draft = 0
+        ORDER BY COALESCE(published_at, updated_at) DESC
+    """, (author_id,))
+    articles = cur.fetchall()
+    cur.close(); conn.close()
+
+    return render_template("subscriberAuthorArticles.html",
+                           author=author, articles=articles)
 
 @app.post("/subscriber/api/articles/<int:article_id>/delete")
 @login_required("Subscriber")

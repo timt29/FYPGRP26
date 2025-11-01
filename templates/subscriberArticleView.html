@@ -35,6 +35,7 @@
         <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
         <a class="menu-item" href="{{ url_for('subscriber_analytics') }}">View Analytics</a>
         <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
+        <a class="menu-item" href="{{ url_for('donate_form') }}">Donate to EchoPress</a>
         <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
@@ -177,6 +178,11 @@
       <button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">
         Create Your Story
       </button>
+      <button type="button"
+              class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('donate_form') }}'">
+        Donate to EchoPress
+      </button>
       <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </main>
@@ -195,6 +201,9 @@
         <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
       </div>
     </div>
+  </div>
+  <div id="logoutSuccess" class="toast" role="status" aria-live="polite" aria-atomic="true" style="display:none;">
+  <span>Logged out successfully.</span>
   </div>
 
   <!-- Footer -->
@@ -219,10 +228,14 @@
           <p>Your contribution keeps independent journalism alive.</p>
           <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
           <ul class="footer-social" aria-label="Social links">
-            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
-            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
-            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
-            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+            <li><a href="https://facebook.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/facebook.png') }}" alt="Facebook"></a></li>
+            <li><a href="https://x.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/x.png') }}" alt="X"></a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/instagram.png') }}" alt="Instagram"></a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/linkedin.png') }}" alt="LinkedIn"></a></li>
           </ul>
         </div>
       </div>
@@ -549,6 +562,7 @@
       // API endpoints
       const API_LIST   = "{{ url_for('subscriber_api_comments') }}";
       const API_CREATE = "{{ url_for('subscriber_api_comment_create') }}";
+      const PROFILE_URL_TPL = "{{ url_for('subscriber_profile_view', user_id=0) }}";
       const API_EDIT   = (id)=> `/subscriber/api/comments/${id}`;
       const API_REACT  = (id)=> `/subscriber/api/comments/${id}/react`;
       const API_R_ART  = "/subscriber/report_article";
@@ -594,8 +608,9 @@
         const dislikePressed = c.my_reaction === 'dislike' ? 'true' : 'false';
 
         // avatar + name → link to subscriberProfileView.html (to be built later)
-        const profileId = c.author_id || c.userid || "";
-        const profileHref = `/subscriberProfileView.html?id=${encodeURIComponent(profileId)}`;
+        const profileId  = c.author_id || c.userid || "";
+        const profileHref = PROFILE_URL_TPL.replace(/0$/, String(profileId || "0"));
+
 
         const avatarHtml = c.author_image
           ? `<a class="c-avatar" href="${profileHref}" aria-label="${esc(c.author)}"><img src="${esc(c.author_image)}" alt=""></a>`
@@ -635,7 +650,6 @@
               <div class="c-reply-box" style="display:none; margin-top:8px;">
                 <textarea class="c-reply-input" placeholder="Write a reply…"></textarea>
                 <div style="margin-top:6px; display:flex; gap:8px;">
-                  <button class="btn btn-light c-reply-cancel" type="button">Cancel</button>
                   <button class="btn btn-primary c-reply-send"  type="button">Reply</button>
                 </div>
               </div>
@@ -694,19 +708,38 @@
         });
       }
 
-      async function loadComments(){
-        LIST.innerHTML = '';
-        try{
-          const res  = await fetch(`${API_LIST}?article_id=${ARTICLE_ID}`);
-          const rows = res.ok ? await res.json() : [];
-          if(!rows.length){ LIST.innerHTML = '<p class="c-empty">Be the first to comment.</p>'; return; }
-          const tree = buildTree(rows);
-          LIST.innerHTML = renderTree(tree).join('');
-        }catch(err){
-          console.error(err);
-          LIST.innerHTML = '<p class="c-empty">Failed to load comments.</p>';
-        }
-      }
+async function loadComments(){
+  LIST.innerHTML = '';
+  try{
+    const res  = await fetch(`${API_LIST}?article_id=${ARTICLE_ID}`);
+    const raw  = res.ok ? await res.json() : [];
+
+const rows = raw.map(r => ({
+  commentid:    r.commentid ?? r.commentID,   // <-- ensure 'commentid' exists
+  commentID:    r.commentID ?? r.commentid,   // (optional, for safety)
+  text:         r.text ?? r.comment_text ?? "",
+  likes:        Number(r.likes ?? 0),
+  dislikes:     Number(r.dislikes ?? 0),
+  created_at:   r.created_at,
+  author:       r.author ?? "Anonymous",
+  author_image: r.author_image ?? null,
+  mine:         !!r.mine,
+  my_reaction:  r.my_reaction ?? null,
+  is_reply:     !!(r.is_reply ?? r.isReply),
+  parent_id:    r.parent_id ?? r.reply_to_comment_id ?? null,
+  author_id:    r.author_id ?? r.userID ?? r.userid ?? null
+}));
+
+    if(!rows.length){ LIST.innerHTML = '<p class="c-empty">Be the first to comment.</p>'; return; }
+
+    const tree = buildTree(rows); // buildTree/renderComment already use commentID/parent_id etc.
+    LIST.innerHTML = renderTree(tree).join('');
+  }catch(err){
+    console.error(err);
+    LIST.innerHTML = '<p class="c-empty">Failed to load comments.</p>';
+  }
+}
+
 
       // Create new top-level comment
       FORM?.addEventListener('submit', async (e)=>{
@@ -749,14 +782,23 @@
 
         // Reply toggle
         if (e.target.closest('.c-reply-btn')){
-          const box = card.querySelector('.c-reply-box'); if (!box) return;
-          box.style.display = box.style.display === 'none' ? 'block' : 'none';
-          const ta = box.querySelector('.c-reply-input');
-          if (ta){
-            const name = card.querySelector('.comment-name')?.textContent || '';
-            ta.value = `@${name} `;
-            ta.focus();
-            ta.selectionStart = ta.selectionEnd = ta.value.length;
+          const btn = e.target.closest('.c-reply-btn');
+          const box = card.querySelector('.c-reply-box'); 
+          if (!box) return;
+          const open = box.style.display !== 'none';
+          if (open){
+            box.style.display = 'none';
+            btn.textContent = 'Reply';
+          } else {
+            box.style.display = 'block';
+            btn.textContent = 'Cancel';
+            const ta = box.querySelector('.c-reply-input');
+            if (ta){
+              const name = card.querySelector('.comment-name')?.textContent || '';
+              ta.value = `@${name} `;
+              ta.focus();
+              ta.selectionStart = ta.selectionEnd = ta.value.length;
+            }
           }
           return;
         }
@@ -770,14 +812,25 @@
         // Send reply
         if (e.target.closest('.c-reply-send')){
           const box = card.querySelector('.c-reply-box'); if (!box) return;
-          const ta = box.querySelector('.c-reply-input'); const text = (ta.value||'').trim();
+          const ta  = box.querySelector('.c-reply-input');
+          const text = (ta.value || '').trim();
           if (!text) return;
+
           const fd = new FormData();
-          fd.set('articleid', ARTICLE_ID); fd.set('text', text); fd.set('parent_id', id);
+          fd.set('articleid', ARTICLE_ID);  
+          fd.set('text', text);
+          fd.set('parent_id', id);          
+
           try{
-            const res = await fetch(API_CREATE, { method:'POST', body: fd });
+            const res  = await fetch(API_CREATE, { method:'POST', body: fd });
             const data = res.ok ? await res.json() : null;
-            if (res.ok && data?.ok) await loadComments();
+            if (res.ok && data?.ok){
+              await loadComments();
+              const opener = card.querySelector('.c-reply-btn');
+              if (opener) opener.textContent = 'Reply';
+            } else {
+              console.error('Reply failed', data);
+            }
           }catch(err){ console.error(err); }
           return;
         }
@@ -955,6 +1008,7 @@
   <script>
     (function(){
       const adsBox   = document.getElementById('adsBox');
+      if (adsBox) adsBox.classList.add('fixed');
       const ADS_API  = "{{ url_for('api_random_ad') }}";
       const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
       function renderAd(ad){
@@ -1045,10 +1099,22 @@
         delete modal.dataset.href;
       }
       if (cancel)  cancel.addEventListener('click', closeModal);
-      if (confirm) confirm.addEventListener('click', () => {
+      if (confirm) confirm.addEventListener('click', async () => {
         const href = modal.dataset.href || "{{ url_for('logout') }}";
-        window.location.href = href;
+        const success = document.getElementById('logoutSuccess');
+        try {
+          await fetch(href, { method: 'GET', redirect: 'manual', credentials: 'include' });
+        } catch (_) { /* ignore */ }
+        closeModal();
+        if (success) {
+          success.style.display = 'flex';
+          success.classList.add('show');
+        }
+        setTimeout(() => {
+          window.location.href = "{{ url_for('index') }}";
+        }, 1000);  
       });
+
       modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();

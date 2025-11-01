@@ -242,12 +242,15 @@
           <h3>Support EchoPress</h3>
           <p>Your contribution keeps independent journalism alive.</p>
           <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
-
           <ul class="footer-social" aria-label="Social links">
-            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
-            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
-            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
-            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+            <li><a href="https://facebook.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/facebook.png') }}" alt="Facebook"></a></li>
+            <li><a href="https://x.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/x.png') }}" alt="X"></a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/instagram.png') }}" alt="Instagram"></a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/linkedin.png') }}" alt="LinkedIn"></a></li>
           </ul>
         </div>
       </div>
