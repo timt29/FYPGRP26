@@ -2764,25 +2764,24 @@ def pending_articles():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    try:
-        # Fetch articles that are pending approval
-        cursor.execute("""
-            SELECT a.articleid, a.title, a.author, a.published_at, a.updated_at, a.visible, a.image,
-                   COUNT(r.report_id) AS num_reports
-            FROM articles a
-            LEFT JOIN article_reports r ON a.articleid = r.article_id AND r.status = 'pending'
-            WHERE a.status = 'pending_review'
-            GROUP BY a.articleid
-            ORDER BY a.updated_at DESC
-        """)
-        articles = cursor.fetchall()
-    finally:
-        cursor.close()
-        conn.close()
+    cursor.execute("""
+        SELECT 
+            articleid,
+            title,
+            author,
+            updated_at
+        FROM articles
+        WHERE status = 'pending_approval'
+        ORDER BY updated_at DESC
+    """)
+    articles = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
 
     return render_template("pendingArticles.html", articles=articles)
 
-# (YY)
+
 @app.route("/manageCategories", methods=["GET"])
 @login_required("Moderator")
 def manage_categories():
