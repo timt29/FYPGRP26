@@ -200,7 +200,7 @@
     <script>
       (function () {
         // Try common keys: articleID or id
-        const ARTICLE_ID = {{ article.get('articleID') or article.get('id') or 0 }};
+        const ARTICLE_ID = {{ article.get('articleid') or article.get('id') or 0 }};
         if (!ARTICLE_ID) return;
 
         // Fire a beacon to increment views once per session

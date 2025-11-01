@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
 --
 -- Host: localhost    Database: nrs
 -- ------------------------------------------------------
--- Server version	8.0.43
+-- Server version	8.0.42
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -24,14 +24,14 @@ DROP TABLE IF EXISTS `subscriber_pins`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `subscriber_pins` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `userID` int NOT NULL,
-  `articleID` int NOT NULL,
+  `userid` int NOT NULL,
+  `articleid` int NOT NULL,
   `pinned_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_user_article` (`userID`,`articleID`),
-  KEY `fk_pin_article` (`articleID`),
-  CONSTRAINT `fk_pin_article` FOREIGN KEY (`articleID`) REFERENCES `articles` (`articleID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_pin_user` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE
+  UNIQUE KEY `uniq_user_article` (`userid`,`articleid`),
+  KEY `fk_pin_article` (`articleid`),
+  CONSTRAINT `fk_pin_article` FOREIGN KEY (`articleid`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_pin_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -54,4 +54,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-16 21:51:07
+-- Dump completed on 2025-11-01 21:58:48

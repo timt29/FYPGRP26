@@ -34,8 +34,8 @@ CREATE TABLE `article_reports` (
   PRIMARY KEY (`report_id`),
   KEY `fk_report_article` (`article_id`),
   KEY `fk_report_user` (`reporter_id`),
-  CONSTRAINT `fk_report_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`articleID`) ON DELETE CASCADE,
-  CONSTRAINT `fk_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userID`) ON DELETE CASCADE
+  CONSTRAINT `fk_report_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE,
+  CONSTRAINT `fk_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userid`) ON DELETE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -58,4 +58,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-27  1:23:32
+-- Dump completed on 2025-11-01 21:58:48

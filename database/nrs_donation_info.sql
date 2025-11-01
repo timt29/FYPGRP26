@@ -1,8 +1,8 @@
 -- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
 --
--- Host: 127.0.0.1    Database: nrs
+-- Host: localhost    Database: nrs
 -- ------------------------------------------------------
--- Server version	8.0.43
+-- Server version	8.0.42
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -23,17 +23,17 @@ DROP TABLE IF EXISTS `donation_info`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `donation_info` (
-  `donation_ID` int unsigned NOT NULL,
+  `donation_id` int unsigned NOT NULL,
   `card_brand` varchar(20) DEFAULT NULL,
-  `cardNumber` varchar(25) DEFAULT NULL,
-  `paynowRef` varchar(64) DEFAULT NULL,
-  `ChequeNumber` varchar(40) DEFAULT NULL,
-  `CashReceiptNumber` varchar(40) DEFAULT NULL,
-  PRIMARY KEY (`donation_ID`),
-  KEY `idx_paynowRef` (`paynowRef`),
-  KEY `idx_ChequeNumber` (`ChequeNumber`),
-  KEY `idx_CashReceiptNumber` (`CashReceiptNumber`),
-  CONSTRAINT `fk_donation_info_donation` FOREIGN KEY (`donation_ID`) REFERENCES `donations` (`donation_ID`) ON DELETE CASCADE ON UPDATE CASCADE
+  `cardnumber` varchar(25) DEFAULT NULL,
+  `paynowref` varchar(64) DEFAULT NULL,
+  `chequenumber` varchar(40) DEFAULT NULL,
+  `cashreceiptnumber` varchar(40) DEFAULT NULL,
+  PRIMARY KEY (`donation_id`),
+  KEY `idx_paynowRef` (`paynowref`),
+  KEY `idx_ChequeNumber` (`chequenumber`),
+  KEY `idx_CashReceiptNumber` (`cashreceiptnumber`),
+  CONSTRAINT `fk_donation_info_donation` FOREIGN KEY (`donation_id`) REFERENCES `donations` (`donation_id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -55,4 +55,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-25  9:37:08
+-- Dump completed on 2025-11-01 21:58:47

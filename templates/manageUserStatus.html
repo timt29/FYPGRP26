@@ -64,7 +64,7 @@
         <tbody>
             {% for user in users %}
             <tr>
-            <td>{{ user.userID }}</td>
+            <td>{{ user.userid }}</td>
             <td>{{ user.name }}</td>
             <td>{{ user.email }}</td>
             <td>{{ user.usertype }}</td>
@@ -73,7 +73,7 @@
                 <em>Admin accounts cannot be modified</em>
                 {% else %}
                 <form method="POST" action="/manageUserStatus" style="display:inline;">
-                    <input type="hidden" name="userID" value="{{ user.userID }}">
+                    <input type="hidden" name="userid" value="{{ user.userid }}">
                     <button type="submit" name="action" value="suspend">Suspend</button>
                     <button type="submit" name="action" value="reactivate">Reactivate</button>
                     <button type="submit" name="action" value="delete" onclick="return confirm('Are you sure you want to delete this user?');">Delete</button>

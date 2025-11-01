@@ -166,8 +166,8 @@
     }
 
     function getArticleId(a){
-      // Support both {articleid} and {articleID} (and fallback {id})
-      const v = a?.articleid ?? a?.articleID ?? a?.id ?? "";
+      // Support both {articleid} and {articleid} (and fallback {id})
+      const v = a?.articleid ?? a?.articleid ?? a?.id ?? "";
       return String(v);
     }
 

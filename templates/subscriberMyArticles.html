@@ -103,7 +103,7 @@
       let currentStatus = "all";
 
       function getId(a){
-        return a?.articleID ?? a?.articleid ?? a?.id ?? a?.article_id ?? null;
+        return a?.articleid ?? a?.articleid ?? a?.id ?? a?.article_id ?? null;
       }
   </script>
 
@@ -121,7 +121,7 @@
       let currentStatus = "all"; // all | published | drafts | pending | reported
 
       function getId(a){
-        return a?.articleID ?? a?.articleid ?? a?.id ?? a?.article_id ?? null;
+        return a?.articleid ?? a?.articleid ?? a?.id ?? a?.article_id ?? null;
       }
 
       // ====== UTIL: SAFE SNIPPET (render a small, safe HTML preview) ======

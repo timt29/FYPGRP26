@@ -175,7 +175,7 @@
           return;
         }
         tbody.innerHTML = filtered.map(a => {
-          const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+          const href = VIEW_URL_TPL.replace(/0$/, a.articleid);
           return `<tr>
             <td>${esc(a.title)}</td>
             <td>${fmtInt(a.views)}</td>
@@ -216,7 +216,7 @@
         }
         tbodyDon.innerHTML = items.map(d => `
           <tr>
-            <td>${d.donation_ID}</td>
+            <td>${d.donation_id}</td>
             <td>${esc(d.payment_method)}</td>
             <td class="money">${fmtMoney(d.donation_amount)}</td>
             <td>${esc(d.payment_date)}</td>

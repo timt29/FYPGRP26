@@ -60,18 +60,18 @@
             <tbody>
             {% for user in users %}
             <tr>
-                <td>{{ user.userID }}</td>
+                <td>{{ user.userid }}</td>
                 <td>{{ user.name }}</td>
                 <td>{{ user.email }}</td>
                 <td>{{ user.usertype }}</td>
                 <td>
                 <form method="POST" action="/warnUser" style="display:inline;">
-                    <input type="hidden" name="userID" value="{{ user.userID }}">
+                    <input type="hidden" name="userid" value="{{ user.userid }}">
                     <button type="submit" class="btn">Warning</button>
                 </form>
 
                 <form method="POST" action="/toggleSuspend" style="display:inline;">
-                    <input type="hidden" name="userID" value="{{ user.userID }}">
+                    <input type="hidden" name="userid" value="{{ user.userid }}">
                     {% if user.usertype == "Suspended" %}
                     <button type="submit" class="btn unsuspend">Unsuspend</button>
                     {% else %}

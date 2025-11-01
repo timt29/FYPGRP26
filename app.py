@@ -870,7 +870,7 @@ def subscriber_article_view(article_id):
 @login_required("Subscriber")
 def subscriber_toggle_pin():
     data = request.get_json(silent=True) or {}
-    article_id = data.get("articleID")
+    article_id = data.get("articleid")
 
     if not article_id:
         return jsonify(ok=False, message="articleID is required"), 400
@@ -1184,7 +1184,7 @@ def subscriber_api_comments():
     out = []
     for r in rows:
         out.append({
-            "commentID": r["commentid"],
+            "commentid": r["commentid"],
             "text": r["comment_text"],
             "likes": int(r["likes"] or 0),
             "dislikes": int(r["dislikes"] or 0),
@@ -1204,7 +1204,7 @@ def subscriber_api_comment_create():
     from app import get_db_connection
 
     uid = session.get("userid")
-    article_id = request.form.get("articleID")
+    article_id = request.form.get("articleid")
     text = request.form.get("text", "").strip()
     parent_id = request.form.get("parent_id")
 
@@ -1344,7 +1344,7 @@ def subscriber_api_comment_react(comment_id):
 def report_article():
     data = request.get_json(silent=True) or {}
     # frontend sends "id"; keep backward compat with "articleID"
-    article_id = data.get("id") or data.get("articleID")
+    article_id = data.get("id") or data.get("articleid")
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
 
@@ -1397,7 +1397,7 @@ def report_article():
 def report_comment():
     data = request.get_json(silent=True) or {}
     # frontend sends "id"; keep backward compat with "commentID"
-    comment_id = data.get("id") or data.get("commentID")
+    comment_id = data.get("id") or data.get("commentid")
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
 
@@ -1606,7 +1606,7 @@ def subscriber_profile_view(user_id: int):
 def subscriber_delete_article(article_id):
     conn = get_db_connection()
     cur  = conn.cursor()
-    cur.execute("DELETE FROM articles WHERE articleID=%s", (article_id,))
+    cur.execute("DELETE FROM articles WHERE articleid=%s", (article_id,))
     conn.commit()
     return ("", 204)  # or jsonify(ok=True)
     
@@ -1724,7 +1724,7 @@ def subscriber_analytics_my_articles():
     return jsonify(rows)
 
 def _row_donation(idx, row):
-    donation_id     = row["donation_ID"]
+    donation_id     = row["donation_id"]
     donation_amount = row["donation_amount"] 
     payment_method  = row["payment_method"] or ""
     ts              = row["paymentDateTime"]  
@@ -1740,7 +1740,7 @@ def _row_donation(idx, row):
     return {
         "no": idx,
 
-        "donation_ID": donation_id,
+        "donation_id": donation_id,
         "donation_amount": float(donation_amount or 0),
         "payment_method": payment_method,
         "paymentDateTime": ts,
@@ -1762,16 +1762,16 @@ def subscriber_analytics_my_donations():
     try:
         cur.execute("""
             SELECT
-                d.donation_ID,
+                d.donation_id,
                 d.donation_amount,
                 d.payment_method,
                 d.paymentDateTime,
                 di.card_brand
             FROM donations AS d
             LEFT JOIN donation_info AS di
-              ON di.donation_ID = d.donation_ID
+              ON di.donation_id = d.donation_id
             WHERE d.userid = %s
-            ORDER BY d.paymentDateTime DESC, d.donation_ID DESC
+            ORDER BY d.paymentDateTime DESC, d.donation_id DESC
         """, (uid,))
         recs = cur.fetchall() or []
     finally:
@@ -1795,7 +1795,7 @@ def subscriber_analytics_my_donations():
             pm_disp = pm.capitalize() if pm else "—"
 
         return {
-            "donation_ID": row["donation_ID"],
+            "donation_id": row["donation_id"],
             "payment_method": pm_disp,
             "donation_amount": float(row.get("donation_amount") or 0),
             "payment_date": payment_date,
@@ -1944,7 +1944,7 @@ def donate_submit():
             cur.execute(
                 """
                 INSERT INTO donation_info
-                  (donation_ID, card_brand, cardNumber)
+                  (donation_id, card_brand, cardNumber)
                 VALUES
                   (%s, %s, %s)
                 """,
@@ -1954,7 +1954,7 @@ def donate_submit():
             cur.execute(
                 """
                 INSERT INTO donation_info
-                  (donation_ID, paynowRef)
+                  (donation_id, paynowRef)
                 VALUES
                   (%s, %s)
                 """,
@@ -2159,7 +2159,7 @@ def warn_user():
         flash("Access denied.")
         return redirect(url_for("login"))
 
-    warned_user_id = request.form.get("userID")
+    warned_user_id = request.form.get("userid")
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -2183,7 +2183,7 @@ def toggle_suspend():
         flash("Access denied.")
         return redirect(url_for("login"))
 
-    user_id = request.form["userID"]
+    user_id = request.form["userid"]
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -2371,7 +2371,7 @@ def manage_user_status():
     cursor = conn.cursor(dictionary=True)
 
     if request.method == "POST":
-        user_id = request.form.get("userID")
+        user_id = request.form.get("userid")
         action = request.form.get("action")
 
         # Get current user info
@@ -2664,7 +2664,7 @@ def flagged_comments():
 @app.route("/reviewComment", methods=["POST"])
 @login_required("Moderator")
 def reviewComment():
-    comment_id = request.form.get("commentID")
+    comment_id = request.form.get("commentid")
     action = request.form.get("action")  # "approve" or "reject"
 
     if not comment_id or action not in ("approve", "reject"):
@@ -2819,7 +2819,7 @@ def update_category():
     cursor = conn.cursor(dictionary=True)
 
     if request.method == "POST":
-        categoryID = request.form.get("categoryID")
+        categoryid = request.form.get("categoryid")
         name = request.form.get("categoryName").strip()
         description = request.form.get("categoryDescription").strip()
 
@@ -2829,7 +2829,7 @@ def update_category():
 
         cursor.execute(
             "UPDATE categories SET name=%s, description=%s WHERE categoryid=%s",
-            (name, description, categoryID)
+            (name, description, categoryid)
         )
         conn.commit()
         flash("Category updated successfully.", "success")
@@ -2863,12 +2863,12 @@ def delete_category_page():
     return render_template("deleteCategory.html", categories=categories)
 
 # Handle actual deletion (YY)
-@app.route("/manageCategories/delete/<int:categoryID>", methods=["POST"])
+@app.route("/manageCategories/delete/<int:categoryid>", methods=["POST"])
 @login_required("Moderator")
-def delete_category(categoryID):
+def delete_category(categoryid):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM categories WHERE categoryid=%s", (categoryID,))
+    cursor.execute("DELETE FROM categories WHERE categoryid=%s", (categoryid,))
     conn.commit()
     cursor.close()
     conn.close()

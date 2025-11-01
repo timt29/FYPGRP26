@@ -57,7 +57,7 @@
 
         <!-- Prefilled editor -->
         <form id="editorForm" method="POST" action="#" enctype="multipart/form-data" class="create-form">
-          <input type="hidden" id="article_id" name="id" value="{{ article.articleID }}">
+          <input type="hidden" id="article_id" name="id" value="{{ article.articleid }}">
 
           <div>
             <label for="title">Add Heading:</label>
@@ -141,7 +141,7 @@
       const showToast= (m)=>{ msgEl.textContent=m||'Done.'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1400); };
 
       // Prefill: which category is current?
-      const CURRENT_CAT_ID = {{ article.catID if article.catID is not none else 'null' }};
+      const CURRENT_CAT_ID = {{ article.catid if article.catid is not none else 'null' }};
 
       // 1) Populate categories and select current
       async function loadCategories() {
@@ -152,9 +152,9 @@
           select.innerHTML = '<option value="" disabled>Choose one…</option>';
           rows.forEach(r => {
             const opt = document.createElement('option');
-            opt.value = r.categoryID;
+            opt.value = r.categoryid;
             opt.textContent = r.name;
-            if (CURRENT_CAT_ID && Number(CURRENT_CAT_ID) === Number(r.categoryID)) opt.selected = true;
+            if (CURRENT_CAT_ID && Number(CURRENT_CAT_ID) === Number(r.categoryid)) opt.selected = true;
             select.appendChild(opt);
           });
         } catch {

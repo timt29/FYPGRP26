@@ -45,7 +45,7 @@
 
     <!-- ===== ARTICLE VIEW ===== -->
     <section id="articleSection" class="feed">
-      <article id="articleRoot" class="article-card detail article-view" data-article-id="{{ article.articleID }}">
+      <article id="articleRoot" class="article-card detail article-view" data-article-id="{{ article.articleid }}">
         <header class="article-header">
           <h1 class="article-title">{{ article.title }}</h1>
         </header>
@@ -329,10 +329,10 @@
       function card(a){
         const rawImage = a.image ?? a.image_url ?? a.imagePath ?? a.imageName ?? a.cover;
         const cands = imageCandidates(rawImage);
-        const id = `img_${a.articleID}_${Math.random().toString(36).slice(2)}`;
+        const id = `img_${a.articleid}_${Math.random().toString(36).slice(2)}`;
 
         const html = `
-          <article class="article-card open-article" data-id="${a.articleID}" role="button" tabindex="0">
+          <article class="article-card open-article" data-id="${a.articleid}" role="button" tabindex="0">
             <div class="text">
               <h3>${esc(a.title)}</h3>
               <p class="desc">${esc(trunc(a.content))}</p>
@@ -403,17 +403,17 @@
 
       const bookmarkBtn = document.getElementById('bookmarkBtn');
       const articleRoot = document.getElementById('articleRoot');
-      const articleID   = parseInt(articleRoot?.dataset.articleId || '0', 10);
+      const articleid   = parseInt(articleRoot?.dataset.articleId || '0', 10);
       const endpoint    = "{{ url_for('subscriber_toggle_pin') }}";
 
       if (bookmarkBtn){
         bookmarkBtn.addEventListener('click', async () => {
-          if (!articleID){ showToast('Missing article ID.'); return; }
+          if (!articleid){ showToast('Missing article ID.'); return; }
           try{
             const res  = await fetch(endpoint, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ articleID })
+              body: JSON.stringify({ articleid })
             });
             const data = await res.json().catch(()=> ({}));
             if (!res.ok || !data.ok){ throw new Error(data.message || ('HTTP '+res.status)); }
@@ -594,7 +594,7 @@
         const dislikePressed = c.my_reaction === 'dislike' ? 'true' : 'false';
 
         // avatar + name → link to subscriberProfileView.html (to be built later)
-        const profileId = c.author_id || c.userID || "";
+        const profileId = c.author_id || c.userid || "";
         const profileHref = `/subscriberProfileView.html?id=${encodeURIComponent(profileId)}`;
 
         const avatarHtml = c.author_image
@@ -621,7 +621,7 @@
           </div>`;
 
         return `
-          <article class="comment-card ${depth>0?'reply':''}" data-id="${c.commentID}"
+          <article class="comment-card ${depth>0?'reply':''}" data-id="${c.commentid}"
                    data-parent="${c.parent_id || ''}" style="margin-left:${indent}px;">
             <div class="comment-meta">
               ${avatarHtml}
@@ -669,7 +669,7 @@
 
       function buildTree(flat) {
         const map = new Map();
-        flat.forEach(r => map.set(r.commentID, {...r, children: []}));
+        flat.forEach(r => map.set(r.commentid, {...r, children: []}));
         const roots = [];
         map.forEach(node => {
           const pid = node.parent_id || null;
@@ -714,7 +714,7 @@
         const text = (INPUT.value||'').trim();
         if (!text) return;
         const fd = new FormData();
-        fd.set('articleID', ARTICLE_ID);
+        fd.set('articleid', ARTICLE_ID);
         fd.set('text', text);
         try{
           const res = await fetch(API_CREATE, { method:'POST', body: fd });
@@ -773,7 +773,7 @@
           const ta = box.querySelector('.c-reply-input'); const text = (ta.value||'').trim();
           if (!text) return;
           const fd = new FormData();
-          fd.set('articleID', ARTICLE_ID); fd.set('text', text); fd.set('parent_id', id);
+          fd.set('articleid', ARTICLE_ID); fd.set('text', text); fd.set('parent_id', id);
           try{
             const res = await fetch(API_CREATE, { method:'POST', body: fd });
             const data = res.ok ? await res.json() : null;

@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 8.0.43, for Win64 (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
 --
 -- Host: localhost    Database: nrs
 -- ------------------------------------------------------
--- Server version	8.0.43
+-- Server version	8.0.42
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -23,18 +23,18 @@ DROP TABLE IF EXISTS `comment_reactions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `comment_reactions` (
-  `reactionID` bigint NOT NULL AUTO_INCREMENT,
-  `commentID` int NOT NULL,
-  `userID` int NOT NULL,
+  `reactionid` bigint NOT NULL AUTO_INCREMENT,
+  `commentid` int NOT NULL,
+  `userid` int NOT NULL,
   `reaction` enum('like','dislike') NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`reactionID`),
-  UNIQUE KEY `uniq_comment_user` (`commentID`,`userID`),
-  KEY `idx_comment` (`commentID`),
-  KEY `idx_user` (`userID`),
-  CONSTRAINT `fk_react_comment` FOREIGN KEY (`commentID`) REFERENCES `comments` (`commentID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_react_user` FOREIGN KEY (`userID`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE
+  PRIMARY KEY (`reactionid`),
+  UNIQUE KEY `uniq_comment_user` (`commentid`,`userid`),
+  KEY `idx_comment` (`commentid`),
+  KEY `idx_user` (`userid`),
+  CONSTRAINT `fk_react_comment` FOREIGN KEY (`commentid`) REFERENCES `comments` (`commentid`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_react_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -57,4 +57,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-16 21:51:07
+-- Dump completed on 2025-11-01 21:58:48

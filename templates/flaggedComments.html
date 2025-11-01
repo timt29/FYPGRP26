@@ -63,13 +63,13 @@
                 <tbody>
                     {% for comment in comments %}
                     <tr>
-                        <td>{{ comment.commentID }}</td>
+                        <td>{{ comment.commentid }}</td>
                         <td>{{ comment.comment_text }}</td>
                         <td>{{ comment.user }}</td>
                         <td>{{ comment.flagged_reason }}</td>
                         <td>{{ comment.flagged_at }}</td>
                         <td>
-                            <button type="button" class="view-btn" onclick="viewComment({{ comment.commentID }})">View</button>
+                            <button type="button" class="view-btn" onclick="viewComment({{ comment.commentid }})">View</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -151,12 +151,12 @@
         })();
 
         // === Comment Review Logic ===
-        let comments = [{% for c in comments %}{ id: {{ c.commentID }}, rowIndex: {{ loop.index0 }} },{% endfor %}];
+        let comments = [{% for c in comments %}{ id: {{ c.commentid }}, rowIndex: {{ loop.index0 }} },{% endfor %}];
         let currentIndex = 0;
 
-        async function viewComment(commentID) {
+        async function viewComment(commentid) {
             try {
-                const res = await fetch(`/getComment/${commentID}`);
+                const res = await fetch(`/getComment/${commentid}`);
                 if (!res.ok) throw new Error("Failed to fetch comment.");
                 const comment = await res.json();
 
@@ -164,7 +164,7 @@
                 document.getElementById('comment-modal-date').textContent = "Posted: " + comment.created_at;
                 document.getElementById('comment-modal-content').textContent = comment.comment_text;
 
-                currentIndex = comments.findIndex(c => c.id === commentID);
+                currentIndex = comments.findIndex(c => c.id === commentid);
 
                 document.getElementById('commentModal').classList.add('show');
                 document.getElementById('commentModal').setAttribute('aria-hidden', 'false');
@@ -180,8 +180,8 @@
         });
 
         async function handleCommentReview(action) {
-            const commentID = comments[currentIndex].id;
-            const formData = new URLSearchParams({ commentID, action });
+            const commentid = comments[currentIndex].id;
+            const formData = new URLSearchParams({ commentid, action });
 
             const res = await fetch("/reviewComment", {
                 method: "POST",

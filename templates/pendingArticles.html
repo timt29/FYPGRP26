@@ -49,12 +49,12 @@
                 <tbody>
                     {% for a in articles %}
                     <tr>
-                        <td>{{ a.articleID }}</td>
+                        <td>{{ a.articleid }}</td>
                         <td>{{ a.title }}</td>
                         <td>{{ a.author }}</td>
                         <td>{{ a.updated_at }}</td>
                         <td>
-                            <button onclick="viewArticle({{ a.articleID }})">View</button>
+                            <button onclick="viewArticle({{ a.articleid }})">View</button>
                         </td>
                     </tr>
                     {% endfor %}
@@ -147,12 +147,12 @@
         })();
 
         // === Article Review Logic ===
-        let articles = [{% for a in articles %}{ id: {{ a.articleID }}, rowIndex: {{ loop.index0 }} },{% endfor %}];
+        let articles = [{% for a in articles %}{ id: {{ a.articleid }}, rowIndex: {{ loop.index0 }} },{% endfor %}];
         let currentIndex = 0;
 
-        async function viewArticle(articleID) {
+        async function viewArticle(articleid) {
             try {
-                const res = await fetch(`/getArticle/${articleID}`);
+                const res = await fetch(`/getArticle/${articleid}`);
                 if (!res.ok) throw new Error("Failed to fetch article.");
                 const article = await res.json();
 
@@ -169,7 +169,7 @@
                     imgEl.style.display = 'none';
                 }
 
-                currentIndex = articles.findIndex(a => a.id === articleID);
+                currentIndex = articles.findIndex(a => a.id === articleid);
 
                 document.getElementById('prevArticle').disabled = currentIndex <= 0;
                 document.getElementById('nextArticle').disabled = currentIndex >= articles.length - 1;
@@ -189,8 +189,8 @@
         });
 
         async function handleArticleReview(action) {
-            const articleID = articles[currentIndex].id;
-            const formData = new URLSearchParams({ articleID, action });
+            const articleid = articles[currentIndex].id;
+            const formData = new URLSearchParams({ articleid, action });
 
             const res = await fetch("/reviewArticle", {
                 method: "POST",
