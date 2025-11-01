@@ -62,7 +62,7 @@ def login_required(role=None):
         @wraps(fn)
         def decorated_view(*args, **kwargs):
             # If no session → force logout
-            if "userID" not in session:
+            if "userid" not in session:
                 session.clear()
                 return redirect(url_for("login"))
 
@@ -83,7 +83,7 @@ def index():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
-        SELECT articleID, title, content, author, published_at, updated_at, image
+        SELECT articleid, title, content, author, published_at, updated_at, image
         FROM articles 
         WHERE visible = 1
         ORDER BY published_at DESC
@@ -99,7 +99,7 @@ def index():
 def article(article_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM articles WHERE articleID = %s", (article_id,))
+    cursor.execute("SELECT * FROM articles WHERE articleid = %s", (article_id,))
     article = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -134,14 +134,14 @@ def api_article_view_beacon(article_id: int):
 
     updated = False
     if article_id not in already:
-        cur.execute("UPDATE articles SET views = views + 1 WHERE articleID = %s", (article_id,))
+        cur.execute("UPDATE articles SET views = views + 1 WHERE articleid = %s", (article_id,))
         conn.commit()
         already.add(article_id)
         session[viewed_key] = list(already)
         updated = True
 
     # (Optional) return up-to-date views
-    cur.execute("SELECT COALESCE(views,0) AS views FROM articles WHERE articleID = %s", (article_id,))
+    cur.execute("SELECT COALESCE(views,0) AS views FROM articles WHERE articleid = %s", (article_id,))
     row = cur.fetchone() or {"views": 0}
     cur.close(); conn.close()
 
@@ -160,7 +160,7 @@ def search():
     # --- 1. Perform the search ---
     if query:
         cursor.execute("""
-            SELECT articleID, title, content, author, published_at, updated_at, image
+            SELECT articleid, title, content, author, published_at, updated_at, image
             FROM articles
             WHERE title LIKE %s OR content LIKE %s
             ORDER BY published_at DESC
@@ -171,9 +171,9 @@ def search():
     if not articles:
         no_results = True
         cursor.execute("""
-            SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
+            SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
             FROM articles a
-            JOIN categories c ON a.catID = c.categoryID
+            JOIN categories c ON a.catid = c.categoryid
             ORDER BY a.published_at DESC
             LIMIT 10
         """)
@@ -211,9 +211,9 @@ def category(category_name):
     cursor = conn.cursor(dictionary=True)
 
     cursor.execute("""
-        SELECT a.articleID, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
+        SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image, c.name AS category
         FROM articles a
-        JOIN categories c ON a.catID = c.categoryID
+        JOIN categories c ON a.catid = c.categoryid
         WHERE c.name = %s AND a.visible = 1
         ORDER BY a.published_at DESC
     """, (category_name,))
@@ -309,10 +309,10 @@ def subscriberHomepage():
     conn = get_db_connection()
     cur = conn.cursor(dictionary=True)
     # (existing warnings query)
-    cur.execute("SELECT message, created_at FROM warnings WHERE userID=%s", (session["userID"],))
+    cur.execute("SELECT message, created_at FROM warnings WHERE userid=%s", (session["userid"],))
     warnings = cur.fetchall()
     # Pull categories dynamically
-    cur.execute("SELECT categoryID, name FROM categories ORDER BY categoryID ASC")
+    cur.execute("SELECT categoryid, name FROM categories ORDER BY categoryid ASC")
     categories = cur.fetchall()
     cur.close(); conn.close()
     # active tab via query param (?cat=Technology), default 'Trending'
@@ -340,7 +340,7 @@ def api_articles():
     params = []
     where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
 
-    join   = "LEFT JOIN categories c ON a.catID = c.categoryID"
+    join   = "LEFT JOIN categories c ON a.catid = c.categoryid"
     if cat:
         where.append("c.name = %s")
         params.append(cat)
@@ -351,7 +351,7 @@ def api_articles():
         params.extend([like, like])
 
     sql = f"""
-        SELECT a.articleID, a.title, a.content, a.author,
+        SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at, a.image, c.name AS category
         FROM articles a
         {join}
@@ -376,7 +376,7 @@ def subscriberCreateArticle():
 def api_categories():
     conn = get_db_connection()
     cur = conn.cursor(dictionary=True)
-    cur.execute("SELECT categoryID, name FROM categories ORDER BY categoryID ASC")
+    cur.execute("SELECT categoryid, name FROM categories ORDER BY categoryid ASC")
     rows = cur.fetchall()
     cur.close(); conn.close()
     return jsonify(rows)
@@ -419,7 +419,7 @@ def moderate_article(cur, title, content):
                     VALUES (%s, %s, %s, %s, 'pending', NOW(), NOW())
                 """, (
                     article_id,
-                    session.get("userID") or 0,
+                    session.get("userid") or 0,
                     "AI moderation",
                     moderation_result.get("reason", "")
                 ))
@@ -490,13 +490,13 @@ def api_articles_create():
     if publish:
         cur.execute("""
         INSERT INTO articles 
-        (title, content, author, published_at, updated_at, image, catID, draft, visible)
+        (title, content, author, published_at, updated_at, image, catid, draft, visible)
         VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, %s)
         """, (title, content, author, image_rel, cat_id, visible))
     else:
         cur.execute("""
         INSERT INTO articles 
-        (title, content, author, published_at, updated_at, image, catID, draft, visible)
+        (title, content, author, published_at, updated_at, image, catid, draft, visible)
         VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
         """, (title, content, author, image_rel, cat_id, visible))
 
@@ -698,7 +698,7 @@ def api_ai_suggest():
     # Fetch categories via MySQL
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
-    cur.execute("SELECT categoryID, name FROM categories ORDER BY name")
+    cur.execute("SELECT categoryid, name FROM categories ORDER BY name")
     categories = cur.fetchall()
     cur.close(); conn.close()
     if not categories:
@@ -738,9 +738,9 @@ def api_ai_suggest():
     match = process.extractOne(query, choices, scorer=fuzz.WRatio)
     if match:
         cat_name, score, idx = match
-        cat_id = categories[idx]["categoryID"]
+        cat_id = categories[idx]["categoryid"]
     else:
-        cat_id  = categories[0]["categoryID"]
+        cat_id  = categories[0]["categoryid"]
         cat_name= categories[0]["name"]
 
     return jsonify(
@@ -776,10 +776,10 @@ def subscriber_search_api():
         params.extend([like, like])
 
     sql = f"""
-        SELECT a.articleID, a.title, a.content, a.author,
+        SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at, a.image, c.name AS category
         FROM articles a
-        LEFT JOIN categories c ON a.catID = c.categoryID
+        LEFT JOIN categories c ON a.catid = c.categoryid
         WHERE {' AND '.join(where)}
         ORDER BY COALESCE(a.published_at, a.updated_at) DESC
         LIMIT %s OFFSET %s
@@ -806,22 +806,28 @@ def subscriber_article_view(article_id):
     cur  = conn.cursor(dictionary=True)
 
     cur.execute("""
-        SELECT a.articleID, a.title, a.content, a.author,
-               a.published_at, a.updated_at,
-               CASE
-                 WHEN a.image IS NULL OR a.image = '' THEN NULL
-                 WHEN a.image LIKE 'http%' THEN a.image
-                 WHEN a.image LIKE '/static/%' THEN a.image
-                 WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
-                 ELSE CONCAT('/static/img/', a.image)
-               END AS image,
-               c.name AS category
+        SELECT
+            a.articleid AS articleid,
+            a.title,
+            a.content,
+            a.author,
+            a.published_at,
+            a.updated_at,
+            CASE
+                WHEN a.image IS NULL OR a.image = '' THEN NULL
+                WHEN a.image LIKE 'http%' THEN a.image
+                WHEN a.image LIKE '/static/%' THEN a.image
+                WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
+                ELSE CONCAT('/static/img/', a.image)
+            END AS image,
+            c.name AS category
         FROM articles a
-        LEFT JOIN categories c ON a.catID = c.categoryID
-        WHERE a.articleID = %s
-          AND a.draft = FALSE
+        LEFT JOIN categories c ON a.catid = c.categoryid
+        WHERE a.articleid = %s
+        AND (a.draft IS NULL OR a.draft = 0)
         LIMIT 1
     """, (article_id,))
+
     article = cur.fetchone()
     if not article:
         cur.close(); conn.close()
@@ -831,15 +837,15 @@ def subscriber_article_view(article_id):
     viewed_key = "viewed_articles"
     already_viewed = set(int(x) for x in session.get(viewed_key, []))
     if article_id not in already_viewed:
-        cur.execute("UPDATE articles SET views = views + 1 WHERE articleID = %s", (article_id,))
+        cur.execute("UPDATE articles SET views = views + 1 WHERE articleid = %s", (article_id,))
         conn.commit()
         already_viewed.add(article_id)
         session[viewed_key] = list(already_viewed)
 
     # Pin state
     cur.execute(
-        "SELECT 1 FROM subscriber_pins WHERE userID=%s AND articleID=%s LIMIT 1",
-        (session["userID"], article_id)
+        "SELECT 1 FROM subscriber_pins WHERE userid=%s AND articleid=%s LIMIT 1",
+        (session["userid"], article_id)
     )
     is_pinned = cur.fetchone() is not None
     cur.close(); conn.close()
@@ -875,9 +881,9 @@ def subscriber_toggle_pin():
     # Check current state
     cur.execute("""
         SELECT id FROM subscriber_pins
-        WHERE userID=%s AND articleID=%s
+        WHERE userid=%s AND articleid=%s
         LIMIT 1
-    """, (session["userID"], article_id))
+    """, (session["userid"], article_id))
     row = cur.fetchone()
 
     if row:
@@ -888,9 +894,9 @@ def subscriber_toggle_pin():
     else:
         try:
             cur.execute("""
-                INSERT INTO subscriber_pins (userID, articleID)
+                INSERT INTO subscriber_pins (userid, articleid)
                 VALUES (%s, %s)
-            """, (session["userID"], article_id))
+            """, (session["userid"], article_id))
             conn.commit()
             cur.close(); conn.close()
             return jsonify(ok=True, state="pinned", message="Article pinned")
@@ -917,7 +923,7 @@ def subscriber_api_my_articles():
     cur  = conn.cursor(dictionary=True)
 
     base_select = """
-        SELECT a.articleID, a.title, a.content, a.draft,
+        SELECT a.articleid, a.title, a.content, a.draft,
                a.status,                        -- expose status to the UI
                a.published_at, a.updated_at,
                CASE
@@ -929,7 +935,7 @@ def subscriber_api_my_articles():
                END AS image,
                c.name AS category
         FROM articles a
-        LEFT JOIN categories c ON a.catID = c.categoryID
+        LEFT JOIN categories c ON a.catid = c.categoryid
     """
 
     rows = []
@@ -955,11 +961,11 @@ def subscriber_api_my_articles():
     elif status == "reported":
         sql = f"""
             {base_select}
-            INNER JOIN article_reports ar ON ar.article_id = a.articleID
+            INNER JOIN article_reports ar ON ar.article_id = a.articleid
             WHERE a.author = %s
               AND ar.status = 'reviewed'
               AND a.status = 'pending_revision'
-            GROUP BY a.articleID
+            GROUP BY a.articleid
             ORDER BY MAX(ar.updated_at) DESC
             LIMIT %s OFFSET %s
         """
@@ -976,10 +982,10 @@ def subscriber_edit_article(article_id):
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
     cur.execute("""
-        SELECT a.articleID, a.title, a.content, a.catID, a.image, a.draft,
+        SELECT a.articleid, a.title, a.content, a.catid, a.image, a.draft,
                a.published_at, a.updated_at
         FROM articles a
-        WHERE a.articleID = %s AND a.author = %s
+        WHERE a.articleid = %s AND a.author = %s
         LIMIT 1
     """, (article_id, session.get("user")))
     article = cur.fetchone()
@@ -1006,7 +1012,7 @@ def subscriber_update_article(article_id):
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    cur.execute("SELECT author FROM articles WHERE articleID=%s LIMIT 1", (article_id,))
+    cur.execute("SELECT author FROM articles WHERE articleid=%s LIMIT 1", (article_id,))
     row = cur.fetchone()
     if not row or row["author"] != session.get("user"):
         cur.close(); conn.close()
@@ -1032,7 +1038,7 @@ def subscriber_update_article(article_id):
         image_file.save(image_path)
 
     # Build UPDATE
-    fields = ["title=%s", "content=%s", "catID=%s", "draft=%s", "updated_at=NOW()"]
+    fields = ["title=%s", "content=%s", "catid=%s", "draft=%s", "updated_at=NOW()"]
     params = [title, content, category_id, draft_flag]
 
     if not draft_flag:
@@ -1044,7 +1050,7 @@ def subscriber_update_article(article_id):
 
     params.append(article_id)
 
-    cur.execute(f"UPDATE articles SET {', '.join(fields)} WHERE articleID=%s", params)
+    cur.execute(f"UPDATE articles SET {', '.join(fields)} WHERE articleid=%s", params)
     conn.commit()
     cur.close(); conn.close()
 
@@ -1061,14 +1067,14 @@ def subscriber_bookmarks():
 @app.route("/subscriber/api/bookmarks")
 @login_required("Subscriber")
 def subscriber_api_bookmarks():
-    uid = session.get("userID")
+    uid = session.get("userid")
     if uid is None:
         return jsonify(ok=False, message="Not logged in"), 401
 
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
     cur.execute("""
-        SELECT a.articleID, a.title, a.content, a.author,
+        SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at,
                CASE
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
@@ -1080,9 +1086,9 @@ def subscriber_api_bookmarks():
                c.name AS category,
                sp.pinned_at
         FROM subscriber_pins sp
-        JOIN articles a        ON a.articleID = sp.articleID
-        LEFT JOIN categories c ON a.catID = c.categoryID
-        WHERE sp.userID = %s
+        JOIN articles a        ON a.articleid = sp.articleid
+        LEFT JOIN categories c ON a.catid = c.categoryid
+        WHERE sp.userid = %s
           AND (a.draft IS NULL OR a.draft = FALSE)
         ORDER BY sp.pinned_at DESC
     """, (uid,))
@@ -1134,7 +1140,7 @@ def subscriber_api_comments():
     from app import get_db_connection  # if your factory exposes it here
 
     article_id = int(request.args.get("article_id", 0))
-    uid = session.get("userID")  # your session key
+    uid = session.get("userid")  # your session key
 
     conn = get_db_connection()
     cur = conn.cursor(dictionary=True)
@@ -1142,20 +1148,20 @@ def subscriber_api_comments():
     # 1) comments + author name + author image
     cur.execute("""
         SELECT
-            c.commentID,
+            c.commentid,
             c.comment_text,
             c.likes,
             c.dislikes,
             c.created_at,
-            c.userID,
+            c.userid,
             c.is_reply,
             c.reply_to_comment_id,
             u.name  AS author,
             u.image AS author_image,
-            (c.userID = %s) AS mine
+            (c.userid = %s) AS mine
         FROM comments c
-        JOIN users u ON u.userID = c.userID
-        WHERE c.articleID = %s AND c.visible = 1
+        JOIN users u ON u.userid = c.userid
+        WHERE c.articleid = %s AND c.visible = 1
         ORDER BY c.created_at DESC
     """, (uid, article_id))
     rows = cur.fetchall()
@@ -1163,22 +1169,22 @@ def subscriber_api_comments():
     # 2) my reactions for these comments
     my_reaction_map = {}
     if rows:
-        ids = [r["commentID"] for r in rows]
+        ids = [r["commentid"] for r in rows]
         placeholders = ",".join(["%s"] * len(ids))
         cur.execute(f"""
-            SELECT commentID, reaction
+            SELECT commentid, reaction
             FROM comment_reactions
-            WHERE userID = %s AND commentID IN ({placeholders})
+            WHERE userid = %s AND commentid IN ({placeholders})
         """, (uid, *ids))
         for r in cur.fetchall():
-            my_reaction_map[r["commentID"]] = r["reaction"]
+            my_reaction_map[r["commentid"]] = r["reaction"]
 
     cur.close(); conn.close()
 
     out = []
     for r in rows:
         out.append({
-            "commentID": r["commentID"],
+            "commentID": r["commentid"],
             "text": r["comment_text"],
             "likes": int(r["likes"] or 0),
             "dislikes": int(r["dislikes"] or 0),
@@ -1186,7 +1192,7 @@ def subscriber_api_comments():
             "author": r["author"] or "Anonymous",
             "author_image": _norm_img(r.get("author_image")),
             "mine": bool(r["mine"]),
-            "my_reaction": my_reaction_map.get(r["commentID"]),
+            "my_reaction": my_reaction_map.get(r["commentid"]),
             "is_reply": bool(r.get("is_reply")),
             "parent_id": r.get("reply_to_comment_id")
         })
@@ -1197,7 +1203,7 @@ def subscriber_api_comments():
 def subscriber_api_comment_create():
     from app import get_db_connection
 
-    uid = session.get("userID")
+    uid = session.get("userid")
     article_id = request.form.get("articleID")
     text = request.form.get("text", "").strip()
     parent_id = request.form.get("parent_id")
@@ -1213,7 +1219,7 @@ def subscriber_api_comment_create():
     if parent_id:
         try:
             pid = int(parent_id)
-            cur.execute("SELECT reply_to_comment_id FROM comments WHERE commentID=%s", (pid,))
+            cur.execute("SELECT reply_to_comment_id FROM comments WHERE commentid=%s", (pid,))
             row = cur.fetchone()
             if row:
                 top_parent_id = row["reply_to_comment_id"] or pid
@@ -1225,7 +1231,7 @@ def subscriber_api_comment_create():
     cur.close()
     cur = conn.cursor()
     cur.execute("""
-        INSERT INTO comments (articleID, userID, comment_text, is_reply, reply_to_comment_id)
+        INSERT INTO comments (articleid, userid, comment_text, is_reply, reply_to_comment_id)
         VALUES (%s, %s, %s, %s, %s)
     """, (article_id, uid, text, bool(top_parent_id), top_parent_id))
 
@@ -1238,21 +1244,21 @@ def subscriber_api_comment_create():
 def subscriber_api_comment_update(comment_id):
     from app import get_db_connection
 
-    uid = session.get("userID")
+    uid = session.get("userid")
     text = (request.json.get("text") or "").strip()
     if not text:
         return jsonify(ok=False, message="text required"), 400
 
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT userID FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("SELECT userid FROM comments WHERE commentid=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
         cur.close(); conn.close(); return jsonify(ok=False, message="Not found"), 404
     if row[0] != uid:
         cur.close(); conn.close(); return jsonify(ok=False, message="Forbidden"), 403
 
-    cur.execute("UPDATE comments SET comment_text=%s WHERE commentID=%s", (text, comment_id))
+    cur.execute("UPDATE comments SET comment_text=%s WHERE commentid=%s", (text, comment_id))
     conn.commit()
     cur.close(); conn.close()
     return jsonify(ok=True)
@@ -1262,16 +1268,16 @@ def subscriber_api_comment_update(comment_id):
 def subscriber_api_comment_delete(comment_id):
     from app import get_db_connection
 
-    uid = session.get("userID")
+    uid = session.get("userid")
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT userID FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("SELECT userid FROM comments WHERE commentid=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
         cur.close(); conn.close(); return jsonify(ok=False, message="Not found"), 404
     if row[0] != uid:
         cur.close(); conn.close(); return jsonify(ok=False, message="Forbidden"), 403
-    cur.execute("DELETE FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("DELETE FROM comments WHERE commentid=%s", (comment_id,))
     conn.commit()
     cur.close(); conn.close()
     return jsonify(ok=True)
@@ -1281,7 +1287,7 @@ def subscriber_api_comment_delete(comment_id):
 def subscriber_api_comment_react(comment_id):
     from app import get_db_connection
 
-    uid = session.get("userID")
+    uid = session.get("userid")
     action = (request.json.get("action") or "").lower()  # "like"|"dislike"|"clear"
     if action not in ("like", "dislike", "clear"):
         return jsonify(ok=False, message="Invalid action"), 400
@@ -1289,12 +1295,12 @@ def subscriber_api_comment_react(comment_id):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("SELECT reaction FROM comment_reactions WHERE commentID=%s AND userID=%s",
+    cur.execute("SELECT reaction FROM comment_reactions WHERE commentid=%s AND userid=%s",
                 (comment_id, uid))
     row = cur.fetchone()
     prev = row[0] if row else None
 
-    cur.execute("SELECT likes, dislikes FROM comments WHERE commentID=%s", (comment_id,))
+    cur.execute("SELECT likes, dislikes FROM comments WHERE commentid=%s", (comment_id,))
     cd = cur.fetchone()
     if not cd:
         cur.close(); conn.close()
@@ -1305,13 +1311,13 @@ def subscriber_api_comment_react(comment_id):
         if prev == "like":    likes    = max(0, likes - 1)
         elif prev == "dislike": dislikes = max(0, dislikes - 1)
         if prev:
-            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userID=%s",
+            cur.execute("DELETE FROM comment_reactions WHERE commentid=%s AND userid=%s",
                         (comment_id, uid))
     else:
         if prev == action:
             if action == "like": likes = max(0, likes - 1)
             else:                dislikes = max(0, dislikes - 1)
-            cur.execute("DELETE FROM comment_reactions WHERE commentID=%s AND userID=%s",
+            cur.execute("DELETE FROM comment_reactions WHERE commentid=%s AND userid=%s",
                         (comment_id, uid))
             action = "clear"
         else:
@@ -1320,12 +1326,12 @@ def subscriber_api_comment_react(comment_id):
             if action == "like": likes += 1
             else:                dislikes += 1
             cur.execute("""
-                INSERT INTO comment_reactions (commentID, userID, reaction)
+                INSERT INTO comment_reactions (commentid, userid, reaction)
                 VALUES (%s,%s,%s)
                 ON DUPLICATE KEY UPDATE reaction=VALUES(reaction), updated_at=CURRENT_TIMESTAMP
             """, (comment_id, uid, action))
 
-    cur.execute("UPDATE comments SET likes=%s, dislikes=%s WHERE commentID=%s",
+    cur.execute("UPDATE comments SET likes=%s, dislikes=%s WHERE commentid=%s",
                 (likes, dislikes, comment_id))
     conn.commit()
     cur.close(); conn.close()
@@ -1342,7 +1348,7 @@ def report_article():
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
 
-    reporter_id   = session.get("userID")
+    reporter_id   = session.get("userid")
     reporter_name = (session.get("user") or "").strip()
 
     if not reporter_id:
@@ -1354,7 +1360,7 @@ def report_article():
     cur  = conn.cursor(dictionary=True)
     try:
         # 1) verify article exists + author name
-        cur.execute("SELECT author FROM articles WHERE articleID = %s", (article_id,))
+        cur.execute("SELECT author FROM articles WHERE articleid = %s", (article_id,))
         row = cur.fetchone()
         if not row:
             return jsonify(ok=False, message="Article not found."), 404
@@ -1395,7 +1401,7 @@ def report_comment():
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
 
-    reporter_id = session.get("userID")
+    reporter_id = session.get("userid")
     if not reporter_id:
         return jsonify(ok=False, message="User not logged in."), 401
     if not comment_id or not reason:
@@ -1443,14 +1449,14 @@ def save_profile_image(file_storage):
 @app.route("/profile")
 @login_required("Subscriber")
 def profile():
-    uid = session["userID"]
+    uid = session["userid"]
 
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
     cur.execute("""
-        SELECT userID, name, email, usertype, image, bio
+        SELECT userid, name, email, usertype, image, bio
         FROM users
-        WHERE userID=%s
+        WHERE userid=%s
         LIMIT 1
     """, (uid,))
     u = cur.fetchone()
@@ -1488,7 +1494,7 @@ def profile():
 @app.route("/profile/update", methods=["POST"])
 @login_required("Subscriber")
 def profile_update():
-    uid = session["userID"]
+    uid = session["userid"]
     next_url = request.form.get("next") or request.referrer or url_for("subscriberHomepage")
 
     name = (request.form.get("name") or "").strip()
@@ -1498,7 +1504,7 @@ def profile_update():
     # --- fetch current user values for change detection ---
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
-    cur.execute("SELECT name, bio, image FROM users WHERE userID=%s LIMIT 1", (uid,))
+    cur.execute("SELECT name, bio, image FROM users WHERE userid=%s LIMIT 1", (uid,))
     row = cur.fetchone()
     cur.close()
 
@@ -1521,10 +1527,10 @@ def profile_update():
     try:
         cur = conn.cursor()
         if new_img:
-            cur.execute("UPDATE users SET name=%s, bio=%s, image=%s WHERE userID=%s",
+            cur.execute("UPDATE users SET name=%s, bio=%s, image=%s WHERE userid=%s",
                         (name, bio, new_img, uid))
         else:
-            cur.execute("UPDATE users SET name=%s, bio=%s WHERE userID=%s",
+            cur.execute("UPDATE users SET name=%s, bio=%s WHERE userid=%s",
                         (name, bio, uid))
         conn.commit()
     except Exception as e:
@@ -1544,9 +1550,9 @@ def subscriber_profile_view(user_id: int):
     cur  = conn.cursor(dictionary=True)
 
     cur.execute("""
-        SELECT userID, name, email, usertype, image, bio
+        SELECT userid, name, email, usertype, image, bio
         FROM users
-        WHERE userID = %s
+        WHERE userid = %s
         LIMIT 1
     """, (user_id,))
     u = cur.fetchone()
@@ -1562,7 +1568,7 @@ def subscriber_profile_view(user_id: int):
         u["image"] = img.replace("./static", "/static")
 
     cur.execute("""
-        SELECT a.articleID, a.title, a.published_at,
+        SELECT a.articleid, a.title, a.published_at,
                CASE
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
                  WHEN a.image LIKE 'http%%' THEN a.image
@@ -1580,7 +1586,7 @@ def subscriber_profile_view(user_id: int):
     cur.close(); conn.close()
 
     profile = {
-        "id": u["userID"],
+        "id": u["userid"],
         "display_name": u["name"],
         "email": u["email"],
         "usertype": u["usertype"],
@@ -1595,31 +1601,14 @@ def subscriber_profile_view(user_id: int):
         articles=articles,  
     )
 
-@app.route("/subscriber/api/articles/<int:article_id>/delete", methods=["DELETE"])
+@app.post("/subscriber/api/articles/<int:article_id>/delete")
 @login_required("Subscriber")
 def subscriber_delete_article(article_id):
-    username = session.get("user")  # current logged-in subscriber
-
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
-
-    # Make sure the article belongs to the logged-in user
-    cur.execute("SELECT * FROM articles WHERE articleID = %s AND author = %s", (article_id, username))
-    article = cur.fetchone()
-
-    if not article:
-        cur.close(); conn.close()
-        return jsonify({"error": "Article not found or access denied"}), 403
-
-    try:
-        cur.execute("DELETE FROM articles WHERE articleID = %s", (article_id,))
-        conn.commit()
-        cur.close(); conn.close()
-        return jsonify({"success": True, "deleted_id": article_id})
-    except Exception as e:
-        conn.rollback()
-        cur.close(); conn.close()
-        return jsonify({"error": str(e)}), 500
+    cur  = conn.cursor()
+    cur.execute("DELETE FROM articles WHERE articleID=%s", (article_id,))
+    conn.commit()
+    return ("", 204)  # or jsonify(ok=True)
     
 # (MW) --- Ads API: random visible ad for sidebar rotation ---
 @app.route("/api/ads/random")
@@ -1629,7 +1618,7 @@ def api_random_ad():
     cur  = conn.cursor(dictionary=True)
     # Random 1 where visible=1
     cur.execute("""
-        SELECT adsID, adsTitle, adsDescription, adsImage, adsWebsite
+        SELECT adsid, adstitle, adsdescription, adsimage, adswebsite
         FROM advertisement
         WHERE visible = 1
         ORDER BY RAND()
@@ -1654,11 +1643,11 @@ def api_random_ad():
     return jsonify({
         "ok": True,
         "ad": {
-            "id":        row["adsID"],
-            "title":     row["adsTitle"],
-            "desc":      row.get("adsDescription") or "",
-            "image":     norm_image(row["adsImage"]),
-            "website":   row["adsWebsite"]
+            "id":        row["adsid"],
+            "title":     row["adstitle"],
+            "desc":      row.get("adsdescription") or "",
+            "image":     norm_image(row["adsimage"]),
+            "website":   row["adswebsite"]
         }
     })
     
@@ -1679,7 +1668,7 @@ def subscriber_analytics_my_articles():
 
     cur.execute("""
         SELECT
-            a.articleID,
+            a.articleid,
             a.title,
             a.published_at,
             COALESCE(a.views, 0)          AS views,
@@ -1687,15 +1676,15 @@ def subscriber_analytics_my_articles():
             COALESCE(cc.comment_count, 0) AS comment_count
         FROM articles a
         LEFT JOIN (
-            SELECT articleID, COUNT(*) AS bookmarks
+            SELECT articleid, COUNT(*) AS bookmarks
             FROM subscriber_pins
-            GROUP BY articleID
-        ) bm ON bm.articleID = a.articleID
+            GROUP BY articleid
+        ) bm ON bm.articleid = a.articleid
         LEFT JOIN (
-            SELECT articleID, COUNT(*) AS comment_count
+            SELECT articleid, COUNT(*) AS comment_count
             FROM comments
-            GROUP BY articleID
-        ) cc ON cc.articleID = a.articleID
+            GROUP BY articleid
+        ) cc ON cc.articleid = a.articleid
         WHERE a.draft = 0
           AND a.visible = 1
           AND a.author = %s
@@ -1764,7 +1753,7 @@ def _row_donation(idx, row):
 @app.get("/subscriber/api/analytics/my-donations")
 @login_required("Subscriber")
 def subscriber_analytics_my_donations():
-    uid = session.get("userID")
+    uid = session.get("userid")
     if not uid:
         return jsonify({"error": "unauthorized"}), 401
 
@@ -1781,7 +1770,7 @@ def subscriber_analytics_my_donations():
             FROM donations AS d
             LEFT JOIN donation_info AS di
               ON di.donation_ID = d.donation_ID
-            WHERE d.userID = %s
+            WHERE d.userid = %s
             ORDER BY d.paymentDateTime DESC, d.donation_ID DESC
         """, (uid,))
         recs = cur.fetchall() or []
@@ -1818,7 +1807,7 @@ def subscriber_analytics_my_donations():
 @app.get("/subscriber/api/analytics/overview")
 @login_required("Subscriber")
 def subscriber_analytics_overview():
-    user_id     = session.get("userID")
+    user_id     = session.get("userid")
     author_name = session.get("user", "")
 
     conn = get_db_connection()
@@ -1833,7 +1822,7 @@ def subscriber_analytics_overview():
         total_views = int((cur.fetchone() or [0])[0] or 0)
 
         # bookmarks by me
-        cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userID = %s", (user_id,))
+        cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userid = %s", (user_id,))
         total_bookmarks = int((cur.fetchone() or [0])[0] or 0)
 
         # comment reactions by me
@@ -1843,7 +1832,7 @@ def subscriber_analytics_overview():
                   COALESCE(SUM(reaction='like'),0),
                   COALESCE(SUM(reaction='dislike'),0)
                 FROM comment_reactions
-                WHERE userID = %s
+                WHERE userid = %s
             """, (user_id,))
             row = cur.fetchone() or [0, 0]
             likes_by_me, dislikes_by_me = int(row[0] or 0), int(row[1] or 0)
@@ -1851,7 +1840,7 @@ def subscriber_analytics_overview():
             likes_by_me, dislikes_by_me = 0, 0
 
         # contributed amount from donations
-        cur.execute("SELECT COALESCE(SUM(donation_amount),0) FROM donations WHERE userID=%s", (user_id,))
+        cur.execute("SELECT COALESCE(SUM(donation_amount),0) FROM donations WHERE userid=%s", (user_id,))
         contributed_amount = float((cur.fetchone() or [0])[0] or 0.0)
 
     finally:
@@ -1926,7 +1915,7 @@ def donate_submit():
             flash("PayNow reference is required.", "danger")
             return redirect(url_for("donate_form"))
 
-    user_id = session.get("userID")
+    user_id = session.get("userid")
     if not user_id:
         flash("You are not logged in.", "danger")
         return redirect(url_for("login"))
@@ -1939,7 +1928,7 @@ def donate_submit():
         cur.execute(
             """
             INSERT INTO donations
-              (userID, donation_amount, payment_method, paymentDateTime, created_By)
+              (userid, donation_amount, payment_method, paymentDateTime, created_By)
             VALUES
               (%s, %s, %s, NOW(), %s)
             """,
@@ -1985,7 +1974,7 @@ def donate_submit():
         # MySQL error 1452 is "Cannot add or update a child row: a foreign key constraint fails"
         msg = str(e)
         if "foreign key constraint fails" in msg.lower():
-            flash("Insert failed: your user account (userID) must exist in 'users' table.", "danger")
+            flash("Insert failed: your user account (userid) must exist in 'users' table.", "danger")
         else:
             flash(f"Could not save donation: {e}", "danger")
         conn.rollback()
@@ -2027,19 +2016,19 @@ def login():
                 cursor.execute("""
                     UPDATE users
                     SET is_logged_in = TRUE, last_active = NOW()
-                    WHERE userID = %s
-                """, (user["userID"],))
+                    WHERE userid = %s
+                """, (user["userid"],))
 
                 # ✅ Record login activity (optional but useful)
                 cursor.execute("""
-                    INSERT INTO login_activity (userID, email, login_time, ip_address)
+                    INSERT INTO login_activity (userid, email, login_time, ip_address)
                     VALUES (%s, %s, NOW(), %s)
-                """, (user["userID"], user["email"], request.remote_addr))
+                """, (user["userid"], user["email"], request.remote_addr))
 
                 conn.commit()
 
                 # ✅ Set session data
-                session["userID"] = user["userID"]
+                session["userid"] = user["userid"]
                 session["usertype"] = user["usertype"]
                 session["user"] = user["name"]
 
@@ -2100,14 +2089,14 @@ def register():
 @app.route("/logout")
 def logout():
     # Update database to mark user inactive before clearing session
-    if "userID" in session:
-        user_id = session["userID"]
+    if "userid" in session:
+        user_id = session["userid"]
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE users 
             SET is_logged_in = FALSE, last_active = NOW()
-            WHERE userID = %s
+            WHERE userid = %s
         """, (user_id,))
         conn.commit()
         cursor.close()
@@ -2122,14 +2111,14 @@ def logout():
 
 @app.before_request
 def update_last_active():
-    if "userID" in session:
+    if "userid" in session:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE users
             SET last_active = NOW()
-            WHERE userID = %s
-        """, (session["userID"],))
+            WHERE userid = %s
+        """, (session["userid"],))
         conn.commit()
         cursor.close()
         conn.close()
@@ -2146,14 +2135,14 @@ def add_no_cache_headers(response):
 @app.route("/manageUsers")
 @login_required("Moderator")
 def manage_users():
-    if "userID" not in session or session.get("usertype") != "Moderator":
+    if "userid" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
         return redirect(url_for("login"))
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
-        SELECT userID, name, email, usertype
+        SELECT userid, name, email, usertype
         FROM users
         WHERE usertype IN ('Subscriber', 'Author', 'Suspended')
     """)
@@ -2166,7 +2155,7 @@ def manage_users():
 @app.route("/warnUser", methods=["POST"])
 @login_required("Moderator")
 def warn_user():
-    if "userID" not in session or session.get("usertype") != "Moderator":
+    if "userid" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2177,7 +2166,7 @@ def warn_user():
 
     warning_message = "You have received a warning from the moderator."
     cursor.execute(
-        "INSERT INTO warnings (userID, message) VALUES (%s, %s)",
+        "INSERT INTO warnings (userid, message) VALUES (%s, %s)",
         (warned_user_id, warning_message)
     )
     conn.commit()
@@ -2190,7 +2179,7 @@ def warn_user():
 @app.route("/toggleSuspend", methods=["POST"])
 @login_required("Moderator")
 def toggle_suspend():
-    if "userID" not in session or session.get("usertype") != "Moderator":
+    if "userid" not in session or session.get("usertype") != "Moderator":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2199,7 +2188,7 @@ def toggle_suspend():
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT name, usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
+    cursor.execute("SELECT name, usertype, previous_usertype FROM users WHERE userid = %s", (user_id,))
     user = cursor.fetchone()
 
     if user:
@@ -2208,14 +2197,14 @@ def toggle_suspend():
             cursor.execute("""
                 UPDATE users
                 SET usertype = %s, previous_usertype = NULL
-                WHERE userID = %s
+                WHERE userid = %s
             """, (restored_type, user_id))
             flash(f"{user['name']} has been unsuspended.")
         else:
             cursor.execute("""
                 UPDATE users
                 SET previous_usertype = usertype, usertype = 'Suspended'
-                WHERE userID = %s
+                WHERE userid = %s
             """, (user_id,))
             flash(f"{user['name']} has been suspended.")
 
@@ -2264,13 +2253,13 @@ def forgot_password():
 @app.route("/viewAllUsers")
 @login_required("Admin")
 def view_all_users():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT userID, name, email, usertype FROM users")
+    cursor.execute("SELECT userid, name, email, usertype FROM users")
     users = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -2280,7 +2269,7 @@ def view_all_users():
 @app.route("/searchAccount", methods=["GET", "POST"])
 @login_required("Admin")
 def search_account():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2292,7 +2281,7 @@ def search_account():
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
-            SELECT userID, name, email, usertype
+            SELECT userid, name, email, usertype
             FROM users
             WHERE name LIKE %s OR email LIKE %s
         """, (f"%{search_term}%", f"%{search_term}%"))
@@ -2305,7 +2294,7 @@ def search_account():
 @app.route("/createUser", methods=["GET", "POST"])
 @login_required("Admin")
 def create_user():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2338,7 +2327,7 @@ def create_user():
 @app.route("/updateUser", methods=["GET", "POST"])
 @login_required("Admin")
 def update_user():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2374,7 +2363,7 @@ def update_user():
 @app.route("/manageUserStatus", methods=["GET", "POST"])
 @login_required("Admin")
 def manage_user_status():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2386,7 +2375,7 @@ def manage_user_status():
         action = request.form.get("action")
 
         # Get current user info
-        cursor.execute("SELECT usertype, previous_usertype FROM users WHERE userID = %s", (user_id,))
+        cursor.execute("SELECT usertype, previous_usertype FROM users WHERE userid = %s", (user_id,))
         user = cursor.fetchone()
 
         if not user:
@@ -2397,7 +2386,7 @@ def manage_user_status():
                     flash("You cannot suspend an Admin account.")
                 elif user["usertype"] != "Suspended":
                     cursor.execute(
-                        "UPDATE users SET previous_usertype = usertype, usertype = 'Suspended' WHERE userID = %s",
+                        "UPDATE users SET previous_usertype = usertype, usertype = 'Suspended' WHERE userid = %s",
                         (user_id,)
                     )
                     flash("User suspended successfully.")
@@ -2405,7 +2394,7 @@ def manage_user_status():
             elif action == "reactivate":
                 if user["usertype"] == "Suspended" and user["previous_usertype"]:
                     cursor.execute(
-                        "UPDATE users SET usertype = previous_usertype, previous_usertype = NULL WHERE userID = %s",
+                        "UPDATE users SET usertype = previous_usertype, previous_usertype = NULL WHERE userid = %s",
                         (user_id,)
                     )
                     flash("User reactivated successfully.")
@@ -2416,13 +2405,13 @@ def manage_user_status():
                 if user["usertype"] == "Admin":
                     flash("You cannot delete an Admin account.")
                 else:
-                    cursor.execute("DELETE FROM users WHERE userID = %s", (user_id,))
+                    cursor.execute("DELETE FROM users WHERE userid = %s", (user_id,))
                     flash("User deleted successfully.")
 
         conn.commit()
 
     # Fetch all users
-    cursor.execute("SELECT userID, name, email, usertype, previous_usertype FROM users")
+    cursor.execute("SELECT userid, name, email, usertype, previous_usertype FROM users")
     users = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -2432,7 +2421,7 @@ def manage_user_status():
 @app.route("/newUsers")
 @login_required("Admin")
 def report_new_users():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2441,7 +2430,7 @@ def report_new_users():
 
     # Example: users created in the last 7 days
     cursor.execute("""
-        SELECT userID, name, email, usertype, created_at
+        SELECT userid, name, email, usertype, created_at
         FROM users
         WHERE created_at >= NOW() - INTERVAL 7 DAY
         ORDER BY created_at DESC
@@ -2457,7 +2446,7 @@ def report_new_users():
 @login_required("Admin")
 def article_submission():
     # Ensure only Admins can access
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2467,14 +2456,14 @@ def article_submission():
     # Fetch only articles created by valid users (exclude system/orphan articles)
     cursor.execute("""
     SELECT 
-        a.articleID,
+        a.articleid,
         a.title,
         a.content,
         a.author,
         a.published_at,
         a.updated_at,
         a.image,
-        a.catID,
+        a.catid,
         a.draft
     FROM articles a
     INNER JOIN users u ON a.author = u.name
@@ -2492,7 +2481,7 @@ def article_submission():
 @app.route("/loginActivity")
 @login_required("Admin")
 def login_activity():
-    if "userID" not in session or session.get("usertype") != "Admin":
+    if "userid" not in session or session.get("usertype") != "Admin":
         flash("Access denied.")
         return redirect(url_for("login"))
 
@@ -2501,7 +2490,7 @@ def login_activity():
 
     cursor.execute("""
         SELECT 
-            userID, 
+            userid, 
             email,
             is_logged_in,
             last_active
@@ -2541,7 +2530,7 @@ def flagged_articles():
     cursor.execute("""
         SELECT 
             ar.report_id,
-            ar.article_id AS articleID,
+            ar.article_id AS articleid,
             a.title,
             a.author,
             a.published_at AS article_created,
@@ -2549,7 +2538,7 @@ def flagged_articles():
             ar.details AS flagged_details,
             ar.created_at AS flagged_at
         FROM article_reports ar
-        LEFT JOIN articles a ON ar.article_id = a.articleID
+        LEFT JOIN articles a ON ar.article_id = a.articleid
         WHERE ar.status = 'pending'
         ORDER BY ar.created_at DESC
     """)
@@ -2590,7 +2579,7 @@ def review_article():
             
             # hide article from public and mark as pending revision
             cursor.execute(
-                "UPDATE articles SET visible = 0, status = 'pending_revision' WHERE articleID = %s",
+                "UPDATE articles SET visible = 0, status = 'pending_revision' WHERE articleid = %s",
                 (article_id,)
             )
         elif action == "reject": # moderator thinks it's okay
@@ -2601,7 +2590,7 @@ def review_article():
             )
             # article stays visible and approved
             cursor.execute(
-                "UPDATE articles SET visible = 1, status = 'published' WHERE articleID = %s",
+                "UPDATE articles SET visible = 1, status = 'published' WHERE articleid = %s",
                 (article_id,)
             )
 
@@ -2625,7 +2614,7 @@ def get_article(article_id):
     cursor.execute("""
         SELECT title, content, author, published_at, image
         FROM articles
-        WHERE articleID = %s
+        WHERE articleid = %s
     """, (article_id,))
     article = cursor.fetchone()
     cursor.close()
@@ -2648,15 +2637,15 @@ def flagged_comments():
         cursor.execute("""
             SELECT 
                 cr.report_id,
-                cr.comment_id AS commentID,
+                cr.comment_id AS commentid,
                 c.comment_text,
                 u.name AS user,      -- join users to get name
                 cr.reason AS flagged_reason,
                 cr.details AS flagged_details,
                 cr.created_at AS flagged_at
             FROM comment_reports cr
-            LEFT JOIN comments c ON cr.comment_id = c.commentID
-            LEFT JOIN users u ON c.userID = u.userID   -- get the comment author's name
+            LEFT JOIN comments c ON cr.comment_id = c.commentid
+            LEFT JOIN users u ON c.userid = u.userid   -- get the comment author's name
             WHERE cr.status = 'pending'
             ORDER BY cr.created_at DESC
         """)
@@ -2701,7 +2690,7 @@ def reviewComment():
             )
             # Hide the comment from public
             cursor.execute(
-                "UPDATE comments SET visible = 0 WHERE commentID = %s",
+                "UPDATE comments SET visible = 0 WHERE commentid = %s",
                 (comment_id,)
             )
         elif action == "reject":
@@ -2712,7 +2701,7 @@ def reviewComment():
             )
             # Ensure comment stays visible
             cursor.execute(
-                "UPDATE comments SET visible = 1 WHERE commentID = %s",
+                "UPDATE comments SET visible = 1 WHERE commentid = %s",
                 (comment_id,)
             )
 
@@ -2734,10 +2723,10 @@ def get_comment(comment_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
     cursor.execute("""
-        SELECT c.commentID, c.comment_text, c.created_at, u.name AS user
+        SELECT c.commentid, c.comment_text, c.created_at, u.name AS user
         FROM comments c
-        JOIN users u ON c.userID = u.userID
-        WHERE c.commentID = %s
+        JOIN users u ON c.userid = u.userid
+        WHERE c.commentid = %s
     """, (comment_id,))
     comment = cursor.fetchone()
     cursor.close()
@@ -2758,12 +2747,12 @@ def pending_articles():
     try:
         # Fetch articles that are pending approval
         cursor.execute("""
-            SELECT a.articleID, a.title, a.author, a.published_at, a.updated_at, a.visible, a.image,
+            SELECT a.articleid, a.title, a.author, a.published_at, a.updated_at, a.visible, a.image,
                    COUNT(r.report_id) AS num_reports
             FROM articles a
-            LEFT JOIN article_reports r ON a.articleID = r.article_id AND r.status = 'pending'
+            LEFT JOIN article_reports r ON a.articleid = r.article_id AND r.status = 'pending'
             WHERE a.status = 'pending_review'
-            GROUP BY a.articleID
+            GROUP BY a.articleid
             ORDER BY a.updated_at DESC
         """)
         articles = cursor.fetchall()
@@ -2839,7 +2828,7 @@ def update_category():
             return redirect(url_for("update_category"))
 
         cursor.execute(
-            "UPDATE categories SET name=%s, description=%s WHERE categoryID=%s",
+            "UPDATE categories SET name=%s, description=%s WHERE categoryid=%s",
             (name, description, categoryID)
         )
         conn.commit()
@@ -2879,7 +2868,7 @@ def delete_category_page():
 def delete_category(categoryID):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM categories WHERE categoryID=%s", (categoryID,))
+    cursor.execute("DELETE FROM categories WHERE categoryid=%s", (categoryID,))
     conn.commit()
     cursor.close()
     conn.close()
@@ -2988,4 +2977,3 @@ def open_browser():
 if __name__ == "__main__":
     threading.Timer(1.0, open_browser).start()
     app.run(debug=True)
-

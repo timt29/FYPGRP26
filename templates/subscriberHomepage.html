@@ -165,26 +165,50 @@
       return "/static/img/" + img;
     }
 
+    function getArticleId(a){
+      // Support both {articleid} and {articleID} (and fallback {id})
+      const v = a?.articleid ?? a?.articleID ?? a?.id ?? "";
+      return String(v);
+    }
+
+    function htmlToText(html){
+      const tpl = document.createElement("template");
+      tpl.innerHTML = html || "";
+      return tpl.content.textContent || "";
+    }
+
+    function makeExcerpt(s, maxChars = 220){
+      const txt = (s || "").trim();
+      if (txt.length <= maxChars) return txt;
+      const cut = txt.slice(0, maxChars);
+      const i = cut.lastIndexOf(" ");
+      return (i > 120 ? cut.slice(0, i) : cut).trim() + "…";
+    }
+
     function heroCard(a) {
-      const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+      const id   = getArticleId(a);
+      const href = VIEW_URL_TPL.replace(/0$/, id);
       const img  = normImage(a.image);
 
-      const previewHtml = sanitizeBasic(a.content_html || a.content || a.content_plain || "");
+      const rawHtml = a.content_html || a.content || a.content_plain || "";
+      const plain   = htmlToText(rawHtml);
+      const preview = makeExcerpt(plain, 200);
 
       return `
-        <a class="hero-link" href="${href}">
-          <div class="hero-text">
-            <h1 class="hero-title">${esc(a.title)}</h1>
-            <p class="hero-desc">${previewHtml}</p>
-          </div>
-          <div class="hero-media"><img src="${img}" alt=""></div>
-        </a>`;
-    }
+          <a class="hero-link" href="${href}">
+            <div class="hero-text">
+              <h1 class="hero-title">${esc(a.title)}</h1>
+              <p class="hero-desc">${esc(preview)}</p>
+            </div>
+            <div class="hero-media"><img src="${img}" alt=""></div>
+          </a>`;
+      }
 
 
     // One cell inside a 2-up row (title left, photo right)
     function cell(a) {
-      const href = VIEW_URL_TPL.replace(/0$/, a.articleID);
+      const id   = getArticleId(a);
+      const href = VIEW_URL_TPL.replace(/0$/, id);
       const img  = normImage(a.image);
       return `
         <a class="cell" href="${href}">

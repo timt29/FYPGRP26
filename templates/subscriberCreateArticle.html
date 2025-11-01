@@ -245,10 +245,14 @@
       try{
         const res = await fetch("{{ url_for('api_categories') }}", { headers:{'X-Requested-With':'XMLHttpRequest'} });
         if (!res.ok) throw new Error('HTTP '+res.status);
-        const rows = await res.json(); // [{categoryID,name}]
+        const rows = await res.json(); // [{categoryid, name}]
         editCategory.innerHTML = '<option value="" disabled selected>Select a category…</option>';
         rows.forEach(r=>{
-          const o=document.createElement('option'); o.value=r.categoryID; o.textContent=r.name; editCategory.appendChild(o);
+          const id = (r.categoryid != null) ? String(r.categoryid) : "";
+          const o = document.createElement('option');
+          o.value = id;
+          o.textContent = r.name || ('Category ' + id);
+          editCategory.appendChild(o);
         });
         importCategoriesLoaded = true;
       }catch(e){
@@ -411,9 +415,15 @@
         try {
           const res = await fetch("{{ url_for('api_categories') }}", { headers:{'X-Requested-With':'XMLHttpRequest'} });
           if (!res.ok) throw new Error('HTTP ' + res.status);
-          const rows = await res.json(); // [{categoryID, name}]
+          const rows = await res.json(); // [{categoryid, name}]
           [...select.querySelectorAll('option')].forEach((o,i)=>{ if(i>0) o.remove(); });
-          rows.forEach(r => { const opt=document.createElement('option'); opt.value=r.categoryID; opt.textContent=r.name; select.appendChild(opt); });
+          rows.forEach(r => {
+            const id = (r.categoryid != null) ? String(r.categoryid) : "";
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = r.name || ('Category ' + id);
+            select.appendChild(opt);
+          });
         } catch (e) {
           showToast('Failed to load categories');
         }
@@ -421,8 +431,15 @@
 
       async function submitArticle(action){
         if (!form) return;
-        document.getElementById('hidden-content').value = quill.root.innerHTML;
-        const fd = new FormData(form); fd.set('action', action);
+        const cat = (select?.value || "").trim();
+        if (!/^\d+$/.test(cat)) {
+          showToast('Please select a category.');
+          return;
+        }
+          document.getElementById('hidden-content').value = quill.root.innerHTML;
+          const fd = new FormData(form);
+          fd.set('action', action);
+          fd.set('category_id', cat);
         try{
           const res = await fetch("{{ url_for('api_articles') }}", { method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'} });
           const data = await res.json().catch(()=>({}));
