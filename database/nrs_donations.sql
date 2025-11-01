@@ -34,7 +34,7 @@ CREATE TABLE `donations` (
   KEY `idx_user_method_date` (`userid`,`payment_method`,`paymentdatetime`),
   KEY `fk_donations_created_by` (`created_by`),
   CONSTRAINT `fk_donations_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`userid`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_donations_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userID`) ON DELETE RESTRICT ON UPDATE CASCADE
+  CONSTRAINT `fk_donations_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

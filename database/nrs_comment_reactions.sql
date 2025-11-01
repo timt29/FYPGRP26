@@ -33,8 +33,8 @@ CREATE TABLE `comment_reactions` (
   UNIQUE KEY `uniq_comment_user` (`commentid`,`userid`),
   KEY `idx_comment` (`commentid`),
   KEY `idx_user` (`userid`),
-  CONSTRAINT `fk_react_comment` FOREIGN KEY (`commentid`) REFERENCES `comments` (`commentID`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_react_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT `fk_react_comment` FOREIGN KEY (`commentid`) REFERENCES `comments` (`commentid`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_react_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
