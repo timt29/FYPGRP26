@@ -23,18 +23,18 @@ DROP TABLE IF EXISTS `donations`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `donations` (
-  `donation_ID` int unsigned NOT NULL AUTO_INCREMENT,
+  `donation_id` int unsigned NOT NULL AUTO_INCREMENT,
   `userid` int NOT NULL,
   `donation_amount` decimal(10,2) NOT NULL,
   `payment_method` enum('card','paynow','cash','cheque') NOT NULL,
-  `paymentDateTime` datetime NOT NULL,
-  `created_By` int NOT NULL,
-  `created_At` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`donation_ID`),
-  KEY `idx_user_method_date` (`userid`,`payment_method`,`paymentDateTime`),
-  KEY `fk_donations_created_by` (`created_By`),
-  CONSTRAINT `fk_donations_created_by` FOREIGN KEY (`created_By`) REFERENCES `users` (`userid`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_donations_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE RESTRICT ON UPDATE CASCADE
+  `paymentdatetime` datetime NOT NULL,
+  `created_by` int NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`donation_id`),
+  KEY `idx_user_method_date` (`userid`,`payment_method`,`paymentdatetime`),
+  KEY `fk_donations_created_by` (`created_by`),
+  CONSTRAINT `fk_donations_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`userid`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `fk_donations_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userID`) ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -56,4 +56,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-25  9:37:08
+-- Dump completed on 2025-11-01  8:53:41

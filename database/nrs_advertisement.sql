@@ -23,14 +23,14 @@ DROP TABLE IF EXISTS `advertisement`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `advertisement` (
-  `adsID` bigint unsigned NOT NULL AUTO_INCREMENT,
-  `adsTitle` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `adsDescription` text COLLATE utf8mb4_unicode_ci,
-  `adsImage` varchar(2048) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `adsWebsite` varchar(2048) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `adsid` bigint unsigned NOT NULL AUTO_INCREMENT,
+  `adstitle` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `adsdescription` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+  `adsimage` varchar(2048) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
+  `adswebsite` varchar(2048) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `visible` tinyint(1) NOT NULL DEFAULT '1' COMMENT '1 = show, 0 = hide',
-  PRIMARY KEY (`adsID`),
-  KEY `idx_advertisement_title` (`adsTitle`),
+  PRIMARY KEY (`adsid`),
+  KEY `idx_advertisement_title` (`adstitle`),
   KEY `idx_advertisement_visible` (`visible`),
   CONSTRAINT `chk_adsImage_nonempty` CHECK ((`adsImage` <> _utf8mb4'')),
   CONSTRAINT `chk_adsWebsite_nonempty` CHECK ((`adsWebsite` <> _utf8mb4'')),
@@ -57,4 +57,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-10-25 17:24:56
+-- Dump completed on 2025-11-01  8:53:40

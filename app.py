@@ -1670,7 +1670,7 @@ def api_random_ad():
     cur  = get_cursor(conn)
     # Random 1 where visible=1
     cur.execute("""
-        SELECT adsID, adsTitle, adsDescription, adsImage, adsWebsite
+        SELECT adsid, adstitle, adsdescription, adsimage, adswebsite
         FROM advertisement
         WHERE visible = 1
         ORDER BY RAND()
@@ -1695,11 +1695,11 @@ def api_random_ad():
     return jsonify({
         "ok": True,
         "ad": {
-            "id":        row["adsID"],
-            "title":     row["adsTitle"],
-            "desc":      row.get("adsDescription") or "",
-            "image":     norm_image(row["adsImage"]),
-            "website":   row["adsWebsite"]
+            "id":        row["adsid"],
+            "title":     row["adstitle"],
+            "desc":      row.get("adsdescription") or "",
+            "image":     norm_image(row["adsimage"]),
+            "website":   row["adswebsite"]
         }
     })
     
@@ -1776,10 +1776,10 @@ def subscriber_analytics_my_articles():
     return jsonify(rows)
 
 def _row_donation(idx, row):
-    donation_id     = row["donation_ID"]
+    donation_id     = row["donation_id"]
     donation_amount = row["donation_amount"] 
     payment_method  = row["payment_method"] or ""
-    ts              = row["paymentDateTime"]  
+    ts              = row["paymentdatetime"]  
 
     # Display formatting
     if isinstance(ts, (datetime, )):
@@ -1792,10 +1792,10 @@ def _row_donation(idx, row):
     return {
         "no": idx,
 
-        "donation_ID": donation_id,
+        "donation_id": donation_id,
         "donation_amount": float(donation_amount or 0),
         "payment_method": payment_method,
-        "paymentDateTime": ts,
+        "paymentdatetime": ts,
 
         "payment_date": payment_date,      
         "payment_time": payment_time,      
@@ -1814,16 +1814,16 @@ def subscriber_analytics_my_donations():
     try:
         cur.execute("""
             SELECT
-                d.donation_ID,
+                d.donation_id,
                 d.donation_amount,
                 d.payment_method,
-                d.paymentDateTime,
+                d.paymentdatetime,
                 di.card_brand
             FROM donations AS d
             LEFT JOIN donation_info AS di
-              ON di.donation_ID = d.donation_ID
+              ON di.donation_id = d.donation_id
             WHERE d.userid = %s
-            ORDER BY d.paymentDateTime DESC, d.donation_ID DESC
+            ORDER BY d.paymentdatetime DESC, d.donation_id DESC
         """, (uid,))
         recs = cur.fetchall() or []
     finally:
@@ -1831,7 +1831,7 @@ def subscriber_analytics_my_donations():
         conn.close()
 
     def _shape(row):
-        ts = row["paymentDateTime"]
+        ts = row["paymentdatetime"]
         if hasattr(ts, "strftime"):
             payment_date = ts.strftime("%d-%m-%Y")
             payment_time = ts.strftime("%I:%M %p").lower()
@@ -1847,7 +1847,7 @@ def subscriber_analytics_my_donations():
             pm_disp = pm.capitalize() if pm else "—"
 
         return {
-            "donation_ID": row["donation_ID"],
+            "donation_id": row["donation_id"],
             "payment_method": pm_disp,
             "donation_amount": float(row.get("donation_amount") or 0),
             "payment_date": payment_date,
@@ -1933,8 +1933,8 @@ def donate_submit():
 
     # Optional fields by method
     card_brand = (request.form.get("card_brand") or "").strip() or None
-    cardNumber = (request.form.get("cardNumber") or "").strip() or None
-    paynowRef  = (request.form.get("paynowRef")  or "").strip() or None
+    cardnumber = (request.form.get("cardnumber") or "").strip() or None
+    paynowref  = (request.form.get("paynowref")  or "").strip() or None
 
     # ---- Basic validation
     try:
@@ -1953,7 +1953,7 @@ def donate_submit():
 
     # Method-specific quick checks (the front-end already validated, this is just belt & braces)
     if method == "card":
-        if not cardNumber or len(cardNumber) != 16 or not cardNumber.isdigit():
+        if not cardnumber or len(cardnumber) != 16 or not cardnumber.isdigit():
             flash("Invalid card number.", "danger")
             return redirect(url_for("donate_form"))
         # card_brand is optional, but if missing we can infer "Unknown"
@@ -1961,7 +1961,7 @@ def donate_submit():
             card_brand = "Unknown"
 
     if method == "paynow":
-        if not paynowRef:
+        if not paynowref:
             flash("PayNow reference is required.", "danger")
             return redirect(url_for("donate_form"))
 
@@ -1978,7 +1978,7 @@ def donate_submit():
         cur.execute(
             """
             INSERT INTO donations
-              (userid, donation_amount, payment_method, paymentDateTime, created_By)
+              (userid, donation_amount, payment_method, paymentdatetime, created_by)
             VALUES
               (%s, %s, %s, NOW(), %s)
             """,
@@ -1994,21 +1994,21 @@ def donate_submit():
             cur.execute(
                 """
                 INSERT INTO donation_info
-                  (donation_ID, card_brand, cardNumber)
+                  (donation_id, card_brand, cardnumber)
                 VALUES
                   (%s, %s, %s)
                 """,
-                (donation_id, card_brand, cardNumber)
+                (donation_id, card_brand, cardnumber)
             )
         elif method == "paynow":
             cur.execute(
                 """
                 INSERT INTO donation_info
-                  (donation_ID, paynowRef)
+                  (donation_id, paynowref)
                 VALUES
                   (%s, %s)
                 """,
-                (donation_id, paynowRef)
+                (donation_id, paynowref)
             )
 
         conn.commit()
