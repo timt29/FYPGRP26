@@ -1382,6 +1382,11 @@ def report_article():
             INSERT INTO article_reports (article_id, reporter_id, reason, details, created_at)
             VALUES (%s, %s, %s, %s, NOW())
         """, (article_id, reporter_id, reason, details))
+        cur.execute("""
+            UPDATE articles
+            SET status = 'reported', visible = 0, updated_at = NOW()
+            WHERE articleid = %s AND status IN ('draft','published')
+        """, (article_id,))
         conn.commit()
         return jsonify(ok=True, message="Report submitted successfully.")
     except mysql.connector.Error as err:
