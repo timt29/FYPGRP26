@@ -95,23 +95,6 @@
     })();
   </script>
 
-  <script>
-    (function () {
-      // ====== DOM HOOKS ======
-      const LIST = document.getElementById("feed");
-      const TAB_BTNS = document.querySelectorAll(".tabs .tab[data-status]");
-      const API_URL = "{{ url_for('subscriber_api_my_articles') }}";
-      const EDIT_TPL = "{{ url_for('subscriber_edit_article', article_id=0) }}";
-      const searchForm  = document.getElementById("searchForm");
-      const searchInput = document.getElementById("searchQ");
-
-      let currentStatus = "all";
-
-      function getId(a){
-        return a?.articleid ?? a?.articleID ?? a?.article_id ?? a?.id ?? null;
-      }
-  </script>
-
   <!-- My Articles logic -->
     <script>
     (function () {
@@ -120,6 +103,7 @@
       const TAB_BTNS = document.querySelectorAll(".tabs .tab[data-status]");
       const API_URL = "{{ url_for('subscriber_api_my_articles') }}";
       const EDIT_TPL = "{{ url_for('subscriber_edit_article', article_id=0) }}";
+      const EDIT_REPORTED_TPL = "{{ url_for('subscriber_edit_reported_article', article_id=0) }}";
       const searchForm  = document.getElementById("searchForm");
       const searchInput = document.getElementById("searchQ");
 
@@ -190,7 +174,11 @@
         const isReported = (a.status === 'reported' || (a.visible === 0 && (a.report_count ?? 0) > 0));
         const isPending  = (a.status === 'pending_revision' || a.status === 'pending_approval');
 
-        const href = id ? "{{ url_for('subscriber_edit_article', article_id=0) }}".replace(/0$/, id) : "#";
+        const href = id
+          ? (isPending
+              ? EDIT_REPORTED_TPL.replace(/0$/, id)   
+              : EDIT_TPL.replace(/0$/, id))          
+          : "#";
 
         const inner = `
           <div class="text">

@@ -996,64 +996,122 @@ def subscriber_edit_article(article_id):
 @app.route("/subscriber/api/article/<int:article_id>", methods=["POST"])
 @login_required("Subscriber")
 def subscriber_update_article(article_id):
-    action      = (request.form.get("action") or "").lower()   # 'draft' | 'publish'
+    action      = (request.form.get("action") or "").lower()   # 'draft' | 'publish' | 'review'
     title       = (request.form.get("title") or "").strip()
     content     = (request.form.get("content") or "").strip()
-    category_id = request.form.get("category_id")
+    category_id = (request.form.get("category_id") or "").strip()
     image_file  = request.files.get("image")
 
+    # Basic validation
     if not title or not content or not category_id:
         return jsonify(ok=False, message="Title, content and category are required."), 400
-
-    draft_flag = (action != "publish")
 
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    cur.execute("SELECT author FROM articles WHERE articleid=%s LIMIT 1", (article_id,))
+    # Check ownership + fetch current status/visible/draft
+    cur.execute("""
+        SELECT author, status, visible, draft
+        FROM articles
+        WHERE articleid = %s
+        LIMIT 1
+    """, (article_id,))
     row = cur.fetchone()
     if not row or row["author"] != session.get("user"):
         cur.close(); conn.close()
         return jsonify(ok=False, message="Forbidden"), 403
 
-    # --- Run moderation only when publishing ---
-    if not draft_flag:
-        # Profanity check
-        profanity_check = check_profanity(title, content)
-        if not profanity_check["ok"]:
-            cur.close(); conn.close()
-            return jsonify(profanity_check), 400
+    current_status = (row["status"] or "").lower()
+    is_restricted  = current_status in ("reported", "pending_revision", "pending_approval")
 
-        # AI moderation
-        publish, visible, flash_msg = moderate_article(cur, title, content)
-    else:
-        flash_msg = "Draft saved."
+    # Decide behavior by action
+    is_draft   = (action == "draft")
+    is_publish = (action == "publish")
+    is_review  = (action == "review")
 
+    # Enforce rule: restricted articles can ONLY be saved for review
+    if is_restricted and not is_review:
+        cur.close(); conn.close()
+        return jsonify(ok=False, message="This article is under review. Only 'Save & Submit' is allowed."), 400
+
+    # Handle image upload (optional)
     image_name = None
     if image_file and image_file.filename:
         image_name = image_file.filename
         image_path = os.path.join(app.static_folder, "img", image_name)
         image_file.save(image_path)
 
-    # Build UPDATE
-    fields = ["title=%s", "content=%s", "catid=%s", "draft=%s", "updated_at=NOW()"]
-    params = [title, content, category_id, draft_flag]
+    # Build UPDATE fields common to all actions
+    fields = ["title=%s","content=%s","catid=%s","updated_at=NOW()"]
+    params = [title, content, category_id]
 
-    if not draft_flag:
-        fields.append("published_at=NOW()")
+    flash_msg = "Saved."
 
+    if is_review:
+        # Your requirement:
+        # status = pending_approval, draft = 1, visible = 0 (no publish_at)
+        fields += ["status='pending_approval'", "draft=1", "visible=0"]
+        flash_msg = "Submitted for review."
+    elif is_draft:
+        # Regular draft save (keep visible as-is)
+        fields += ["draft=1"]
+        flash_msg = "Draft saved."
+    elif is_publish:
+        # Publishing path (run moderation)
+        # -> Profanity check
+        profanity_check = check_profanity(title, content)
+        if not profanity_check.get("ok", False):
+            cur.close(); conn.close()
+            return jsonify(ok=False, message=profanity_check.get("message","Failed profanity check.")), 400
+
+        # -> AI moderation decides final visibility & message
+        publish, visible, mod_msg = moderate_article(cur, title, content)
+        # publish True means pass moderation; write publish timestamp
+        if publish:
+            fields += ["draft=0", "status='published'", "visible=%s", "published_at=NOW()"]
+            params.append(int(bool(visible)))
+        else:
+            # If moderation says not publishable now, keep it as draft but reflect visibility
+            fields += ["draft=1", "status='draft'", "visible=%s"]
+            params.append(0)
+        flash_msg = mod_msg or ("Published." if publish else "Saved (not published).")
+
+    # Image if present
     if image_name:
         fields.append("image=%s")
         params.append(image_name)
 
+    # WHERE + commit
     params.append(article_id)
-
     cur.execute(f"UPDATE articles SET {', '.join(fields)} WHERE articleid=%s", params)
     conn.commit()
     cur.close(); conn.close()
-
     return jsonify(ok=True, message=flash_msg, redirect=url_for("subscriber_my_articles"))
 
+# Edit Reported Articles Page
+@app.route("/subscriber/edit-reported-article/<int:article_id>")
+@login_required("Subscriber")
+def subscriber_edit_reported_article(article_id):
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT a.articleid, a.title, a.content, a.catid, a.image, a.draft,
+               a.published_at, a.updated_at, a.status, a.visible
+        FROM articles a
+        WHERE a.articleid = %s AND a.author = %s
+        LIMIT 1
+    """, (article_id, session.get("user")))
+    article = cur.fetchone()
+    cur.close(); conn.close()
+    if not article:
+        return ("Forbidden", 403)
+
+    # Guard: only allow reported/pending here (tweak if you like)
+    if article["status"] not in ("reported", "pending_revision", "pending_approval"):
+        return redirect(url_for("subscriber_edit_reported_article", article_id=article_id))
+
+    # Reuse existing template; tell it we're in review mode
+    return render_template("subscriberEditReportedArticles.html", article=article, review_mode=True)
 
 # Bookmarks page
 @app.route("/subscriber/bookmarks")
