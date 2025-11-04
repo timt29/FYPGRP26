@@ -279,7 +279,6 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
   display: block;
 }
 
-/* Optional: on very small screens reduce padding slightly */
 @media (max-width: 600px) {
   .feed .article-card {
     padding-left: 14px;
@@ -299,6 +298,40 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
   cursor: pointer;
 }
 
+/* --- Article author bar --- */
+.author-bar{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin: 8px 18px 8px; /* align with your article body padding */
+}
+
+.author-avatar{
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  object-fit:cover;
+  flex:0 0 40px;
+  background:#eef1f7;
+  border:1px solid #e5e7eb;
+}
+
+.author-meta{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.author-line{ font-size:0.98rem; font-weight:600; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.date-line{ color:#666; font-size:0.9rem; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.dot{ color:#bbb; }
+
+/* make the report/share row sit under the author bar and wrap nicely */
+.action-buttons.under-author{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin: 0 18px 8px;
+}
+
+.author-link { color: inherit; text-decoration: none; }
+.author-link:hover { text-decoration: underline; }
+.author-name { font-weight: 600; }
 
 /* ===== Buttons & Ads ===== */
 .ads {
@@ -1089,6 +1122,95 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
 .form-grid textarea {
   min-height: 90px;
   resize: vertical;
+}
+
+/* ----- Profile view ----- */
+.profile-wrap { display:grid; place-items:center; padding:24px 12px; }
+.profile-card { width:min(950px, 100%); background:#fff; border-radius:16px; box-shadow:0 6px 20px rgba(0,0,0,.08); }
+.profile-header { padding:18px 22px; border-bottom:1px solid rgba(0,0,0,.08); }
+.profile-header h1 { margin:0; font-size:1.4rem; }
+
+.profile-body { padding:20px 22px 26px; }
+
+.profile-hero { display:flex; align-items:center; gap:16px; margin-bottom:18px; }
+.profile-hero .avatar { width:72px; height:72px; border-radius:50%; object-fit:cover; background:#eef1f7; }
+.profile-hero .who-name { font-weight:700; font-size:1.1rem; }
+.profile-hero .who-role { color:#666; font-size:.95rem; }
+
+.info-grid {
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap:14px;
+  margin: 10px 0 18px;
+}
+.info-box {
+  background:#f7f9ff;
+  border:1px solid #e3e9ff;
+  border-radius:12px;
+  padding:14px 16px;
+}
+.info-label { font-size:.8rem; color:#6b7280; margin-bottom:6px; text-transform:uppercase; letter-spacing:.03em; }
+.info-value { font-size:.98rem; color:#111827; word-break:break-word; }
+.info-bio { grid-column: 1 / -1; }
+
+.profile-actions { margin: 6px 0 10px; }
+
+/* ===== Author tiles ===== */
+.cards-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap:14px;
+  margin-top:12px;
+}
+
+.tile{
+  background:#fff;
+  border:1px solid #e9edf5;
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 2px 10px rgba(0,0,0,.04);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.tile:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(0,0,0,.08);
+}
+
+/* Make image fully visible */
+.tile-thumb{
+  height:160px;                 
+  background:#f8fafc;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+}
+.tile-thumb img{
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+  display:block;
+}
+.tile-thumb-empty{
+  color:#6b7280;
+  font-size:.9rem;
+}
+
+.tile-link{
+  text-decoration:none;
+  color:inherit;
+  display:block;
+}
+.tile-title{
+  margin:12px 14px 14px;
+  font-size:1rem;
+  line-height:1.25;
+  color:#111;                   
+  text-decoration:none;         
+  font-weight:600;
+}
+.tile-link:hover .tile-title{
+  text-decoration:none;        
 }
 
 /* Topbar dropdown alignment safeguards (if needed) */

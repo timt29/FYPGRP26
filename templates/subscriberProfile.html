@@ -101,7 +101,8 @@
 
     <!-- Right sidebar -->
     <aside class="sidebar">
-      <a href="{{ url_for('subscriberCreateArticle') }}" class="btn btn-primary">Create Your Story</a>
+      <button type="button" class="btn btn-primary"
+        onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">Create Your Story</button>
       <button type="button"
               class="btn btn-primary"
               onclick="window.location.href='{{ url_for('donate_form') }}'">

@@ -807,26 +807,37 @@ def subscriber_article_view(article_id):
 
     cur.execute("""
         SELECT
-            a.articleid AS articleid,
+            a.articleid,
             a.title,
             a.content,
             a.author,
             a.published_at,
             a.updated_at,
             CASE
-                WHEN a.image IS NULL OR a.image = '' THEN NULL
-                WHEN a.image LIKE 'http%' THEN a.image
-                WHEN a.image LIKE '/static/%' THEN a.image
-                WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
-                ELSE CONCAT('/static/img/', a.image)
+            WHEN a.image IS NULL OR a.image = '' THEN NULL
+            WHEN a.image LIKE 'http%%' THEN a.image
+            WHEN a.image LIKE '/static/%%' THEN a.image
+            WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image, '../static', '/static')
+            ELSE CONCAT('/static/img/', a.image)
             END AS image,
-            c.name AS category
+            c.name AS category,
+
+            u.userid        AS author_userid,
+            CASE
+            WHEN u.image IS NULL OR u.image = '' THEN NULL
+            WHEN u.image LIKE 'http%%' THEN u.image
+            WHEN u.image LIKE '/static/%%' THEN u.image
+            WHEN u.image LIKE '../static/%%' THEN REPLACE(u.image, '../static', '/static')
+            ELSE CONCAT('/static/img/', u.image)
+            END AS author_image
         FROM articles a
         LEFT JOIN categories c ON a.catid = c.categoryid
+        LEFT JOIN users u      ON u.name = a.author    -- adjust if your join key differs
         WHERE a.articleid = %s
         AND (a.draft IS NULL OR a.draft = 0)
         LIMIT 1
     """, (article_id,))
+
 
     article = cur.fetchone()
     if not article:
@@ -864,6 +875,24 @@ def subscriber_article_view(article_id):
         is_pinned=is_pinned,
         summary_points=summary_points
     )
+
+@app.template_filter("dmyhm")
+def fmt_ddmmyyyy_hhmm_ampm(dt):
+    if not dt: return ""
+    from datetime import datetime
+    if isinstance(dt, str):
+        try:
+            dt = datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return dt
+    s = dt.strftime("%d/%m/%Y %I:%M %p")
+    return s[:-2] + s[-2:].lower()
+
+def initials_from(name):
+    parts = (name or "").strip().split()
+    if not parts:
+        return "U"
+    return (parts[0][:1] + (parts[1][:1] if len(parts) > 1 else "")).upper()
 
 
 @app.route("/subscriber/api/pin", methods=["POST"])
@@ -1605,29 +1634,65 @@ def profile_update():
     # success → show toast on profile for 2s, then return to last page
     return redirect(url_for("profile", updated=1, next=next_url))
 
-@app.get("/subscriber/profile/<int:user_id>")
+@app.route("/subscriber/profile/<int:user_id>")
 @login_required("Subscriber")
-def subscriber_profile_view(user_id: int):
+def subscriber_profile_view(user_id):
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
     cur.execute("""
         SELECT userid, name, email, usertype, image, bio
         FROM users
-        WHERE userid = %s
-        LIMIT 1
+        WHERE userid=%s
     """, (user_id,))
-    u = cur.fetchone()
+    user = cur.fetchone()
+    if not user:
+        cur.close(); conn.close()
+        return ("User not found", 404)
 
+    img = (user.get("image") or "").strip()
+    show_img = None
+    if img:
+        if img.startswith("http://") or img.startswith("https://"):
+            show_img = img
+        elif img.startswith("/static/"):
+            show_img = img
+        elif img.startswith("../static/"):
+            show_img = img.replace("../static", "/static")
+        elif img.startswith("./static/"):
+            show_img = img.replace("./static", "/static")
+        else:
+            show_img = f"/static/profilePictures/{img}"
+    user["image_url"] = show_img
+
+    cur.execute("""
+        SELECT a.articleid, a.title, a.published_at, a.image
+        FROM articles a
+        WHERE a.author = %s
+          AND a.visible = 1
+          AND a.status = 'published'
+        ORDER BY COALESCE(a.published_at, a.updated_at) DESC, a.articleid DESC
+        LIMIT 12
+    """, (user["name"],))
+    articles = cur.fetchall()
+
+    cur.close(); conn.close()
+    return render_template("subscriberViewProfile.html", user=user, articles=articles)
+
+@app.get("/subscriber/api/profile/<int:user_id>/articles")
+@login_required("Subscriber")
+def api_profile_articles(user_id):
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    cur.execute("SELECT name FROM users WHERE userid=%s", (user_id,))
+    u = cur.fetchone()
     if not u:
         cur.close(); conn.close()
-        abort(404)
+        return jsonify(ok=False, message="User not found"), 404
 
-    img = (u.get("image") or "")
-    if img.startswith("../static/"):
-        u["image"] = img.replace("../static", "/static")
-    elif img.startswith("./static/"):
-        u["image"] = img.replace("./static", "/static")
+    limit  = int(request.args.get("limit", 24))
+    offset = int(request.args.get("offset", 0))
 
     cur.execute("""
         SELECT a.articleid, a.title, a.published_at,
@@ -1635,33 +1700,21 @@ def subscriber_profile_view(user_id: int):
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
                  WHEN a.image LIKE 'http%%' THEN a.image
                  WHEN a.image LIKE '/static/%%' THEN a.image
-                 WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image, '../static', '/static')
+                 WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image,'../static','/static')
+                 WHEN a.image LIKE './static/%%'  THEN REPLACE(a.image,'./static','/static')
                  ELSE CONCAT('/static/img/', a.image)
                END AS image
         FROM articles a
-        WHERE a.author = %s AND a.draft = 0 AND a.visible = 1
-        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
-        LIMIT 50
-    """, (u["name"],))
-    articles = cur.fetchall() or []
-
+        WHERE a.author = %s
+          AND a.visible = 1
+          AND a.status  = 'published'
+        ORDER BY COALESCE(a.published_at, a.updated_at) DESC, a.articleid DESC
+        LIMIT %s OFFSET %s
+    """, (u["name"], limit, offset))
+    rows = cur.fetchall()
     cur.close(); conn.close()
+    return jsonify(ok=True, items=rows)
 
-    profile = {
-        "id": u["userid"],
-        "display_name": u["name"],
-        "email": u["email"],
-        "usertype": u["usertype"],
-        "bio": u.get("bio"),
-        "avatar_url": u.get("image"),
-    }
-
-    return render_template(
-        "subscriberViewProfile.html",
-        user=u,              
-        profile=profile,    
-        articles=articles,  
-    )
 
 @app.get("/subscriber/author/<int:author_id>")
 @login_required("Subscriber")

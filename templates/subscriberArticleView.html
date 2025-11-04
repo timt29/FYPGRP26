@@ -135,12 +135,35 @@
           {% endif %}
         </div>
 
-        <div class="meta">
-          <span><strong>{{ article.author or 'EchoPress' }}</strong></span>
-          {% if article.category %}<span>• {{ article.category }}</span>{% endif %}
-          {% if article.published_at %}<span>• Published {{ article.published_at }}</span>{% endif %}
-          {% if article.updated_at %}<span>• Updated {{ article.updated_at }}</span>{% endif %}
-        </div>
+        <div class="meta-row">
+          {% set profile_href = url_for('subscriber_profile_view', user_id=article.author_userid or 0) %}
+
+          <div class="author-left">
+            <a class="author-link" href="{{ profile_href }}" aria-label="{{ article.author }}'s profile">
+              {% if article.author_image %}
+                <img class="author-avatar" src="{{ article.author_image }}" alt="{{ article.author }} avatar">
+              {% else %}
+                {% set parts = (article.author or 'U').split() %}
+                <div class="author-avatar initials" aria-hidden="true">
+                  {{ (parts[0][0] ~ (parts[1][0] if parts|length>1 else ''))|upper }}
+                </div>
+              {% endif %}
+            </a>
+
+            <div class="author-text">
+              <div class="author-line">
+                <a class="author-link author-name" href="{{ profile_href }}">
+                  <span class="dot">•{{ article.author or 'EchoPress' }}</span>
+                </a>
+                {% if article.category %}<span class="dot">•</span><span class="author-tag">{{ article.category }}</span>{% endif %}
+              </div>
+
+              <div class="author-meta">
+                {% if article.published_at %}<span class="dot"> • Published On : {{ article.published_at | dmyhm }}</span>{% endif %}
+                {% if article.updated_at %}<span class="dot"> • Updated On : {{ article.updated_at | dmyhm }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
 
         <div class="action-buttons">
           <button id="articleReportBtn" class="btn btn-ghost" title="Report">

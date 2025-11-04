@@ -35,7 +35,6 @@
     <!-- Main column -->
     <section class="feed">
       <div class="article-card detail">
-        <div class="card-header">Subscriber Profile</div>
 
         {% set p = profile or user %}
         {% set raw_name = (p.display_name if p is defined and p.display_name is not none else (p.name if p is defined else 'User')) or 'User' %}
@@ -47,76 +46,67 @@
         {% set bio   = (p.bio if p is defined else '') or '' %}
 
         <!-- Avatar + Basic -->
-        <div class="profile-header" style="display:flex; gap:16px; align-items:center;">
-          <div class="avatar" aria-label="Profile picture">
-            {% if show_img %}
-              <img src="{{ show_img }}" alt="Profile picture of {{ raw_name|e }}">
-            {% else %}
-              <div class="avatar-initial" aria-hidden="true">{{ initial }}</div>
-            {% endif %}
+
+        <div class="profile-card">
+          <div class="profile-header">
+            <h1>{{ user.name }}’s Profile</h1>
           </div>
-          <div class="profile-basics">
-            <h1 class="profile-name" style="margin:0;">{{ raw_name }}</h1>
-            {% if role %}<p class="muted" style="margin:.25rem 0 0;">{{ role }}</p>{% endif %}
+
+          <div class="profile-body">
+            <div class="profile-hero">
+              <img
+                class="avatar"
+                src="{{ (user.image_url or user.image or '')|replace('../static','/static')|replace('./static','/static') }}"
+                alt="{{ user.name }}"
+                onerror="this.style.display='none'">
+              <div class="who">
+                <div class="who-name">{{ user.name }}</div>
+                <div class="who-role">{{ user.usertype }}</div>
+              </div>
+            </div>
+
+            <div class="info-grid">
+              <div class="info-box">
+                <div class="info-label">Name</div>
+                <div class="info-value">{{ user.name }}</div>
+              </div>
+              <div class="info-box">
+                <div class="info-label">Email</div>
+                <div class="info-value">{{ user.email }}</div>
+              </div>
+              <div class="info-box">
+                <div class="info-label">Role</div>
+                <div class="info-value">{{ user.usertype }}</div>
+              </div>
+              <div class="info-box info-bio">
+                <div class="info-label">Bio</div>
+                <div class="info-value">
+                  {{ user.bio or "No bio provided." }}
+                </div>
+              </div>
+            </div>
+
+            <div class="profile-actions">
+              <button id="loadArticles" class="btn btn-primary">
+                View {{ user.name }}’s Articles
+              </button>
+            </div>
+
+            <div id="authorArticles" class="cards-grid" aria-live="polite"></div>
           </div>
         </div>
-
-        <!-- Details (read-only) -->
-        <div class="profile-body" style="margin-top:20px;">
-          <dl class="kv">
-            <dt>Name</dt>
-            <dd>{{ raw_name }}</dd>
-
-            {% if email %}
-              <dt>Email</dt>
-              <dd>{{ email }}</dd>
-            {% endif %}
-
-            {% if role %}
-              <dt>Role</dt>
-              <dd>{{ role }}</dd>
-            {% endif %}
-
-            <dt>Bio</dt>
-            <dd>
-              {% if bio %}
-                <div class="prose">{{ bio|e|replace('\n','<br>')|safe }}</div>
-              {% else %}
-                <span class="muted">No bio provided.</span>
-              {% endif %}
-            </dd>
-
-            {% if p and (p.articles_count is defined or p.bookmarks_count is defined or p.joined_at is defined) %}
-              {% if p.articles_count is defined %}
-                <dt>Articles</dt>
-                <dd>{{ p.articles_count }}</dd>
-              {% endif %}
-              {% if p.bookmarks_count is defined %}
-                <dt>Bookmarks</dt>
-                <dd>{{ p.bookmarks_count }}</dd>
-              {% endif %}
-              {% if p.joined_at is defined and p.joined_at %}
-                <dt>Member since</dt>
-                <dd>{{ p.joined_at }}</dd>
-              {% endif %}
-            {% endif %}
-          </dl>
-        </div>
-
-        <!-- Navigation -->
-        <div class="form-buttons" style="gap:12px;">
-          <a class="btn btn-light" href="{{ request.referrer or url_for('subscriberHomepage') }}">Back</a>
-          {% if p and p.id and url_for %}
-            <a class="btn btn-primary" href="{{ url_for('subscriber_article_list_by_author', author_id=p.id) }}">View {{ raw_name.split(' ')[0] }}’s Articles</a>
-          {% endif %}
-        </div>
-
       </div>
     </section>
 
     <!-- Right sidebar -->
     <aside class="sidebar">
-      <a href="{{ url_for('subscriberCreateArticle') }}" class="btn btn-primary">Create Your Story</a>
+      <button type="button" class="btn btn-primary"
+        onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">Create Your Story</button>
+      <button type="button"
+              class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('donate_form') }}'">
+        Donate to EchoPress
+      </button>
       <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </main>
@@ -177,6 +167,58 @@
       setInterval(loadAd, 10_000);
     })();
   </script>
+
+  <script>
+(function(){
+  const loadBtn = document.getElementById('loadArticles');
+  const listEl  = document.getElementById('authorArticles');
+  if(!loadBtn || !listEl) return;
+
+  const API = "{{ url_for('api_profile_articles', user_id=user.userid) }}";
+
+  function esc(s){ return (s||'').replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+  function viewUrl(id){
+    return "{{ url_for('subscriber_article_view', article_id=0) }}".replace(/0$/, String(id));
+  }
+  function card(a){
+    const title = a.title || "";
+    const img   = a.image || "";
+    const url   = "{{ url_for('subscriber_article_view', article_id=0) }}".replace(/0$/, String(a.articleid));
+
+    return `
+      <article class="tile">
+        <a class="tile-link" href="${url}">
+          <div class="tile-thumb">
+            ${img ? `<img src="${img}" alt="${title}">` : `<div class="tile-thumb-empty">No Image</div>`}
+          </div>
+          <h3 class="tile-title">${title}</h3>
+        </a>
+      </article>
+    `;
+  }
+
+  async function load(){
+    loadBtn.disabled = true;
+    const old = loadBtn.textContent;
+    loadBtn.textContent = 'Loading…';
+    try{
+      const res = await fetch(API, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+      const data = await res.json();
+      if(!res.ok || !data.ok) throw new Error(data.message || 'Failed to load.');
+      listEl.innerHTML = data.items.length
+        ? data.items.map(card).join('')
+        : '<p class="muted">No published articles yet.</p>';
+    }catch(e){
+      listEl.innerHTML = `<p class="error">${esc(e.message || 'Error')}</p>`;
+    }finally{
+      loadBtn.textContent = old;
+      loadBtn.disabled = false;
+    }
+  }
+
+  loadBtn.addEventListener('click', load);
+})();
+</script>
 
   <!-- Logout modal wiring -->
   <script>
