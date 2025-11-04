@@ -4,98 +4,266 @@
   <meta charset="UTF-8" />
   <title>EchoPress — Author Home</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="icon" href="{{ url_for('static', filename='img/favicon.png') }}" type="image/png" />
+  <link rel="icon" href="{{ url_for('static', filename='img/EchoPressLogo.png') }}" type="image/png" />
+
+  <!-- Author-only styles -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/author.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
 
-  <!-- Top Bar (black) -->
+  <!-- Top Bar -->
   <header class="topbar">
     <div class="left">
-      <a class="brand" href="{{ url_for('authorHomepage') }}">
+      <button type="button" class="brand" onclick="window.location.href='{{ url_for('author_homepage') }}'">
         <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
-        <span class="brand-text">EchoPress</span>
-      </a>
-      <form class="search"><input type="text" placeholder="Searching for… ?"></form>
+      </button>
+
+      <!-- Category pills row -->
+      <nav id="catBar" class="category-bar" aria-label="Categories"></nav>
     </div>
+
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user', 'Author') }} !</span>
+      <form id="searchForm" class="search" role="search" aria-label="Search articles">
+        <input id="searchQ" type="text" placeholder="Search articles…" aria-label="Search" />
+        <button type="submit" aria-label="Search">Search</button>
+      </form>
+
+      <span class="welcome">Welcome, {{ session.get('user','Author') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
-        <a href="{{ url_for('authorHomepage') }}" class="active">Author Home</a>
-        <a href="{{ url_for('my_articles') }}">My Articles</a>
-        <a href="{{ url_for('analytics') }}">View Analytics</a>
-        <a href="{{ url_for('profile') }}">Profile</a>
-        <a href="#" class="logout-link">Log Out</a>
+        <a class="menu-item" href="{{ url_for('author_homepage') }}">Author Home</a>
+        <a class="menu-item" href="{{ url_for('author_my_articles') }}">My Articles</a>
+        <a class="menu-item" href="{{ url_for('author_create_article') }}">Create Story</a>
+        <a class="menu-item" href="{{ url_for('author_profile') }}">My Profile</a>
+        <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
   </header>
 
-  <!-- Tabs -->
-  <nav class="tabs">
-    <div class="tabs-inner">
-      <a href="#" class="tab">For you</a>
-      <a href="#" class="tab active">Trending</a>
-      <a href="#" class="tab">Politics</a>
-      <a href="#" class="tab">Sports</a>
-      <a href="#" class="tab">Technology</a>
-      <a href="#" class="tab">Economic</a>
-      <a href="#" class="tab">AsiaNews</a>
-      <a href="#" class="tab">WorldNews</a>
-    </div>
-  </nav>
-
-  <!-- Main -->
+  <!-- Layout -->
   <main class="page">
+    <!-- Feed -->
     <section class="feed">
-      {% for a in default_articles[:4] %}
-      <article class="article-card">
-        <div class="text">
-          {% if a.pinned %}
-            <span class="pin-badge" title="This article is pinned">📌 Pinned</span>
-          {% endif %}
+      <div id="feed" class="cards-grid" aria-live="polite"></div>
 
-          {% if loop.first %}
-            <h2 class="card-title"><a href="{{ a.link }}" class="card-link">{{ a.title }}</a></h2>
-          {% else %}
-            <h3 class="card-title"><a href="{{ a.link }}" class="card-link">{{ a.title }}</a></h3>
-          {% endif %}
-          <p class="card-excerpt">{{ a.excerpt }}</p>
-        </div>
-        <a class="thumb-wrap" href="{{ a.link }}">
-          <img class="thumb" src="{{ a.image_url }}" alt="">
-        </a>
-      </article>
-      {% endfor %}
+      <div class="load-more-wrap">
+        <button id="loadMore" type="button" class="btn">Load more</button>
+      </div>
     </section>
 
+    <!-- Right column -->
     <aside class="sidebar">
-      <a href="{{ url_for('create_edit_delete_article') }}" class="btn btn-primary wide">Create Your Story</a>
-      <div class="ads">Ads</div>
+      <button type="button" class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('author_create_article') }}'">
+        Create Your Story
+      </button>
+      <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </main>
 
-  <!-- Logout modal -->
-  <div id="logoutModal" class="modal-overlay">
-    <div class="modal"><h2>Log Out?</h2><div class="buttons"><button class="yes" id="confirmLogout">Yes</button><button class="no" id="cancelLogout">No</button></div></div>
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <span id="toastMsg">Done.</span>
   </div>
 
+  <!-- Footer -->
+  <footer class="site-footer" role="contentinfo" aria-label="Site footer">
+    <div class="footer-container">
+      <div class="footer-top">
+        <a class="footer-brand" href="{{ url_for('author_homepage') }}">EchoPress</a>
+        <nav class="footer-links" aria-label="Key links">
+          <ul>
+            <li><a href="{{ url_for('author_homepage') }}">Home</a></li>
+            <li><a href="{{ url_for('author_my_articles') }}">My Articles</a></li>
+            <li><a href="{{ url_for('author_create_article') }}">Create Story</a></li>
+            <li><a href="{{ url_for('author_profile') }}">My Profile</a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <div class="footer-legal">
+        <p class="footer-copy">© <span id="footer-year"></span> EchoPress. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===== Scripts ===== -->
+
+  <!-- Topbar menu toggle -->
   <script>
     (function(){
-      const btn=document.getElementById('menuBtn'), panel=document.getElementById('menuPanel');
-      if(btn&&panel){const close=()=>panel.style.display='none', toggle=()=>panel.style.display=panel.style.display==='block'?'none':'block';
-        btn.addEventListener('click',e=>{e.stopPropagation();toggle()});
-        document.addEventListener('click',e=>{if(!panel.contains(e.target)&&e.target!==btn)close()});
-        document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
-      }
-      const modal=document.getElementById("logoutModal"), ok=document.getElementById("confirmLogout"), no=document.getElementById("cancelLogout");
-      document.querySelectorAll(".logout-link").forEach(l=>l.addEventListener("click",e=>{e.preventDefault();modal.style.display="flex"}));
-      ok&&ok.addEventListener("click",()=>{window.location.href="{{ url_for('logout') }}"});
-      no&&no.addEventListener("click",()=>{modal.style.display="none"});
-      document.addEventListener("keydown",e=>{if(e.key==="Escape")modal.style.display="none"});
+      const btn = document.getElementById('menuBtn');
+      const panel = document.getElementById('menuPanel');
+      if (!btn || !panel) return;
+      const closeP  = () => panel.style.display = 'none';
+      const toggleP = () => panel.style.display = panel.style.display==='block' ? 'none' : 'block';
+      btn.addEventListener('click', e => { e.stopPropagation(); toggleP(); });
+      document.addEventListener('click', e => { if (!panel.contains(e.target) && e.target !== btn) closeP(); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape') closeP(); });
     })();
   </script>
-  {% include 'partials/chatbot.html' %}
+
+  <!-- Footer year -->
+  <script>
+    (function(){
+      var y = document.getElementById('footer-year');
+      if (y) y.textContent = new Date().getFullYear();
+    })();
+  </script>
+
+  <!-- Author homepage data loader -->
+  <script>
+  (function(){
+    const API_CATS = "/author/api/categories";
+    const API_ARTS = "/author/api/articles";
+    const VIEW_URL_TPL = "{{ url_for('author_article_view', article_id=0) }}";
+
+    // DOM
+    const catBar   = document.getElementById('catBar');
+    const feed     = document.getElementById('feed');
+    const form     = document.getElementById('searchForm');
+    const qInput   = document.getElementById('searchQ');
+    const loadMore = document.getElementById('loadMore');
+    const toast    = document.getElementById('toast');
+    const toastMsg = document.getElementById('toastMsg');
+
+    // State
+    let state = { cat:"", q:"", offset:0, limit:12, more:true, busy:false };
+
+    // Utils
+    const showToast = (m)=>{ toastMsg.textContent = m||'Done.'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 1400); };
+    const esc   = s => (s||"").replace(/[&<>]/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));
+    const trunc = (t, n=160) => (!t ? "" : (t=t.replace(/<[^>]+>/g,"").trim(), t.length>n ? t.slice(0,n-1)+"…" : t));
+
+    function card(a){
+      const img = a.image ? esc(a.image) : "{{ url_for('static', filename='img/placeholder.png') }}";
+      const url = VIEW_URL_TPL.replace(/0$/, String(a.articleid));
+      return `
+        <article class="article-card tile" data-id="${a.articleid}">
+          <a class="thumb" href="${url}" aria-label="${esc(a.title)}">
+            <img src="${img}" alt="">
+          </a>
+          <div class="text">
+            <a class="title-link" href="${url}"><h3 class="title">${esc(a.title)}</h3></a>
+            <div class="meta">
+              ${a.category ? `<span class="chip">${esc(a.category)}</span>` : ``}
+            </div>
+            <p class="desc">${esc(trunc(a.content))}</p>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderArticles(rows, {append=false}={}){
+      if (!append) feed.innerHTML = "";
+      feed.insertAdjacentHTML("beforeend", rows.map(card).join("") || "<p>No articles found.</p>");
+    }
+
+    async function loadCategories(){
+      try{
+        const res = await fetch(API_CATS, { headers:{'X-Requested-With':'XMLHttpRequest'} });
+        const rows = res.ok ? await res.json() : [];
+        const items = [{name:"All"}].concat(rows || []);
+        catBar.innerHTML = items.map(c => `
+          <button type="button" class="cat-pill ${(!state.cat && c.name==='All') || (state.cat===c.name) ? 'active' : ''}"
+                  data-cat="${c.name==='All' ? '' : esc(c.name)}">${esc(c.name)}</button>
+        `).join("");
+      }catch(e){
+        console.error(e);
+        catBar.innerHTML = `<span style="color:#b00">Failed to load categories.</span>`;
+      }
+    }
+
+    async function loadArticles({append=false}={}){
+      if (state.busy || (!state.more && append)) return;
+      state.busy = true;
+      try{
+        const url = new URL(API_ARTS, window.location.origin);
+        if (state.cat) url.searchParams.set("cat", state.cat);
+        if (state.q)   url.searchParams.set("q", state.q);
+        url.searchParams.set("limit", String(state.limit));
+        url.searchParams.set("offset", String(state.offset));
+
+        const res  = await fetch(url.toString(), { headers:{'X-Requested-With':'XMLHttpRequest'} });
+        const rows = res.ok ? await res.json() : [];
+
+        renderArticles(rows, {append});
+        if (rows.length < state.limit){
+          state.more = false;
+          if (loadMore) loadMore.style.display = "none";
+        } else {
+          state.more = true;
+          if (loadMore) loadMore.style.display = "";
+        }
+        state.offset += rows.length;
+      }catch(e){
+        console.error(e);
+        if (!append) feed.innerHTML = `<p style="color:#b00">Failed to load articles.</p>`;
+      }finally{
+        state.busy = false;
+      }
+    }
+
+    // Wire category clicks
+    catBar?.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.cat-pill');
+      if (!btn) return;
+      const newCat = btn.dataset.cat || "";
+      state.cat = newCat;
+      state.offset = 0; state.more = true;
+
+      catBar.querySelectorAll('.cat-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      loadArticles({append:false});
+    });
+
+    // Wire search
+    form?.addEventListener('submit', (e)=>{
+      e.preventDefault();
+      state.q = (qInput?.value || "").trim();
+      state.offset = 0; state.more = true;
+      loadArticles({append:false});
+    });
+
+    // Load more
+    loadMore?.addEventListener('click', ()=> loadArticles({append:true}));
+
+    // Init
+    (async function init(){
+      await loadCategories();
+      await loadArticles({append:false});
+    })();
+  })();
+  </script>
+
+  <!-- Optional: simple ad rotator reusing existing API if you have one for authors -->
+  <script>
+    (function(){
+      const adsBox = document.getElementById('adsBox');
+      if (!adsBox) return;
+      const ADS_API = "{{ url_for('api_random_ad') }}";
+      const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+      function renderAd(ad){
+        adsBox.innerHTML = `
+          <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+            <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+            ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
+            ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
+          </a>`;
+      }
+      async function loadAd(){
+        try{
+          const res = await fetch(ADS_API, {cache:'no-store'});
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data?.ok && data.ad) renderAd(data.ad);
+        }catch(_){}
+      }
+      loadAd();
+      setInterval(loadAd, 10000);
+    })();
+  </script>
+
 </body>
 </html>

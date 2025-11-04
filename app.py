@@ -333,6 +333,28 @@ def subscriberHomepage():
     )
 
 # (MW)
+@app.route("/author/home", endpoint="author_homepage")
+@login_required("Author")
+def author_homepage():
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    try:
+        cur.execute("SELECT categoryid, name FROM categories ORDER BY name")
+        categories = cur.fetchall() or []
+    finally:
+        cur.close(); conn.close()
+
+    return render_template(
+        "authorHomepage.html",
+        categories=categories,
+        active_category="Trending"
+    )
+
+app.add_url_rule(
+    "/author/home", endpoint="authorHomepage", view_func=author_homepage
+)
+
+# (MW)
 # API: articles feed for subscriberHomepage
 @app.route("/api/articles")
 @login_required("Subscriber")
@@ -2130,6 +2152,113 @@ def donate_submit():
         except Exception:
             pass
 
+# (MW) ---------- Author API ----------
+@app.route("/author/my-articles")
+@login_required("Author")
+def author_my_articles():
+    # This renders your new page: templates/authorMyArticle.html
+    return render_template("authorMyArticle.html")
+
+@app.route("/author/create-article")
+@login_required("Author")
+def author_create_article():
+    # Make a simple placeholder template if you don't have it yet
+    return render_template("authorCreateArticle.html")
+
+@app.route("/author/profile")
+@login_required("Author")
+def author_profile():
+    return render_template("authorProfile.html")
+
+@app.route("/author/article/<int:article_id>")
+@login_required("Author")
+def author_article_view(article_id):
+    # Reuse your existing article view logic, or a minimal stub for now:
+    # return render_template("authorArticleView.html", article=article)
+    return redirect(url_for("subscriber_article_view", article_id=article_id))
+
+@app.route("/author/api/categories")
+@login_required("Author")
+def author_api_categories():
+    """
+    Return all categories for author UI.
+    """
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    try:
+        cur.execute("SELECT categoryid, name FROM categories ORDER BY categoryid ASC")
+        rows = cur.fetchall() or []
+        return jsonify(rows)
+    finally:
+        cur.close(); conn.close()
+
+
+@app.route("/author/api/articles")
+@login_required("Author")
+def author_api_articles():
+    """
+    List articles for the author homepage feed (publicly visible + published).
+    Supports:
+      - ?cat=<category name>
+      - ?q=<search term>
+      - ?limit=<n> (default 10)
+      - ?offset=<n> (default 0)
+    """
+    cat     = request.args.get("cat")
+    q       = (request.args.get("q") or "").strip()
+    limit   = int(request.args.get("limit", 10))
+    offset  = int(request.args.get("offset", 0))
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    try:
+        where  = [
+            "(a.draft = FALSE OR a.draft IS NULL)",
+            "a.visible = 1",
+            "a.status = 'published'"
+        ]
+        params = []
+
+        join = "LEFT JOIN categories c ON a.catid = c.categoryid"
+
+        if cat:
+            where.append("c.name = %s")
+            params.append(cat)
+
+        if q:
+            where.append("(a.title LIKE %s OR a.content LIKE %s)")
+            like = f"%{q}%"
+            params.extend([like, like])
+
+        sql = f"""
+            SELECT
+                a.articleid,
+                a.title,
+                a.content,
+                a.author,
+                a.published_at,
+                a.updated_at,
+                CASE
+                  WHEN a.image IS NULL OR a.image = '' THEN NULL
+                  WHEN a.image LIKE 'http%%' THEN a.image
+                  WHEN a.image LIKE '/static/%%' THEN a.image
+                  WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image, '../static', '/static')
+                  ELSE CONCAT('/static/img/', a.image)
+                END AS image,
+                c.name AS category
+            FROM articles a
+            {join}
+            WHERE {" AND ".join(where)}
+            ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+            LIMIT %s OFFSET %s
+        """
+        params.extend([limit, offset])
+
+        cur.execute(sql, tuple(params))
+        rows = cur.fetchall() or []
+        return jsonify(rows)
+    finally:
+        cur.close(); conn.close()
 
 # (YY)
 # ---------- Auth ----------
