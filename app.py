@@ -2822,11 +2822,13 @@ def flagged_articles():
     return render_template("flaggedArticles.html", articles=articles)
 
 @app.route("/reviewArticle", methods=["POST"])
+@login_required("Moderator")
 def review_article():
     report_id = request.form.get("report_id")
+    article_id = request.form.get("articleid")
     action = request.form.get("action")
 
-    if not report_id or action not in ("approve", "reject"):
+    if action not in ("approve", "reject"):
         flash("Invalid request.", "error")
         return redirect("/flaggedArticles")
 
@@ -2834,51 +2836,51 @@ def review_article():
     cursor = conn.cursor(dictionary=True)
 
     try:
-        # Fetch the article ID for this report
-        cursor.execute("SELECT article_id FROM article_reports WHERE report_id = %s", (report_id,))
-        report = cursor.fetchone()
-        if not report:
-            flash("Report not found.", "error")
-            return redirect("/flaggedArticles")
-        
-        article_id = report["article_id"]
-
-        if action == "approve": # meaning moderator confirmed issues
-            # mark reports reviewed
-            cursor.execute(
-                "UPDATE article_reports SET status = 'reviewed' WHERE article_id = %s",
-                (article_id,)
-            )
+        # === CASE 1: From flaggedArticles (has report_id) ===
+        if report_id:
+            cursor.execute("SELECT article_id FROM article_reports WHERE report_id = %s", (report_id,))
+            report = cursor.fetchone()
+            if not report:
+                flash("Report not found.", "error")
+                return redirect("/flaggedArticles")
             
-            # hide article from public and mark as pending revision
-            cursor.execute(
-                "UPDATE articles SET visible = 0, status = 'pending_revision' WHERE articleid = %s",
-                (article_id,)
-            )
-        elif action == "reject": # moderator thinks it's okay
-            # Mark report dismissed
-            cursor.execute(
-                "UPDATE article_reports SET status = 'dismissed' WHERE report_id = %s",
-                (report_id,)
-            )
-            # article stays visible and approved
-            cursor.execute(
-                "UPDATE articles SET visible = 1, status = 'published' WHERE articleid = %s",
-                (article_id,)
-            )
+            article_id = report["article_id"]
+
+            if action == "approve":  # moderator agrees with report
+                cursor.execute("UPDATE article_reports SET status = 'reviewed' WHERE article_id = %s", (article_id,))
+                cursor.execute("UPDATE articles SET visible = 0, status = 'pending_revision' WHERE articleid = %s", (article_id,))
+            else:  # moderator rejects the report
+                cursor.execute("UPDATE article_reports SET status = 'dismissed' WHERE report_id = %s", (report_id,))
+                cursor.execute("UPDATE articles SET visible = 1, status = 'published' WHERE articleid = %s", (article_id,))
+
+            redirect_target = "/flaggedArticles"
+
+        # === CASE 2: From pendingArticles (no report_id) ===
+        elif article_id:
+            if action == "approve":
+                cursor.execute("UPDATE articles SET status = 'published', visible = 1 WHERE articleid = %s", (article_id,))
+            elif action == "reject":
+                cursor.execute("UPDATE articles SET status = 'pending_revision', visible = 0 WHERE articleid = %s", (article_id,))
+
+            redirect_target = "/pendingArticles"
+
+        else:
+            flash("Invalid data provided.", "error")
+            return redirect("/flaggedArticles")
 
         conn.commit()
-        flash("Article has been hidden successfully.", "success")
+        flash(f"Article {action}d successfully.", "success")
 
     except mysql.connector.Error as err:
         print("Database error:", err)
-        flash("An error occurred.", "error")
+        flash("An error occurred while processing the request.", "error")
 
     finally:
         cursor.close()
         conn.close()
 
-    return redirect("/flaggedArticles")
+    return redirect(redirect_target)
+
 
 @app.route("/getArticle/<int:article_id>")
 def get_article(article_id):
