@@ -226,6 +226,14 @@ def category(category_name):
 
 
 # ---------- Role homepages ---------- # (YY)
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
 @app.route("/adminHomepage")
 @login_required("Admin")
 def adminHomepage():
