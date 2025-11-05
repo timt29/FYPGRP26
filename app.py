@@ -510,9 +510,10 @@ def api_articles_create():
     if publish:
         cur.execute("""
         INSERT INTO articles 
-        (title, content, author, published_at, updated_at, image, catid, draft, visible)
-        VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, %s)
-        """, (title, content, author, image_rel, cat_id, visible))
+          (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
+        VALUES 
+          (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, 1, 'published')
+    """, (title, content, author, image_rel, cat_id))
     else:
         cur.execute("""
         INSERT INTO articles 
