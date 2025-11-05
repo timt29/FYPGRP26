@@ -1489,7 +1489,7 @@ def report_article():
         """, (article_id, reporter_id, reason, details))
         cur.execute("""
             UPDATE articles
-            SET status = 'reported', visible = 0, updated_at = NOW()
+            SET status = 'reported', visible = 1, updated_at = NOW()
             WHERE articleid = %s AND status IN ('draft','published')
         """, (article_id,))
         conn.commit()
