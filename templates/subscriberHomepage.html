@@ -25,7 +25,7 @@
 
     <!-- User name then menu button; panel anchored to the RIGHT -->
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      <span class="welcome">Welcome, {{ session.get('user') }} !</span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>

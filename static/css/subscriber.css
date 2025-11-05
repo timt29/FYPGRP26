@@ -2410,3 +2410,17 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
 
 .site-footer a{ text-decoration: none; }
 .site-footer a:hover{ text-decoration: underline; }
+
+html, body { height: 100%; }                 
+body {
+  min-height: 100dvh;                       
+  display: flex;                             
+  flex-direction: column;
+  padding-top: var(--topbar-total);
+}
+
+main.page { flex: 1 0 auto; }
+
+.site-footer { 
+  margin-top: 24px;                         
+}
