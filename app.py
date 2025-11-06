@@ -1813,7 +1813,6 @@ def subscriber_delete_article(article_id):
     
 # (MW) --- Ads API: random visible ad for sidebar rotation ---
 @app.route("/api/ads/random")
-@login_required("Author", "Subscriber")
 def api_random_ad():
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)

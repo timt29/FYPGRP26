@@ -159,13 +159,36 @@
   border-radius: 3px;
 }
 
-.ads {
-  background: #eaeaea;
-  border: 1px dashed #aaa;
-  padding: 40px;
-  text-align: center;
-  border-radius: 6px;
+/* ===== Buttons & Ads ===== */
+.sidebar .ads,
+.right-rail .ads {
+  height: 360px;          
+  min-height: 360px;
+  width: 100%;
+  flex: 0 0 auto;         
+  position: relative;
 }
+
+/* Keep whole area clickable */
+.sidebar .ads .ad-link,
+.right-rail .ads .ad-link {
+  display: block;
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+/* Ads Image "zooms out" to fit the box */
+.sidebar .ads .ad-image,
+.right-rail .ads .ad-image {
+  position: absolute;
+  inset: 10px;                         
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+  object-fit: contain;
+  display: block;
+}
+
 
 p {
   font-family: Arial, Helvetica, sans-serif ,sans-serif; /* Change the font */

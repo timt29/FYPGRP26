@@ -372,8 +372,6 @@
       adsBox.innerHTML = `
         <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
           <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
-          ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
-          ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
         </a>
       `;
     }
