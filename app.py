@@ -850,7 +850,7 @@ def subscriber_article_view(article_id):
     cur.execute("""
         SELECT
         a.articleid, a.title, a.content, a.author,
-        a.published_at, a.updated_at,
+        a.published_at, a.updated_at, a.likes, a.dislikes,
         CASE
             WHEN a.image IS NULL OR a.image = '' THEN NULL
             WHEN a.image LIKE 'http%%' THEN a.image
@@ -860,7 +860,7 @@ def subscriber_article_view(article_id):
         END AS image,
         c.name AS category,
         u.userid        AS author_userid,
-        u.usertype      AS author_usertype,   -- ← add this
+        u.usertype      AS author_usertype,  
         CASE
             WHEN u.image IS NULL OR u.image = '' THEN NULL
             WHEN u.image LIKE 'http%%' THEN u.image
@@ -970,6 +970,112 @@ def subscriber_toggle_pin():
             conn.rollback()
             cur.close(); conn.close()
             return jsonify(ok=False, message="Unable to pin"), 500
+        
+# ---------- Article Like/Dislike API ---------- 
+@app.route('/subscriber/api/article/react', methods=['POST'])
+@login_required("Author", "Subscriber")
+def subscriber_article_react():
+    data = request.get_json(silent=True) or {}
+    try:
+        articleid = int(data.get('articleid') or 0)
+    except Exception:
+        articleid = 0
+    action = (data.get('action') or '').strip().lower()  # 'like' | 'dislike'
+
+    if action not in ('like','dislike') or not articleid:
+        return jsonify(ok=False, message='Bad request'), 400
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    try:
+        uid = session.get('userid')
+        if uid is None:
+            uname = (session.get('user') or '').strip()
+            if not uname:
+                return jsonify(ok=False, message='Not signed in'), 401
+            cur_lookup = conn.cursor()
+            try:
+                cur_lookup.execute(
+                    "SELECT userid FROM users WHERE username=%s OR name=%s LIMIT 1",
+                    (uname, uname)
+                )
+                row = cur_lookup.fetchone()
+            finally:
+                cur_lookup.close()
+            if not row:
+                return jsonify(ok=False, message='User not found'), 401
+            uid = int(row[0])
+            session['userid'] = uid
+        else:
+            uid = int(uid)
+
+        conn.start_transaction()
+
+        cur.execute("""
+            SELECT reaction
+            FROM article_reactions
+            WHERE articleid=%s AND userid=%s
+            FOR UPDATE
+        """, (articleid, uid))
+        row = cur.fetchone()
+        prev = (row['reaction'] if row else None)
+
+        # compute deltas
+        d_like = d_dislike = 0
+        if prev is None:
+            # new reaction
+            if action == 'like':    d_like = 1
+            if action == 'dislike': d_dislike = 1
+            cur.execute("""
+                INSERT INTO article_reactions (articleid, userid, reaction)
+                VALUES (%s, %s, %s)
+            """, (articleid, uid, action))
+            state = action
+        elif prev == action:
+            # toggle off
+            if action == 'like':    d_like = -1
+            if action == 'dislike': d_dislike = -1
+            cur.execute("""
+                DELETE FROM article_reactions
+                WHERE articleid=%s AND userid=%s
+            """, (articleid, uid))
+            state = 'none'
+        else:
+            # switch
+            if prev == 'like' and action == 'dislike':
+                d_like, d_dislike = -1, +1
+            elif prev == 'dislike' and action == 'like':
+                d_like, d_dislike = +1, -1
+            cur.execute("""
+                UPDATE article_reactions
+                SET reaction=%s, updated_at=NOW()
+                WHERE articleid=%s AND userid=%s
+            """, (action, articleid, uid))
+            state = action
+
+        cur.execute("""
+            UPDATE articles
+            SET likes    = GREATEST(likes + %s, 0),
+                dislikes = GREATEST(dislikes + %s, 0)
+            WHERE articleid=%s
+        """, (d_like, d_dislike, articleid))
+
+        # return the fresh totals from articles
+        cur.execute("SELECT likes, dislikes FROM articles WHERE articleid=%s FOR UPDATE", (articleid,))
+        agg = cur.fetchone() or {'likes': 0, 'dislikes': 0}
+        likes    = int(agg['likes'] or 0)
+        dislikes = int(agg['dislikes'] or 0)
+
+        conn.commit()
+        return jsonify(ok=True, state=state, likes=likes, dislikes=dislikes)
+    except Exception as e:
+        conn.rollback()
+        return jsonify(ok=False, message=f"Server error: {e}"), 500
+    finally:
+        try: cur.close()
+        except: pass
+        try: conn.close()
+        except: pass
 
 # --- My Articles: page ---
 @app.route("/subscriber/my-articles")

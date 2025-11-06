@@ -189,6 +189,15 @@
             </div>
           </div>
 
+        <div class="reaction-bar">
+          <button id="articleLikeBtn" class="btn btn-ghost react" data-action="like" aria-pressed="false">
+            👍 <span id="artLikeCount">{{ article.likes or 0 }}</span>
+          </button>
+          <button id="articleDislikeBtn" class="btn btn-ghost react" data-action="dislike" aria-pressed="false">
+            👎 <span id="artDislikeCount">{{ article.dislikes or 0 }}</span>
+          </button>
+        </div>
+        
         <div class="action-buttons">
           <button id="articleReportBtn" class="btn btn-ghost" title="Report">
             <img src="{{ url_for('static', filename='img/report.jpg') }}" alt="Report" style="width:20px; vertical-align:middle;" />
@@ -596,6 +605,96 @@
       window.addEventListener('beforeunload', () => { if ('speechSynthesis' in window) speechSynthesis.cancel(); });
     })();
   </script>
+
+  <script>
+  (function(){
+    const articleRoot = document.getElementById('articleRoot');
+    const articleid   = parseInt(articleRoot?.dataset.articleId || '0', 10);
+    const likeBtn     = document.getElementById('articleLikeBtn');
+    const dislikeBtn  = document.getElementById('articleDislikeBtn');
+    const likeCountEl = document.getElementById('artLikeCount');
+    const disCountEl  = document.getElementById('artDislikeCount');
+    const endpoint    = "{{ url_for('subscriber_article_react') }}"; // /subscriber/api/article/react
+
+    async function react(action){
+      if (!articleid) return;
+      try{
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ articleid, action })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.message || ('HTTP '+res.status));
+
+        // Update counts
+        if (likeCountEl)   likeCountEl.textContent   = data.likes;
+        if (disCountEl)    disCountEl.textContent    = data.dislikes;
+
+        // Update pressed state (user can have at most one reaction)
+        const state = data.state; // 'like' | 'dislike' | 'none'
+        likeBtn?.setAttribute('aria-pressed', state === 'like' ? 'true' : 'false');
+        dislikeBtn?.setAttribute('aria-pressed', state === 'dislike' ? 'true' : 'false');
+      }catch(err){
+        console.error('React failed:', err);
+        alert((err && err.message) ? err.message : 'Failed to update reaction.');
+      }
+    }
+
+    likeBtn?.addEventListener('click', () => react('like'));
+    dislikeBtn?.addEventListener('click', () => react('dislike'));
+  })();
+  </script>
+
+  //Like or Dislike Button
+  <script>
+    (() => {
+      const articleRoot = document.getElementById('articleRoot');
+      if (!articleRoot) return;
+
+      const articleid = Number(articleRoot.dataset.articleId || 0);
+      const likeBtn = document.getElementById('likeBtn');
+      const dislikeBtn = document.getElementById('dislikeBtn');
+      const likeCountEl = document.getElementById('likeCount');
+      const dislikeCountEl = document.getElementById('dislikeCount');
+
+      const REACT_API = "/subscriber/api/article/react";  // path you exposed below
+
+      let busy = false;
+      async function sendReaction(action){
+        if (busy || !articleid) return;
+        busy = true;
+        [likeBtn, dislikeBtn].forEach(b=>b?.setAttribute('disabled','disabled'));
+        try{
+          const res = await fetch(REACT_API, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ articleid, action })  // 'like' | 'dislike'
+          });
+          const data = await res.json().catch(()=>({}));
+          if (!res.ok || !data.ok){
+            console.error('React error:', data);
+            alert(data.message || 'Unable to record reaction.');
+            return;
+          }
+          // Update counts & pressed state
+          if (likeCountEl) likeCountEl.textContent = data.likes;
+          if (dislikeCountEl) dislikeCountEl.textContent = data.dislikes;
+          likeBtn?.setAttribute('aria-pressed', data.state === 'like' ? 'true':'false');
+          dislikeBtn?.setAttribute('aria-pressed', data.state === 'dislike' ? 'true':'false');
+        } catch (err){
+          console.error(err);
+          alert('Request failed.');
+        } finally {
+          busy = false;
+          [likeBtn, dislikeBtn].forEach(b=>b?.removeAttribute('disabled'));
+        }
+      }
+
+      likeBtn?.addEventListener('click', () => sendReaction('like'));
+      dislikeBtn?.addEventListener('click', () => sendReaction('dislike'));
+    })();
+    </script>
 
   <!-- Comments + Report logic -->
   <script>

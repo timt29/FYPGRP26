@@ -351,6 +351,35 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
 .author-link:hover { text-decoration: underline; }
 .author-name { font-weight: 600; }
 
+/* Make the article a positioning context */
+.article-card.detail.article-view{
+  position: relative;
+  padding-bottom: 56px;   
+}
+
+/* Bottom-right action bar (Report / Share) */
+.action-buttons{
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 1;
+}
+
+@media (max-width: 720px){
+  .article-card.detail.article-view{ padding-bottom: 64px; }
+  .action-buttons{
+    right: 10px;
+    bottom: 10px;
+  }
+}
+
+.article-view + .comment-form{
+  margin-top: 18px;
+}
+
 /* ===== Buttons & Ads ===== */
 .ads {
   height: 360px;            
