@@ -954,6 +954,22 @@ def subscriber_toggle_pin():
 def subscriber_my_articles():
     return render_template("subscriberMyArticles.html")
 
+
+def _norm_image_path(p):
+    if not p:
+        return None
+    p = p.strip()
+    if p.startswith(("http://", "https://")):
+        return p
+    if p.startswith("/static/"):
+        return p
+    if p.startswith("./static/"):
+        return p[1:]  # drop leading dot
+    if p.startswith(("uploads/", "img/")):
+        return "/static/" + p                 # → /static/uploads/... or /static/img/...
+    # filename only → assume it's in uploads/
+    return "/static/uploads/" + p
+
 # --- My Articles: JSON API ---
 @app.route("/subscriber/api/my-articles")
 @login_required("Author", "Subscriber")
@@ -965,15 +981,21 @@ def subscriber_api_my_articles():
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    base_select = """
+    # Normalize image to a browser-usable absolute path.
+    # Handles http(s), /static, ./static, ../static, bare 'static/...', 'img/...', 'uploads/...'
+    base_select = r"""
         SELECT a.articleid, a.title, a.content, a.draft,
-               a.status,                        -- expose status to the UI
+               a.status,
                a.published_at, a.updated_at,
                CASE
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
-                 WHEN a.image LIKE 'http%' THEN a.image
+                 WHEN a.image REGEXP '^(https?:)?//' THEN a.image
                  WHEN a.image LIKE '/static/%' THEN a.image
-                 WHEN a.image LIKE './static/%' THEN REPLACE(a.image, './static', '/static')
+                 WHEN a.image LIKE './static/%'  THEN REPLACE(a.image, './static',  '/static')
+                 WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
+                 WHEN a.image LIKE 'static/%'    THEN CONCAT('/', a.image)
+                 WHEN a.image LIKE 'img/%'       THEN CONCAT('/static/', a.image)
+                 WHEN a.image LIKE 'uploads/%'   THEN CONCAT('/static/', a.image)
                  ELSE CONCAT('/static/img/', a.image)
                END AS image,
                c.name AS category
@@ -991,25 +1013,23 @@ def subscriber_api_my_articles():
         elif status == "drafts":
             where += ["a.draft = TRUE"]
         elif status == "pending":
-            # PENDING = visible=0 and status in ('pending_revision','pending_approval')
             where += ["a.visible = 0", "a.status IN ('pending_revision','pending_approval')"]
 
         sql = f"""{base_select}
-                WHERE {" AND ".join(where)}
-                ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleID DESC
-                LIMIT %s OFFSET %s"""
+                  WHERE {" AND ".join(where)}
+                  ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
+                  LIMIT %s OFFSET %s"""
         params += [limit, offset]
         cur.execute(sql, tuple(params))
         rows = cur.fetchall()
 
     elif status == "reported":
-        # REPORTED = visible=0 and status='reported'
         sql = f"""{base_select}
-                WHERE a.author = %s
+                  WHERE a.author = %s
                     AND a.visible = 0
                     AND a.status  = 'reported'
-                ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleID DESC
-                LIMIT %s OFFSET %s"""
+                  ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
+                  LIMIT %s OFFSET %s"""
         cur.execute(sql, (session.get("user"), limit, offset))
         rows = cur.fetchall()
 
