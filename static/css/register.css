@@ -237,9 +237,9 @@ body {
 
 /* Pre-registration full-screen modal */
 .pre-modal {
-  display: block; /* visible by default */
+  display: block;
   position: fixed;
-  z-index: 2000; /* higher than other modals */
+  z-index: 2000;
   left: 0;
   top: 0;
   width: 100%;
@@ -247,72 +247,148 @@ body {
   background: linear-gradient(to bottom right, #6a11cb, #2575fc);
   color: #fff;
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* allow space for hover */
   justify-content: center;
-  padding: 20px;
+  padding: 40px 20px;
   text-align: center;
+  overflow-y: auto; /* prevent clipping */
 }
 
+/* Wider modal content for all 3 cards */
 .pre-modal-content {
   background-color: rgba(0, 0, 0, 0.85);
-  border-radius: 12px;
-  padding: 40px 30px;
-  max-width: 500px;
-  width: 90%;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+  border-radius: 16px;
+  padding: 60px 40px;
+  max-width: 1200px;
+  width: 95%;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
   animation: fadeIn 0.5s ease-out;
+  margin-top: 20px; /* adds top buffer for hover */
 }
 
 .pre-modal-content h1 {
-  font-size: 2em;
+  font-size: 2.2em;
   margin-bottom: 20px;
 }
 
 .pre-modal-content p {
   font-size: 1.2em;
-  margin-bottom: 15px;
+  margin-bottom: 30px;
+  color: #cce8ff;
 }
 
-.pre-modal-content ul {
+/* --- Role Cards Layout (Side by Side) --- */
+.role-cards {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 25px;
+  margin: 40px auto;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 10px;
+}
+
+.role-card {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 2px solid #00ffea;
+  border-radius: 14px;
+  width: 300px;
+  padding: 25px 20px;
   text-align: left;
-  margin-bottom: 25px;
-  list-style: none;
-  padding-left: 0;
-}
-
-.pre-modal-content ul li {
-  margin: 10px 0;
-  padding-left: 25px;
+  color: #fff;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  flex: 0 0 300px;
   position: relative;
 }
 
-.pre-modal-content ul li::before {
-  content: "•";
-  position: absolute;
-  left: 0;
+.role-card h2 {
+  text-align: center;
+  font-size: 1.5em;
+  margin-bottom: 15px;
   color: #00ffea;
 }
 
+.role-card ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.role-card ul li {
+  margin: 8px 0;
+  position: relative;
+  padding-left: 20px;
+}
+
+.role-card ul li::before {
+  content: "✔";
+  position: absolute;
+  left: 0;
+  color: #00ffea;
+  font-size: 0.9em;
+}
+
+.role-card:hover {
+  background-color: rgba(0, 255, 234, 0.15);
+  transform: translateY(-8px);
+  border-color: #00ffea;
+  z-index: 5; /* ensure hover card stays above others */
+}
+
+/* Highlighted “Recommended” card */
+.role-card.highlight {
+  border-color: #ffea00;
+  box-shadow: 0 0 20px rgba(255, 234, 0, 0.4);
+}
+
+.role-card.highlight h2 {
+  color: #ffea00;
+}
+
+.role-card.highlight:hover {
+  background-color: rgba(255, 234, 0, 0.15);
+  box-shadow: 0 0 25px rgba(255, 234, 0, 0.6);
+  transform: translateY(-8px);
+}
+
+/* Button */
 .pre-modal-content button {
+  margin-top: 30px;
   background-color: #00ffea;
   border: none;
   color: #000;
   font-size: 1em;
-  padding: 12px 25px;
-  border-radius: 6px;
+  padding: 14px 30px;
+  border-radius: 8px;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, background-color 0.2s ease;
 }
 
 .pre-modal-content button:hover {
   transform: scale(1.05);
+  background-color: #00e0d1;
 }
 
-/* Animation for modal */
-@keyframes fadeIn {
-  from {opacity: 0; transform: translateY(-20px);}
-  to {opacity: 1; transform: translateY(0);}
+/* Responsive: stack cards vertically on smaller screens */
+@media (max-width: 950px) {
+  .pre-modal-content {
+    max-width: 95%;
+    padding: 30px 20px;
+  }
+
+  .role-cards {
+    flex-wrap: wrap;
+  }
+
+  .role-card {
+    flex: 1 1 100%;
+    max-width: 90%;
+  }
 }
+
 
 .agreement-box {
   margin: 15px 0;
