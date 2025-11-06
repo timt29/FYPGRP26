@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>EchoPress - Edit Profile</title>
+  <title>EchoPress - My Profile</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/echopresslogo.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -10,7 +10,7 @@
 </head>
 <body>
 
-  <!-- Top Bar (optional: keep consistent with your site) -->
+  <!-- Top Bar  -->
   <header class="topbar">
     <div class="left">
       <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
@@ -18,7 +18,24 @@
       </button>
     </div>
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      {% set role =
+          (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
+      {% set is_author = (role == 'author') %}
+
+      <span class="welcome">
+        Welcome, {{ session.get('user','Subscriber') }}
+        {% if is_author %}
+          <img
+            class="badge-author"
+            src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+            alt="Author verified"
+            width="18" height="18"
+            decoding="async" loading="eager"
+            style="display:inline-block; vertical-align:middle;"
+          >
+        {% endif %}
+      </span>
+
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
@@ -35,7 +52,7 @@
     <!-- Main column -->
     <section class="feed">
       <div class="article-card detail">
-        <div class="card-header">Edit Profile</div>
+        <div class="card-header">My Profile</div>
 
         <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -52,21 +69,26 @@
           <input type="hidden" id="nextField" name="next" value="{{ request.referrer or url_for('profile') }}">
 
           <div class="form-grid">
-            <!-- Avatar -->
+            {% set role = ((user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower) %}
+            {% set is_author = (role == 'author') %}
+
             <label>Current avatar</label>
-              <div class="avatar">
-                {% set raw_name = (user.name if user is defined else profile.display_name) or 'User' %}
-                {% set initial = raw_name[0]|upper %}
-                {% set current_img = (user.image if user is defined else profile.avatar_url) or '' %}
-                {% set show_img = current_img.replace('../static','/static').replace('./static','/static') if current_img else '' %}
+            <div id="avatarBox" class="avatar-wrap">
+              {% set raw_name = (user.name if user is defined else profile.display_name) or 'User' %}
+              {% set initial = raw_name[0]|upper %}
+              {% set current_img = (user.image if user is defined else profile.avatar_url) or '' %}
+              {% set show_img = current_img.replace('../static','/static').replace('./static','/static') if current_img else '' %}
 
-                {% if show_img %}
-                  <img id="avatarPreview" src="{{ show_img }}" alt="Profile picture">
-                {% else %}
-                  <div id="avatarPreview" class="avatar-initial" aria-label="Avatar">{{ initial }}</div>
-                {% endif %}
-              </div>
+              {% if show_img %}
+                <img id="avatarPreview" class="avatar-pic" src="{{ show_img }}" alt="Profile picture">
+              {% else %}
+                <div id="avatarPreview" class="avatar-initial" aria-label="Avatar">{{ initial }}</div>
+              {% endif %}
 
+              {% if is_author %}
+                <img class="author-badge" src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}" alt="Author verified">
+              {% endif %}
+            </div>
 
             <!-- Name (editable) -->
             <label for="name">Name</label>
@@ -92,6 +114,18 @@
           <div class="form-buttons">
             <button type="button" class="btn btn-light" id="btnCancel">Cancel</button>
             <button type="submit" class="btn btn-primary">Save changes</button>
+
+            {# Role-aware extra action #}
+            {% set myrole = (user.usertype if user is defined else profile.usertype) %}
+            {% if myrole in ['Author','Subscriber'] %}
+              <button
+                type="button"
+                id="roleActionBtn"
+                class="btn {{ 'btn-warning' if myrole=='Author' else 'btn-danger' }}"
+                data-role="{{ myrole }}">
+                {{ 'Change role to Subscriber' if myrole=='Author' else 'Delete Subscription' }}
+              </button>
+            {% endif %}
           </div>
         </form>
 
@@ -111,6 +145,18 @@
       <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </main>
+
+  <!-- Role/Subscription Confirmation Modal -->
+  <div id="roleModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h2 id="roleModalTitle">Are you sure?</h2>
+      <p id="roleModalMsg" style="margin-bottom:16px"></p>
+      <div class="buttons">
+        <button type="button" class="btn btn-light" id="roleCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="roleConfirm">Proceed</button>
+      </div>
+    </div>
+  </div>
 
       <!-- Logout Confirmation Modal -->
   <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
@@ -345,6 +391,68 @@
     if (y) y.textContent = new Date().getFullYear();
   })();
 </script>
+
+<script>
+(function(){
+  const btn = document.getElementById('roleActionBtn');
+  const modal = document.getElementById('roleModal');
+  if (!btn || !modal) return;
+
+  const modalTitle = document.getElementById('roleModalTitle');
+  const modalMsg   = document.getElementById('roleModalMsg');
+  const cancelBtn  = document.getElementById('roleCancel');
+  const okBtn      = document.getElementById('roleConfirm');
+
+  const toast = document.getElementById('profileToast');
+  const showToast = (m) => { if(!toast) return; toast.textContent=m; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 1600); };
+
+  let endpoint = null;
+  let successRedirect = null;
+  let successMsg = null;
+
+  btn.addEventListener('click', () => {
+    const role = btn.dataset.role;
+    if (role === 'Author') {
+      modalTitle.textContent = 'Change role to Subscriber?';
+      modalMsg.textContent   = 'To proceed with the role change, click Proceed. You can cancel to go back.';
+      endpoint = "{{ url_for('api_downgrade_author') }}";
+      successMsg = 'Your account role has been downgraded to Subscriber.';
+      successRedirect = "{{ url_for('subscriberHomepage') }}";
+    } else {
+      modalTitle.textContent = 'Delete Subscription?';
+      modalMsg.textContent   = 'To proceed cancelling your subscription, click Proceed. This will remove your account.';
+      endpoint = "{{ url_for('api_cancel_subscription') }}";
+      successMsg = 'Your subscription has been cancelled.';
+      successRedirect = "{{ url_for('index') }}";
+    }
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden','false');
+  });
+
+  const closeModal = () => { modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); };
+  cancelBtn?.addEventListener('click', closeModal);
+  modal.addEventListener('click', (e)=>{ if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape' && modal.classList.contains('show')) closeModal(); });
+
+  okBtn?.addEventListener('click', async () => {
+    if (!endpoint) return;
+    okBtn.disabled = true;
+    try{
+      const res  = await fetch(endpoint, { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'} });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok || !data.ok) throw new Error(data.message || 'Action failed');
+      showToast(successMsg);
+      setTimeout(()=>{ window.location.href = data.redirect || successRedirect || "/"; }, 1000);
+    }catch(err){
+      showToast(err.message || 'Error');
+    }finally{
+      okBtn.disabled = false;
+      closeModal();
+    }
+  });
+})();
+</script>
+
 
 </body>
 </html>

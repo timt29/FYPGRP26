@@ -94,6 +94,24 @@ header.topbar .menu-panel a{
 }
 header.topbar .menu-panel a:last-child{ border-bottom:0; }
 
+.topbar .welcome {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;                  
+  font-weight: 500;
+}
+
+.topbar .welcome .badge-author {
+  height: 40px;             
+  width: 40px;
+  vertical-align: middle;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* keep a little space before the burger */
+.topbar .burger { margin-left: 10px; }
+
 /* ===== Tabs ===== */
 .tabs {
   width: 100%;
@@ -2038,14 +2056,38 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
   display: block;
 }
 
-.avatar-initial {
-  background: #e8eef5;
-  color: #2a4365;
+.avatar-wrap{
+  --avatar-size: 96px;                 /* tweak size here */
+  position: relative;
+  display: inline-block;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+}
+
+.avatar-pic,
+.avatar-initial{
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #eef3ff;
+  display: grid;
+  place-items: center;
   font-weight: 700;
-  font-size: 36px;
-  line-height: 96px;
-  text-align: center;
-  user-select: none;
+  font-size: calc(var(--avatar-size) * 0.38);
+  color: #2a3a66;
+}
+
+.author-badge{
+  position: absolute;
+  right: -4px;               /* nudge as you like */
+  bottom: -4px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #fff;          /* white halo */
+  padding: 3px;              /* inner padding around the icon */
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
 }
 
 /* Success overlay for profile update */

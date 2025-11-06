@@ -1641,6 +1641,69 @@ def profile_update():
 
     return redirect(url_for("profile", updated=1, next=next_url))
 
+from flask import jsonify
+
+# only Authors can downgrade to Subscriber
+@app.post("/api/profile/downgrade-author")
+@login_required("Author")  
+def api_downgrade_author():
+    uid   = session["userid"]
+    role  = session.get("usertype") or session.get("role") or "Author"
+
+    if role != "Author":
+        return jsonify(ok=False, message="Only Author accounts can downgrade."), 403
+
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE users
+               SET previous_usertype = usertype,
+                   usertype = 'Subscriber'
+             WHERE userid = %s
+             LIMIT 1
+        """, (uid,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify(ok=False, message=str(e)), 500
+    finally:
+        cur.close(); conn.close()
+
+    session["usertype"] = "Subscriber"
+    session["role"] = "Subscriber"
+
+    return jsonify(ok=True,
+                   message="Role downgraded to Subscriber.",
+                   redirect=url_for("subscriberHomepage"))
+
+# only Subscribers can cancel sunscription
+@app.post("/api/profile/cancel-subscription")
+@login_required("Subscriber")  
+def api_cancel_subscription():
+    uid  = session["userid"]
+    role = session.get("usertype") or session.get("role") or "Subscriber"
+
+    if role != "Subscriber":
+        return jsonify(ok=False, message="Only Subscriber accounts can be cancelled here."), 403
+
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM users WHERE userid=%s LIMIT 1", (uid,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify(ok=False, message=str(e)), 500
+    finally:
+        cur.close(); conn.close()
+
+    session.clear()
+
+    return jsonify(ok=True,
+                   message="Subscription cancelled.",
+                   redirect=url_for("index"))
+
 @app.route("/subscriber/profile/<int:user_id>")
 @login_required("Author", "Subscriber")
 def subscriber_profile_view(user_id):
