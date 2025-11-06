@@ -1173,6 +1173,33 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
 
 .profile-actions { margin: 6px 0 10px; }
 
+/* top-bar badge next to Welcome */
+.badge-author {
+  margin-left: 6px;
+  vertical-align: -3px;
+}
+
+/* avatar badge on profile card */
+.avatar-wrap {
+  position: relative;
+  display: inline-block;
+}
+.avatar {
+  width: 64px; height: 64px; border-radius: 50%;
+  object-fit: cover;
+}
+.avatar-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;             /* small white ring behind badge */
+  padding: 2px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08);
+}
+
 /* ===== Author tiles ===== */
 .cards-grid{
   display:grid;
@@ -1555,6 +1582,24 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
   line-height: 1.7;
   color: #222;
   word-wrap: break-word;
+}
+
+.author-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;                 
+  flex-wrap: wrap;
+}
+
+.author-name-text {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.author-verified-badge {
+  display: inline-block;
+  vertical-align: middle;
+  transform: translateY(1px);
 }
 
 /* Pin button */

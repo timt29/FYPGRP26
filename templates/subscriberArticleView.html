@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>{{ article.title }} — EchoPress</title>
+  <title>{{ article.title }} - EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/EchoPressLogo.png') }}" type="image/png" />
 
@@ -13,22 +13,32 @@
 </head>
 <body>
 
-  <!-- Top Bar -->
+  <!-- Top Bar  -->
   <header class="topbar">
     <div class="left">
       <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
-        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" height="28">
       </button>
-
-      <!-- In-page subscriber search -->
-      <form id="subSearchForm" class="search" action="#" method="get" role="search">
-        <input id="subSearchQ" type="text" name="q" placeholder="Search article keywords" aria-label="Search" />
-        <button type="submit" aria-label="Search">Search</button>
-      </form>
     </div>
-
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      {% set role =
+          (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
+      {% set is_author = (role == 'author') %}
+
+      <span class="welcome">
+        Welcome, {{ session.get('user','Subscriber') }}
+        {% if is_author %}
+          <img
+            class="badge-author"
+            src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+            alt="Author verified"
+            width="18" height="18"
+            decoding="async" loading="eager"
+            style="display:inline-block; vertical-align:middle;"
+          >
+        {% endif %}
+      </span>
+
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
@@ -152,11 +162,25 @@
 
             <div class="author-text">
               <div class="author-line">
-                <a class="author-link author-name" href="{{ profile_href }}">
-                  <span class="dot">•{{ article.author or 'EchoPress' }}</span>
-                </a>
-                {% if article.category %}<span class="dot">•</span><span class="author-tag">{{ article.category }}</span>{% endif %}
-              </div>
+              <a class="author-link author-name" href="{{ profile_href }}">
+                <span class="author-name-text">{{ article.author or 'EchoPress' }}</span>
+              </a>
+
+              {# Show the badge only if this article’s author role is Author #}
+              {% set author_is_author = (article.author_usertype|default('')|lower == 'author') %}
+              {% if author_is_author %}
+                <img
+                  class="author-verified-badge"
+                  src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+                  alt="Author verified"
+                  width="16" height="16"
+                  decoding="async" loading="eager">
+              {% endif %}
+
+              {% if article.category %}
+                <span class="dot">•</span><span class="author-tag">{{ article.category }}</span>
+              {% endif %}
+            </div>
 
               <div class="author-meta">
                 {% if article.published_at %}<span class="dot"> • Published On : {{ article.published_at | dmyhm }}</span>{% endif %}

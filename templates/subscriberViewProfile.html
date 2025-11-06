@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Profile — EchoPress</title>
+  <title>EchoPress - {{ user.name }}’s Profile</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/echopresslogo.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -18,7 +18,19 @@
       </button>
     </div>
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      {% set is_author = (session.get('usertype','')|lower == 'author') %}
+      <span class="welcome">
+        Welcome, {{ session.get('user','Subscriber') }}
+        {% if is_author %}
+          <img
+            class="badge-author"
+            src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+            alt="Author verified"
+            width="18" height="18" decoding="async" loading="eager">
+        {% endif %}
+        !
+      </span>
+
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
@@ -54,11 +66,20 @@
 
           <div class="profile-body">
             <div class="profile-hero">
-              <img
-                class="avatar"
-                src="{{ (user.image_url or user.image or '')|replace('../static','/static')|replace('./static','/static') }}"
-                alt="{{ user.name }}"
-                onerror="this.style.display='none'">
+              <div class="avatar-wrap">
+                <img
+                  class="avatar"
+                  src="{{ (user.image_url or user.image or '')|replace('../static','/static')|replace('./static','/static') }}"
+                  alt="{{ user.name }}"
+                  onerror="this.style.display='none'">
+
+                {% if user.usertype and user.usertype|lower == 'author' %}
+                  <img class="avatar-badge"
+                      src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+                      alt="Author verified">
+                {% endif %}
+              </div>
+
               <div class="who">
                 <div class="who-name">{{ user.name }}</div>
                 <div class="who-role">{{ user.usertype }}</div>

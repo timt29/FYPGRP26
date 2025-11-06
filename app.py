@@ -826,35 +826,31 @@ def subscriber_article_view(article_id):
 
     cur.execute("""
         SELECT
-            a.articleid,
-            a.title,
-            a.content,
-            a.author,
-            a.published_at,
-            a.updated_at,
-            CASE
+        a.articleid, a.title, a.content, a.author,
+        a.published_at, a.updated_at,
+        CASE
             WHEN a.image IS NULL OR a.image = '' THEN NULL
             WHEN a.image LIKE 'http%%' THEN a.image
             WHEN a.image LIKE '/static/%%' THEN a.image
             WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image, '../static', '/static')
             ELSE CONCAT('/static/img/', a.image)
-            END AS image,
-            c.name AS category,
-
-            u.userid        AS author_userid,
-            CASE
+        END AS image,
+        c.name AS category,
+        u.userid        AS author_userid,
+        u.usertype      AS author_usertype,   -- ← add this
+        CASE
             WHEN u.image IS NULL OR u.image = '' THEN NULL
             WHEN u.image LIKE 'http%%' THEN u.image
             WHEN u.image LIKE '/static/%%' THEN u.image
             WHEN u.image LIKE '../static/%%' THEN REPLACE(u.image, '../static', '/static')
             ELSE CONCAT('/static/img/', u.image)
-            END AS author_image
+        END AS author_image
         FROM articles a
         LEFT JOIN categories c ON a.catid = c.categoryid
-        LEFT JOIN users u      ON u.name = a.author    -- adjust if your join key differs
+        LEFT JOIN users u      ON u.name = a.author
         WHERE a.articleid = %s
         AND (a.draft IS NULL OR a.draft = 0)
-        LIMIT 1
+        LIMIT 1;
     """, (article_id,))
 
     article = cur.fetchone()
@@ -1261,6 +1257,7 @@ def subscriber_api_comments():
             c.reply_to_comment_id,
             u.name  AS author,
             u.image AS author_image,
+            u.usertype      AS author_usertype,
             (c.userid = %s) AS mine
         FROM comments c
         JOIN users u ON u.userid = c.userid
@@ -1299,6 +1296,7 @@ def subscriber_api_comments():
             "is_reply": bool(r.get("is_reply")),
             "parent_id": r.get("reply_to_comment_id"),
             "author_id": r["userid"],
+            "author_usertype": (r.get("author_usertype") or "")
         })
     return jsonify(out)
 
