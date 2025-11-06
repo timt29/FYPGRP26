@@ -349,34 +349,53 @@ def subscriberHomepage():
 @app.route("/api/articles")
 @login_required("Author", "Subscriber")
 def api_articles():
-    cat = request.args.get("cat") 
-    q     = (request.args.get("q") or "").strip()
-    limit = int(request.args.get("limit", 10))
+    cat    = request.args.get("cat")
+    q      = (request.args.get("q") or "").strip()
+    limit  = int(request.args.get("limit", 10))
     offset = int(request.args.get("offset", 0))
 
     conn = get_db_connection()
-    cur = conn.cursor(dictionary=True)
+    cur  = conn.cursor(dictionary=True)
 
     params = []
-    where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
+    where  = ["a.draft = FALSE", "a.visible = 1"]   # only published & visible
 
-    join   = "LEFT JOIN categories c ON a.catid = c.categoryid"
+    # category filter
+    join_cat = "LEFT JOIN categories c ON a.catid = c.categoryid"
     if cat:
         where.append("c.name = %s")
         params.append(cat)
 
+    # search filter
     if q:
         where.append("(a.title LIKE %s OR a.content LIKE %s)")
         like = f"%{q}%"
         params.extend([like, like])
 
     sql = f"""
-        SELECT a.articleid, a.title, a.content, a.author,
-               a.published_at, a.updated_at, a.image, c.name AS category
+        SELECT
+          a.articleid, a.title, a.content, a.author,
+          a.published_at, a.updated_at, a.image,
+          c.name AS category,
+          (
+            EXISTS (
+              SELECT 1
+              FROM users u
+              WHERE TRIM(LOWER(u.name)) = TRIM(LOWER(a.author))
+                AND TRIM(LOWER(u.usertype)) = 'author'
+            )
+          ) AS is_author_bool
         FROM articles a
-        {join}
+        {join_cat}
         WHERE {" AND ".join(where)}
-        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+        ORDER BY
+          CASE WHEN (EXISTS (
+            SELECT 1 FROM users u
+            WHERE TRIM(LOWER(u.name)) = TRIM(LOWER(a.author))
+              AND TRIM(LOWER(u.usertype)) = 'author'
+          )) THEN 0 ELSE 1 END,
+          COALESCE(a.published_at, a.updated_at) DESC,
+          a.articleid DESC
         LIMIT %s OFFSET %s
     """
     params.extend([limit, offset])
@@ -773,47 +792,51 @@ def api_ai_suggest():
 @app.route("/subscriber/api/articles", endpoint="subscriber_search_api")
 @login_required("Author", "Subscriber")
 def subscriber_search_api():
-
-    cat   = request.args.get("cat")
-    q     = (request.args.get("q") or "").strip()
-    limit = int(request.args.get("limit", 10))
-    offset= int(request.args.get("offset", 0))
+    cat    = request.args.get("cat")               # category name or ""
+    q      = (request.args.get("q") or "").strip()
+    limit  = int(request.args.get("limit", 30))
+    offset = int(request.args.get("offset", 0))
 
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
-    params = []
+    where   = ["a.draft = FALSE", "a.visible = 1"]     # published & visible only
+    params  = []
+    joincat = "LEFT JOIN categories c ON a.catid = c.categoryid"
 
     if cat:
         where.append("c.name = %s")
         params.append(cat)
 
     if q:
-        like = f"%{q}%"
         where.append("(a.title LIKE %s OR a.content LIKE %s)")
+        like = f"%{q}%"
         params.extend([like, like])
 
+    # Author-first showing in homepage 
     sql = f"""
-        SELECT a.articleid, a.title, a.content, a.author,
-               a.published_at, a.updated_at, a.image, c.name AS category
-        FROM articles a
-        LEFT JOIN categories c ON a.catid = c.categoryid
-        WHERE {' AND '.join(where)}
-        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
-        LIMIT %s OFFSET %s
+      SELECT
+        a.articleid, a.title, a.content, a.author,
+        a.published_at, a.updated_at, a.image,
+        c.name AS category
+      FROM articles a
+      {joincat}
+      WHERE {" AND ".join(where)}
+      ORDER BY
+        CASE WHEN (EXISTS (
+          SELECT 1 FROM users u
+          WHERE TRIM(LOWER(u.name)) = TRIM(LOWER(a.author))
+            AND TRIM(LOWER(u.usertype)) = 'author'
+        )) THEN 0 ELSE 1 END,
+        COALESCE(a.published_at, a.updated_at) DESC,
+        a.articleid DESC
+      LIMIT %s OFFSET %s
     """
     params.extend([limit, offset])
+
     cur.execute(sql, tuple(params))
     rows = cur.fetchall()
-    
-    for r in rows:
-        html = r.get("content") or ""
-        r["content_html"]  = html
-        r["content_plain"] = re.sub(r"<[^>]+>", "", html)
-
-    cur.close()
-    conn.close()
+    cur.close(); conn.close()
     return jsonify(rows)
 
 # (MW)
@@ -954,7 +977,6 @@ def subscriber_toggle_pin():
 def subscriber_my_articles():
     return render_template("subscriberMyArticles.html")
 
-
 def _norm_image_path(p):
     if not p:
         return None
@@ -964,10 +986,9 @@ def _norm_image_path(p):
     if p.startswith("/static/"):
         return p
     if p.startswith("./static/"):
-        return p[1:]  # drop leading dot
+        return p[1:]  
     if p.startswith(("uploads/", "img/")):
-        return "/static/" + p                 # → /static/uploads/... or /static/img/...
-    # filename only → assume it's in uploads/
+        return "/static/" + p              
     return "/static/uploads/" + p
 
 # --- My Articles: JSON API ---
@@ -981,8 +1002,6 @@ def subscriber_api_my_articles():
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    # Normalize image to a browser-usable absolute path.
-    # Handles http(s), /static, ./static, ../static, bare 'static/...', 'img/...', 'uploads/...'
     base_select = r"""
         SELECT a.articleid, a.title, a.content, a.draft,
                a.status,
