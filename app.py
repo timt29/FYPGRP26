@@ -2014,7 +2014,9 @@ def subscriber_analytics_my_articles():
             a.published_at,
             COALESCE(a.views, 0)          AS views,
             COALESCE(bm.bookmarks, 0)     AS bookmarks,
-            COALESCE(cc.comment_count, 0) AS comment_count
+            COALESCE(cc.comment_count, 0) AS comment_count,
+            COALESCE(a.likes, 0)          AS likes,
+            COALESCE(a.dislikes, 0)       AS dislikes
         FROM articles a
         LEFT JOIN (
             SELECT articleid, COUNT(*) AS bookmarks
@@ -2038,22 +2040,12 @@ def subscriber_analytics_my_articles():
     for r in rows:
         dt = r.get("published_at")
         if hasattr(dt, "strftime"):
-            r["published_at"] = (
-                                    f'{dt.strftime("%a")}, '              
-                                    f'{dt.strftime("%d-%m-%Y %I:%M")} '   
-                                    f'{dt.strftime("%p").lower()}'        
-                                )
+            r["published_at"] = f'{dt.strftime("%a")}, {dt.strftime("%d-%m-%Y %I:%M")} {dt.strftime("%p").lower()}'
         elif isinstance(dt, str) and dt:
-            for fmt in ("%Y-%m-%d %H:%M:%S",
-                        "%Y-%m-%dT%H:%M:%S",
-                        "%a, %d %b %Y %H:%M:%S %Z"):
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%a, %d %b %Y %H:%M:%S %Z"):
                 try:
                     d = datetime.strptime(dt, fmt)
-                    r["published_at"] = (
-                                            f'{dt.strftime("%a")}, '              
-                                            f'{dt.strftime("%d-%m-%Y %I:%M")} '   
-                                            f'{dt.strftime("%p").lower()}'        
-                                        )
+                    r["published_at"] = f'{d.strftime("%a")}, {d.strftime("%d-%m-%Y %I:%M")} {d.strftime("%p").lower()}'
                     break
                 except ValueError:
                     pass
@@ -2061,7 +2053,6 @@ def subscriber_analytics_my_articles():
 
     cur.close()
     conn.close()
-
     return jsonify(rows)
 
 def _row_donation(idx, row):
@@ -2176,6 +2167,17 @@ def subscriber_analytics_overview():
         except Exception:
             likes_by_me, dislikes_by_me = 0, 0
 
+        cur.execute("""
+            SELECT
+              COALESCE(SUM(likes), 0)    AS my_article_likes,
+              COALESCE(SUM(dislikes), 0) AS my_article_dislikes
+            FROM articles
+            WHERE author = %s AND draft = 0 AND visible = 1
+        """, (author_name,))
+        r = cur.fetchone() or [0, 0]
+        my_article_likes    = int(r[0] or 0)
+        my_article_dislikes = int(r[1] or 0)
+
         cur.execute("SELECT COALESCE(SUM(donation_amount),0) FROM donations WHERE userid=%s", (user_id,))
         contributed_amount = float((cur.fetchone() or [0])[0] or 0.0)
 
@@ -2185,11 +2187,12 @@ def subscriber_analytics_overview():
 
     return jsonify({
         "total_views": total_views,
-        "total_shares": 0,  
         "total_bookmarks": total_bookmarks,
         "comment_likes": likes_by_me,
         "comment_dislikes": dislikes_by_me,
         "contributed_amount": contributed_amount,
+        "my_article_likes": my_article_likes,
+        "my_article_dislikes": my_article_dislikes,
     })
 
 
