@@ -1079,6 +1079,113 @@ const rows = raw.map(r => ({
     })();
   </script>
 
+  <script>
+  (function(){
+    // --- Small helpers ---
+    const clampChars = (s, max=160) => {
+      s = (s||"").trim().replace(/\s+/g," ");
+      if (s.length <= max) return s;
+      const cut = s.slice(0, max);
+      const i = cut.lastIndexOf(" ");
+      return (i > 80 ? cut.slice(0, i) : cut).trim() + "…";
+    };
+
+    // Split article text into candidate sentences
+    function splitSentences(text){
+      const clean = String(text||"").replace(/\s+/g," ").trim();
+      if (!clean) return [];
+      return clean.split(/(?<=[.!?。！？])\s+/).map(s => s.trim()).filter(Boolean);
+    }
+
+    // Score sentences: prefer those with numbers/percentages/dates and named words
+    function scoreSentence(s){
+      let score = 0;
+      if (/\d/.test(s)) score += 3;                
+      if (/%/.test(s)) score += 2;
+      if (/\b(s$|ing\b|ed\b)/i.test(s)) score += 1;  
+      if (/\b(launch|policy|trial|deal|merger|funding|ban|fine|record|growth|drop|rise|court|minister|parliament|update|deadline)\b/i.test(s)) score += 2;
+      const caps = (s.match(/\b[A-Z][a-z]{2,}\b/g)||[]).length;
+      score += Math.min(caps, 3);
+      const len = s.length; if (len >= 50 && len <= 240) score += 1;
+      return score;
+    }
+
+    // Generate bullets from article text (3–5 points)
+    function generateKeyPointsFrom(text, maxPoints=5){
+      const sents = splitSentences(text);
+      if (!sents.length) return [];
+      const ranked = sents.map(s => ({ s, score: scoreSentence(s) }))
+                          .sort((a,b)=>b.score-a.score);
+      const seen = new Set(), picks = [];
+      for (const r of ranked){
+        const key = r.s.toLowerCase().replace(/[^a-z0-9 ]/g,"").split(" ").slice(0,6).join(" ");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        picks.push(clampChars(r.s, 160));
+        if (picks.length >= maxPoints) break;
+      }
+      if (picks.length < 3){
+        for (const r of sents){
+          picks.push(clampChars(r, 160));
+          if (picks.length >= Math.min(3,maxPoints)) break;
+        }
+      }
+      return picks;
+    }
+
+    // Clamp an existing summary list down to maxPoints / maxChars
+    function clampExistingSummary(ul, maxPoints=5, maxChars=160){
+      if (!ul) return;
+      const items = Array.from(ul.querySelectorAll("li"));
+      if (!items.length) return;
+      items.forEach(li => li.textContent = clampChars(li.textContent, maxChars));
+      items.slice(maxPoints).forEach(li => li.remove());
+    }
+
+    // Ensure there is a short bullet summary
+    function ensureShortSummary(){
+      const ul = document.getElementById("summaryList");
+      const box = document.querySelector(".summary-box");
+
+      if (ul && ul.children.length){
+        clampExistingSummary(ul, 5, 160);
+        return;
+      }
+
+      // Build a new summary box if missing/empty
+      const articleText = (document.querySelector(".article-content")?.innerText || "").trim();
+      const points = generateKeyPointsFrom(articleText, 5);
+      if (!points.length) return;
+
+      const container = box || document.createElement("div");
+      container.className = "summary-box";
+      container.innerHTML = `<h3>Summary</h3><ul id="summaryList"></ul>`;
+      const list = container.querySelector("#summaryList");
+      points.forEach(p => {
+        const li = document.createElement("li");
+        li.textContent = p;
+        list.appendChild(li);
+      });
+
+      if (!box){
+        const header = document.querySelector(".article-header");
+        (header && header.parentNode) ? header.parentNode.insertBefore(container, header.nextSibling)
+                                      : document.querySelector(".article-view").prepend(container);
+      }
+    }
+
+    // Run once when page loads
+    window.addEventListener("DOMContentLoaded", ensureShortSummary);
+
+    // Expose a hook so your translator can re-clamp after updating text
+    window._clampSummaryNow = function(){
+      const ul = document.getElementById("summaryList");
+      if (ul && ul.children.length) clampExistingSummary(ul, 5, 160);
+      else ensureShortSummary();
+    };
+  })();
+  </script>
+
   <!-- Translate helpers -->
   <script>
     let originalTitle = "", originalContent = "", originalSummary = [];
@@ -1096,7 +1203,9 @@ const rows = raw.map(r => ({
         const cEl = document.querySelector(".article-content"); if (cEl) cEl.innerText = originalContent;
         const items = document.querySelectorAll("#summaryList li");
         originalSummary.forEach((t, i) => { if (items[i]) items[i].innerText = t; });
-        window.currentTTSLang = 'en'; return;
+        window.currentTTSLang = 'en';
+        window._clampSummaryNow && window._clampSummaryNow();   // <<< add this
+        return;
       }
       try {
         const res = await fetch("/translate", {
@@ -1118,6 +1227,7 @@ const rows = raw.map(r => ({
         const items = document.querySelectorAll("#summaryList li");
         (data.summary || []).forEach((t, i) => { if (items[i]) items[i].innerText = t; });
         window.currentTTSLang = lang;
+        window._clampSummaryNow && window._clampSummaryNow();
       } catch (err) {
         console.error("Translation error:", err);
       }
