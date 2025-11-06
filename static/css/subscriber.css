@@ -1142,6 +1142,60 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
   resize: vertical;
 }
 
+/* Password modal fields */
+.overlay{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(2px);
+  display: none; align-items: center; justify-content: center;
+  z-index: 3000; padding: 20px;
+}
+.overlay.show{ display: flex; }
+
+.overlay .dialog{
+  width: 100%; max-width: 520px;
+  background: #fff; border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.25);
+  padding: 20px 20px 16px;
+}
+
+.overlay h3{
+  margin: 0 0 12px; font-size: 1.15rem;
+}
+
+.overlay .dialog.small{
+  max-width: 420px;
+}
+
+.overlay .field{ margin: 10px 0; }
+.overlay .field label{ display:block; font-size:.9rem; color:#555; margin-bottom:6px; }
+
+.overlay .pw{ position: relative; }
+.overlay .pw input{
+  width: 100%; padding: 10px 40px 10px 12px;
+  border:1px solid var(--line,#e3e3e3); border-radius:10px; outline: none;
+}
+.overlay .pw input:focus{ border-color:#2f68e4; box-shadow: 0 0 0 3px rgba(47,104,228,.12); }
+
+.overlay .pw .eye{
+  position:absolute; top:50%; right:6px; transform: translateY(-50%);
+  width: 32px; height: 32px; border:0; border-radius:8px;
+  background: none; cursor: pointer;
+}
+.overlay .pw .eye::before{
+  content: "👁️"; font-size: 18px; line-height: 32px; display:block; text-align:center;
+  filter: grayscale(30%);
+}
+.overlay .pw .eye.on::before{ content:"🙈"; }
+
+.overlay .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top: 12px; }
+.overlay .hint{ margin: 10px 0 0; font-size:.85rem; color:#777; }
+
+.pw input.is-invalid{ border-color:#d33; outline-color:#d33; }
+.hint{ display:block; margin-top:4px; font-size:.85rem; color:var(--muted); }
+.hint.err{ color:#d33; }
+
+
 /* ----- Profile view ----- */
 .profile-wrap { display:grid; place-items:center; padding:24px 12px; }
 .profile-card { width:min(950px, 100%); background:#fff; border-radius:16px; box-shadow:0 6px 20px rgba(0,0,0,.08); }
@@ -2225,7 +2279,7 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
 }
 
 /* Analytics layout */
-.page.analytics { display: block; }
+.page.analytics .analytics-table.card { width: 100%; }
 .analytics-cards {
   display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px,1fr));
   margin-bottom: 16px;
@@ -2241,6 +2295,8 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
 .table thead th { text-align: left; border-bottom: 1px solid var(--line); padding: 8px; }
 .table tbody td { padding: 8px; border-bottom: 1px solid var(--line); }
 .input { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.page.analytics { max-width: 1200px; margin: 0 auto; padding: 12px; }
+
 
 /* === Donation page === */
 

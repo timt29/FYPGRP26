@@ -114,6 +114,8 @@
           <div class="form-buttons">
             <button type="button" class="btn btn-light" id="btnCancel">Cancel</button>
             <button type="submit" class="btn btn-primary">Save changes</button>
+            <button type="button" class="btn btn-warning" id="btnChangePw">Change password</button>
+
 
             {# Role-aware extra action #}
             {% set myrole = (user.usertype if user is defined else profile.usertype) %}
@@ -128,6 +130,61 @@
             {% endif %}
           </div>
         </form>
+
+         <!-- Change Password CONFIRM modal -->
+            <div id="pwdConfirm" class="overlay" aria-hidden="true" role="dialog" aria-modal="true">
+              <div class="dialog small" role="document" aria-labelledby="pwdConfirmTitle">
+                <h3 id="pwdConfirmTitle">Change password?</h3>
+                <p style="margin:6px 0 14px">
+                  Are you sure you want to change your password?
+                </p>
+                <div class="actions">
+                  <button type="button" class="btn btn-light" id="pwdNo">Cancel</button>
+                  <button type="button" class="btn btn-primary" id="pwdYes">Yes, continue</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Confirm dialog -->
+            <div id="pwdModal" class="overlay" aria-hidden="true" role="dialog" aria-modal="true">
+              <div class="dialog" role="document" aria-labelledby="pwdTitle">
+                <h3 id="pwdTitle">Update password</h3>
+                <form id="pwdForm" autocomplete="off">
+                  <div class="field">
+                    <label>Current password</label>
+                    <small id="pwServerMsg" class="hint" aria-live="polite"></small>
+                    <div class="pw">
+                      <input id="pwOld" type="password" required />
+                      <button type="button" class="eye" aria-label="Show password"></button>
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label>New password</label>
+                    <div class="pw">
+                      <input id="pwNew" type="password" required minlength="4" />
+                      <button type="button" class="eye" aria-label="Show password"></button>
+                    </div>
+                  </div>
+
+                  <div class="field">
+                    <label>Confirm new password</label>
+                    <small id="pwMatchMsg" class="hint" aria-live="polite"></small>
+                    <div class="pw">
+                      <input id="pwConfirm" type="password" required minlength="4" />
+                      <button type="button" class="eye" aria-label="Show password"></button>
+                    </div>
+                  </div>
+
+                  <div class="actions">
+                    <button type="button" class="btn btn-light" id="pwCancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="pwSubmit">Submit</button>
+                  </div>
+
+                  <p class="hint">Tip: choose something different from your current password.</p>
+                </form>
+              </div>
+            </div>
 
         <div id="profileToast" class="toast" role="status" aria-live="polite"></div>
 
@@ -453,6 +510,124 @@
 })();
 </script>
 
+<script>
+(function(){
+  const openBtn  = document.getElementById('btnChangePw');
+  const cfmModal = document.getElementById('pwdConfirm');
+  const cfmYes   = document.getElementById('pwdYes');
+  const cfmNo    = document.getElementById('pwdNo');
+
+  const modal    = document.getElementById('pwdModal');
+  const form     = document.getElementById('pwdForm');
+  const oldEl    = document.getElementById('pwOld');
+  const newEl    = document.getElementById('pwNew');
+  const cfmEl    = document.getElementById('pwConfirm');
+  const msg      = document.getElementById('pwMatchMsg');
+  const submit   = document.getElementById('pwSubmit');
+  const toast    = document.getElementById('profileToast');
+
+  const API      = "{{ url_for('api_change_password') }}";
+  const show     = el => { el?.classList.add('show'); el?.setAttribute('aria-hidden','false'); };
+  const hide     = el => { el?.classList.remove('show'); el?.setAttribute('aria-hidden','true'); };
+  const showToast= (m, ms=1600) => { if(!toast) return; toast.textContent=m; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), ms); };
+
+  // Open confirm 
+  openBtn?.addEventListener('click', ()=> show(cfmModal));
+  cfmNo?.addEventListener('click', ()=> hide(cfmModal));
+  cfmModal?.addEventListener('click', e => { if (e.target === cfmModal) hide(cfmModal); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && cfmModal.classList.contains('show')) hide(cfmModal); });
+
+  // Confirm 
+  cfmYes?.addEventListener('click', () => {
+    hide(cfmModal);
+    [oldEl,newEl,cfmEl].forEach(i => i.value = '');
+    msg.textContent = '';
+    msg.classList.remove('err');
+    submit.disabled = true;
+    show(modal);
+    setTimeout(()=> oldEl?.focus(), 0);
+  });
+
+  // Close password modal
+  document.getElementById('pwCancel')?.addEventListener('click', ()=> hide(modal));
+  modal?.addEventListener('click', e => { if (e.target === modal) hide(modal); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('show')) hide(modal); });
+
+  // Eye toggles
+  modal?.querySelectorAll('.pw .eye').forEach(btn => {
+    btn.addEventListener('click', ()=>{
+      const input = btn.parentElement.querySelector('input');
+      const isPw  = input.type === 'password';
+      input.type  = isPw ? 'text' : 'password';
+      btn.classList.toggle('on', !isPw);
+      input.focus();
+    });
+  });
+
+  function validatePwForm(){
+    const oldV = (oldEl.value||'').trim();
+    const nV   = (newEl.value||'').trim();
+    const cV   = (cfmEl.value||'').trim();
+
+    const allFilled   = !!oldV && !!nV && !!cV;
+    const lengthOK    = nV.length >= 4;
+    const differentOK = nV !== oldV;
+    const matchOK     = nV === cV && !!nV;
+
+    cfmEl.classList.toggle('is-invalid', !!cV && !matchOK);
+    newEl.classList.toggle('is-invalid', !!nV && !lengthOK);
+
+    if (!matchOK && (!!nV || !!cV)) {
+      msg.textContent = 'New password and confirmation do not match.';
+      msg.classList.add('err');
+    } else if (!!nV && !lengthOK) {
+      msg.textContent = 'Password must be at least 4 characters.';
+      msg.classList.add('err');
+    } else if (!!nV && !!oldV && !differentOK) {
+      msg.textContent = 'New password must be different from current password.';
+      msg.classList.add('err');
+    } else {
+      msg.textContent = '';
+      msg.classList.remove('err');
+    }
+
+    const canSubmit = allFilled && lengthOK && differentOK && matchOK;
+    submit.disabled = !canSubmit;
+    return canSubmit;
+  }
+
+  ['input','change','keyup','blur'].forEach(ev=>{
+    oldEl?.addEventListener(ev, validatePwForm);
+    newEl?.addEventListener(ev, validatePwForm);
+    cfmEl?.addEventListener(ev, validatePwForm);
+  });
+
+  // Single submit handler (no duplicates)
+  form?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    if (!validatePwForm()) return;
+
+    const payload = {
+      old: (oldEl.value||'').trim(),
+      new: (newEl.value||'').trim(),
+      confirm: (cfmEl.value||'').trim()
+    };
+
+    submit.disabled = true;
+    try{
+      const res  = await fetch(API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok || !data.ok) throw new Error(data.message || `HTTP ${res.status}`);
+      hide(modal);
+      showToast('Password updated.');
+    }catch(err){
+      showToast(err.message || 'Failed to update password.');
+    }finally{
+      submit.disabled = false;
+    }
+  });
+})();
+</script>
 
 </body>
 </html>

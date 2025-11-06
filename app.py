@@ -2424,6 +2424,46 @@ def forgot_password():
             return redirect(url_for("forgot_password"))
     return render_template("forgot_password.html")
 
+# ---------- Change Password ----------
+@app.post("/api/profile/change-password")
+@login_required("Author", "Subscriber", "Moderator", "Admin")
+def api_change_password():
+    uid = session.get("userid")
+    if not uid:
+        return jsonify(ok=False, message="Not signed in."), 401
+
+    data = request.get_json(silent=True) or {}
+    old = (data.get("old") or "").strip()
+    new = (data.get("new") or "").strip()
+    confirm = (data.get("confirm") or "").strip()
+
+    # client-side should validate too, but keep server-side guardrails
+    if not old or not new or not confirm:
+        return jsonify(ok=False, message="All fields are required."), 400
+    if new != confirm:
+        return jsonify(ok=False, message="New passwords do not match."), 400
+    if new == old:
+        return jsonify(ok=False, message="New password must be different."), 400
+    if len(new) < 4:
+        return jsonify(ok=False, message="Password must be at least 4 characters."), 400
+
+    conn = get_db_connection()
+    cur  = conn.cursor()
+    # Atomic check+update. This only succeeds when the old password matches THIS user.
+    cur.execute(
+        "UPDATE users SET password=%s WHERE userid=%s AND password=%s",
+        (new, uid, old)
+    )
+    conn.commit()
+    changed = cur.rowcount
+    cur.close(); conn.close()
+
+    if changed != 1:
+        # No rows updated → old password was wrong
+        return jsonify(ok=False, message="Current password is incorrect."), 400
+
+    return jsonify(ok=True, message="Password updated.")
+
 # ---------- Admin views ----------
 @app.route("/viewAllUsers")
 @login_required("Admin")
