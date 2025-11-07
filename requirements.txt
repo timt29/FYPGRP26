@@ -10,3 +10,4 @@ python-docx
 transformers
 torch
 psycopg2-binary
+psutil>=5.0

@@ -1123,6 +1123,8 @@ def _norm_image_path(p):
     return "/static/uploads/" + p
 
 # --- My Articles: JSON API ---
+from psycopg2 import sql
+
 @app.route("/subscriber/api/my-articles")
 @login_required("Author", "Subscriber")
 def subscriber_api_my_articles():
@@ -1132,6 +1134,8 @@ def subscriber_api_my_articles():
 
     conn = get_db_connection()
     cur  = get_cursor(conn)
+    user = session.get("user")
+    rows = []
 
     base_select = r"""
         SELECT a.articleid, a.title, a.content, a.draft,
@@ -1153,52 +1157,53 @@ def subscriber_api_my_articles():
         LEFT JOIN categories c ON a.catid = c.categoryid
     """
 
-    rows = []
-    user = session.get("user")
+    # ---------------------------
+    # Build WHERE clauses safely
+    # ---------------------------
+    where_clauses = [sql.SQL("a.author = %s")]
+    params = [user]
 
-    if status in ("all", "published", "drafts", "pending"):
-        where  = ["a.author = %s"]
-        params = [user]
+    if status == "published":
+        where_clauses.append(sql.SQL("a.draft = 0"))
+        where_clauses.append(sql.SQL("a.status = %s"))
+        params.append("published")
 
-        if status == "published":
-            where += ["a.draft = 0", "a.status = %s"]
-            params.append("published")
+    elif status == "drafts":
+        where_clauses.append(sql.SQL("a.draft = 1"))
 
-        elif status == "drafts":
-            where += ["a.draft = 1"]
-
-        elif status == "pending":
-            status_values = ['pending_revision', 'pending_approval']
-            where += ["a.visible = 0"]
-            if status_values:
-                # Create a safe IN clause with correct number of %s
-                placeholders = ','.join(['%s']*len(status_values))
-                where += [f"a.status IN ({placeholders})"]
-                params.extend(status_values)
-
-        # Add limit and offset
-        sql = f"""{base_select}
-                  WHERE {" AND ".join(where)}
-                  ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
-                  LIMIT %s OFFSET %s"""
-        params.extend([limit, offset])
-
-        cur.execute(sql, tuple(params))
-        rows = cur.fetchall()
+    elif status == "pending":
+        status_values = ['pending_revision', 'pending_approval']
+        where_clauses.append(sql.SQL("a.visible = 0"))
+        if status_values:
+            placeholders = sql.SQL(',').join(sql.Placeholder() * len(status_values))
+            where_clauses.append(sql.SQL("a.status IN ({})").format(placeholders))
+            params.extend(status_values)
+        else:
+            # If no pending statuses, ensure query returns nothing
+            where_clauses.append(sql.SQL("FALSE"))
 
     elif status == "reported":
-        sql = f"""{base_select}
-                  WHERE a.author = %s
-                    AND a.visible = 0
-                    AND a.status = %s
-                  ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
-                  LIMIT %s OFFSET %s"""
-        cur.execute(sql, (user, "reported", limit, offset))
+        where_clauses.append(sql.SQL("a.visible = 0"))
+        where_clauses.append(sql.SQL("a.status = %s"))
+        params.append("reported")
+
+    # ---------------------------
+    # Only execute if status is known
+    # ---------------------------
+    if status in ("all", "published", "drafts", "pending", "reported"):
+        final_query = sql.SQL(base_select +
+                              " WHERE " +
+                              sql.SQL(" AND ").join(where_clauses).as_string(cur) +
+                              " ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC LIMIT %s OFFSET %s")
+
+        params.extend([limit, offset])
+        cur.execute(final_query, tuple(params))
         rows = cur.fetchall()
 
     cur.close()
     conn.close()
     return jsonify(rows)
+
 
 
 # View: load edit page 
