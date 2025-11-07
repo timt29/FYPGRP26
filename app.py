@@ -1103,84 +1103,67 @@ def _norm_image_path(p):
     return "/static/uploads/" + p
 
 # --- My Articles: JSON API ---
-from psycopg2 import sql
-
-@app.route("/subscriber/api/my-articles")
-@login_required("Author", "Subscriber")
+@app.route("/subscriber/api/my-articles", methods=["GET"])
+@login_required("Subscriber")
 def subscriber_api_my_articles():
-    status = (request.args.get("status") or "all").lower()
-    limit  = int(request.args.get("limit", 20))
+    import psycopg2
+    from psycopg2 import sql
+
+    user = session.get("user")
+    user_id = user["id"]
+
+    category = request.args.get("category")
+    status = request.args.get("status")
+    search = request.args.get("search")
+    limit = int(request.args.get("limit", 10))
     offset = int(request.args.get("offset", 0))
 
-    conn = get_db_connection()
-    cur  = get_cursor(conn)
-    user = session.get("user")
-    rows = []
-
-    base_select = r"""
-        SELECT a.articleid, a.title, a.content, a.draft,
-               a.status,
-               a.published_at, a.updated_at,
-               CASE
-                    WHEN a.image IS NULL OR a.image = '' THEN NULL
-                    WHEN a.image ~ '^(https?:)?//' THEN a.image
-                    WHEN a.image LIKE '/static/%' THEN a.image
-                    WHEN a.image LIKE './static/%' THEN REPLACE(a.image, './static', '/static')
-                    WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
-                    WHEN a.image LIKE 'static/%' THEN '/' || a.image
-                    WHEN a.image LIKE 'img/%' THEN '/static/' || a.image
-                    WHEN a.image LIKE 'uploads/%' THEN '/static/' || a.image
-                    ELSE '/static/img/' || a.image
-               END AS image,
-               c.name AS category
+    # --- BASE QUERY ---
+    base_query = sql.SQL("""
+        SELECT a.article_id, a.title, a.created_at, a.updated_at, a.status,
+               c.name AS category_name, u.username AS author_name
         FROM articles a
-        LEFT JOIN categories c ON a.catid = c.categoryid
-    """
+        JOIN categories c ON a.category_id = c.category_id
+        JOIN users u ON a.author_id = u.user_id
+        WHERE a.author_id = %s
+    """)
 
-    # ---------------------------
-    # Build WHERE clauses and params
-    # ---------------------------
-    where_clauses = ["a.author = %s"]
-    params = [user]
+    # --- PARAMS LIST ---
+    params = [user_id]
 
-    if status == "published":
-        where_clauses += ["a.draft = 0", "a.status = %s"]
-        params.append("published")
+    # --- DYNAMIC FILTERS ---
+    if category:
+        base_query += sql.SQL(" AND c.name = %s")
+        params.append(category)
 
-    elif status == "drafts":
-        where_clauses += ["a.draft = 1"]
+    if status:
+        base_query += sql.SQL(" AND a.status = %s")
+        params.append(status)
 
-    elif status == "pending":
-        status_values = ['pending_revision', 'pending_approval']
-        where_clauses += ["a.visible = 0"]
-        if status_values:
-            # Use Postgres ANY(%s) for safe array binding
-            where_clauses += ["a.status = ANY(%s)"]
-            params.append(status_values)
-        else:
-            # No statuses to check → return nothing
-            where_clauses += ["FALSE"]
+    if search:
+        base_query += sql.SQL(" AND a.title ILIKE %s")
+        params.append(f"%{search}%")
 
-    elif status == "reported":
-        where_clauses += ["a.visible = 0", "a.status = %s"]
-        params.append("reported")
+    # --- ORDER + PAGINATION ---
+    base_query += sql.SQL(" ORDER BY a.created_at DESC LIMIT %s OFFSET %s")
+    params.extend([limit, offset])
 
-    # ---------------------------
-    # Only execute for known status
-    # ---------------------------
-    if status in ("all", "published", "drafts", "pending", "reported"):
-        sql_query = f"""{base_select}
-                        WHERE {' AND '.join(where_clauses)}
-                        ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
-                        LIMIT %s OFFSET %s"""
-        params.extend([limit, offset])
+    # --- FINAL EXECUTION ---
+    cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        print("SQL:", base_query.as_string(cur))
+        print("PARAMS:", params)
 
-        cur.execute(sql_query, tuple(params))
+        cur.execute(base_query, tuple(params))
         rows = cur.fetchall()
+        cur.close()
 
-    cur.close()
-    conn.close()
-    return jsonify(rows)
+        return jsonify({"success": True, "articles": rows})
+    except Exception as e:
+        cur.close()
+        import traceback
+        print("ERROR:", traceback.format_exc())
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 
