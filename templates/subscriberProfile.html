@@ -115,6 +115,7 @@
             <button type="button" class="btn btn-light" id="btnCancel">Cancel</button>
             <button type="submit" class="btn btn-primary">Save changes</button>
             <button type="button" class="btn btn-warning" id="btnChangePw">Change password</button>
+            <button type="submit" class="author_upgrade">Upgrade to Author</button>
 
 
             {# Role-aware extra action #}
@@ -125,7 +126,7 @@
                 id="roleActionBtn"
                 class="btn {{ 'btn-warning' if myrole=='Author' else 'btn-danger' }}"
                 data-role="{{ myrole }}">
-                {{ 'Change role to Subscriber' if myrole=='Author' else 'Delete Subscription' }}
+                {{ 'Cancel author Subscription' if myrole=='Author' else 'Delete Account' }}
               </button>
             {% endif %}
           </div>
