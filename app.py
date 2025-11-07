@@ -160,7 +160,7 @@ def index():
 @app.route("/article/<int:article_id>")
 def article(article_id):
     conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = get_cursor(conn)
     cursor.execute("SELECT * FROM articles WHERE articleID = %s", (article_id,))
     article = cursor.fetchone()
     cursor.close()
@@ -302,7 +302,11 @@ def adminHomepage():
     cursor.execute("SELECT COUNT(*) AS total FROM users")
     total_users = cursor.fetchone()["total"]
 
-    cursor.execute("SELECT COUNT(*) AS new_today FROM users WHERE DATE(created_at) = CURDATE()")
+    cursor.execute("""
+    SELECT COUNT(*) AS new_today
+    FROM users
+    WHERE created_at::date = CURRENT_DATE
+""")
     new_users_today = cursor.fetchone()["new_today"]
 
     cursor.execute("SELECT COUNT(*) AS suspended FROM users WHERE usertype='Suspended'")
@@ -1020,7 +1024,7 @@ def subscriber_article_react():
         return jsonify(ok=False, message='Bad request'), 400
 
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur = get_cursor(conn)
     try:
         uid = session.get('userid')
         if uid is None:
@@ -1147,16 +1151,16 @@ def subscriber_api_my_articles():
                a.status,
                a.published_at, a.updated_at,
                CASE
-                 WHEN a.image IS NULL OR a.image = '' THEN NULL
-                 WHEN a.image REGEXP '^(https?:)?//' THEN a.image
-                 WHEN a.image LIKE '/static/%' THEN a.image
-                 WHEN a.image LIKE './static/%'  THEN REPLACE(a.image, './static',  '/static')
-                 WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
-                 WHEN a.image LIKE 'static/%'    THEN CONCAT('/', a.image)
-                 WHEN a.image LIKE 'img/%'       THEN CONCAT('/static/', a.image)
-                 WHEN a.image LIKE 'uploads/%'   THEN CONCAT('/static/', a.image)
-                 ELSE CONCAT('/static/img/', a.image)
-               END AS image,
+                WHEN a.image IS NULL OR a.image = '' THEN NULL
+                WHEN a.image ~ '^(https?:)?//' THEN a.image
+                WHEN a.image LIKE '/static/%' THEN a.image
+                WHEN a.image LIKE './static/%' THEN REPLACE(a.image, './static', '/static')
+                WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
+                WHEN a.image LIKE 'static/%' THEN '/' || a.image
+                WHEN a.image LIKE 'img/%' THEN '/static/' || a.image
+                WHEN a.image LIKE 'uploads/%' THEN '/static/' || a.image
+                ELSE '/static/img/' || a.image
+                END AS image,
                c.name AS category
         FROM articles a
         LEFT JOIN categories c ON a.catid = c.categoryid
@@ -1315,7 +1319,7 @@ def subscriber_update_article(article_id):
 @login_required("Author", "Subscriber")
 def subscriber_edit_reported_article(article_id):
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur = get_cursor(conn)
     cur.execute("""
         SELECT a.articleid, a.title, a.content, a.catid, a.image, a.draft,
                a.published_at, a.updated_at, a.status, a.visible
@@ -1928,7 +1932,7 @@ def subscriber_profile_view(user_id):
 @login_required("Author", "Subscriber")
 def api_profile_articles(user_id):
     conn = get_db_connection()
-    cur  = conn.cursor(dictionary=True)
+    cur = get_cursor(conn)
 
     cur.execute("SELECT name FROM users WHERE userid=%s", (user_id,))
     u = cur.fetchone()
@@ -1963,7 +1967,8 @@ def api_profile_articles(user_id):
 @app.get("/subscriber/author/<int:author_id>")
 @login_required("Author", "Subscriber")
 def subscriber_article_list_by_author(author_id):
-    conn = get_db_connection(); cur = conn.cursor(dictionary=True)
+    conn = get_db_connection(); 
+    cur = get_cursor(conn)
     cur.execute("SELECT userid, name, image, bio FROM users WHERE userid=%s", (author_id,))
     author = cur.fetchone()
 
@@ -2193,29 +2198,40 @@ def subscriber_analytics_overview():
     conn = get_db_connection()
     cur  = get_cursor(conn)
     try:
+        # Total views of user's articles
         cur.execute("""
-            SELECT COALESCE(SUM(views), 0)
+            SELECT COALESCE(SUM(views), 0) AS total_views
             FROM articles
             WHERE author = %s AND draft = 0 AND visible = 1
         """, (author_name,))
-        total_views = int((cur.fetchone() or [0])[0] or 0)
+        row = cur.fetchone()
+        total_views = int(row['total_views'] or 0) if row else 0
 
-        cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userid = %s", (user_id,))
-        total_bookmarks = int((cur.fetchone() or [0])[0] or 0)
+        # Total bookmarks
+        cur.execute("""
+            SELECT COUNT(*) AS total_bookmarks
+            FROM subscriber_pins
+            WHERE userid = %s
+        """, (user_id,))
+        row = cur.fetchone()
+        total_bookmarks = int(row['total_bookmarks'] or 0) if row else 0
 
+        # Likes and dislikes by me
         try:
             cur.execute("""
                 SELECT
-                  COALESCE(SUM(reaction='like'),0),
-                  COALESCE(SUM(reaction='dislike'),0)
+                  COALESCE(SUM(CASE WHEN reaction='like' THEN 1 ELSE 0 END),0) AS likes_by_me,
+                  COALESCE(SUM(CASE WHEN reaction='dislike' THEN 1 ELSE 0 END),0) AS dislikes_by_me
                 FROM comment_reactions
                 WHERE userid = %s
             """, (user_id,))
-            row = cur.fetchone() or [0, 0]
-            likes_by_me, dislikes_by_me = int(row[0] or 0), int(row[1] or 0)
+            row = cur.fetchone()
+            likes_by_me    = int(row['likes_by_me'] or 0) if row else 0
+            dislikes_by_me = int(row['dislikes_by_me'] or 0) if row else 0
         except Exception:
             likes_by_me, dislikes_by_me = 0, 0
 
+        # Likes and dislikes on my articles
         cur.execute("""
             SELECT
               COALESCE(SUM(likes), 0)    AS my_article_likes,
@@ -2223,12 +2239,18 @@ def subscriber_analytics_overview():
             FROM articles
             WHERE author = %s AND draft = 0 AND visible = 1
         """, (author_name,))
-        r = cur.fetchone() or [0, 0]
-        my_article_likes    = int(r[0] or 0)
-        my_article_dislikes = int(r[1] or 0)
+        row = cur.fetchone()
+        my_article_likes    = int(row['my_article_likes'] or 0) if row else 0
+        my_article_dislikes = int(row['my_article_dislikes'] or 0) if row else 0
 
-        cur.execute("SELECT COALESCE(SUM(donation_amount),0) FROM donations WHERE userid=%s", (user_id,))
-        contributed_amount = float((cur.fetchone() or [0])[0] or 0.0)
+        # Contributed amount
+        cur.execute("""
+            SELECT COALESCE(SUM(donation_amount),0) AS contributed_amount
+            FROM donations
+            WHERE userid = %s
+        """, (user_id,))
+        row = cur.fetchone()
+        contributed_amount = float(row['contributed_amount'] or 0.0) if row else 0.0
 
     finally:
         cur.close()
@@ -2243,6 +2265,7 @@ def subscriber_analytics_overview():
         "my_article_likes": my_article_likes,
         "my_article_dislikes": my_article_dislikes,
     })
+
 
 
 # (MW)
