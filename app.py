@@ -2014,7 +2014,7 @@ def api_random_ad():
         SELECT adsid, adstitle, adsdescription, adsimage, adswebsite
         FROM advertisement
         WHERE visible = 1
-        ORDER BY RAND()
+        ORDER BY RANDOM()
         LIMIT 1
     """)
     row = cur.fetchone()
