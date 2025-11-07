@@ -2386,7 +2386,7 @@ def login():
                 # ✅ Mark user as logged in and update last active time
                 cursor.execute("""
                     UPDATE users
-                    SET is_logged_in = TRUE, last_active = NOW()
+                    SET is_logged_in = 1, last_active = NOW()
                     WHERE userid = %s
                 """, (user["userid"],))
 
