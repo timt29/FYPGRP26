@@ -1155,16 +1155,18 @@ def subscriber_api_my_articles():
         elif status == "drafts":
             where += ["a.draft = 1"]
         elif status == "pending":
-            where += ["a.visible = 0", "a.status IN (%s, %s)"]
-            params.extend(['pending_revision', 'pending_approval'])
+            status_values = ['pending_revision', 'pending_approval']
+            where += ["a.visible = 0", f"a.status IN ({','.join(['%s']*len(status_values))})"]
+            params.extend(status_values)
 
         sql = f"""{base_select}
-                  WHERE {" AND ".join(where)}
-                  ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
-                  LIMIT %s OFFSET %s"""
+                WHERE {" AND ".join(where)}
+                ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
+                LIMIT %s OFFSET %s"""
         params.extend([limit, offset])
         cur.execute(sql, tuple(params))
         rows = cur.fetchall()
+
 
     elif status == "reported":
         sql = f"""{base_select}
