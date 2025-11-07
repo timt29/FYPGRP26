@@ -508,94 +508,74 @@ def moderate_article(cur, title, content):
 @app.route("/api/articles", methods=["POST"], endpoint="api_articles_post")
 @login_required("Author", "Subscriber")
 def api_articles_create():
-    import gc, os, time, json, traceback, psutil
-    from datetime import datetime
-    from werkzeug.utils import secure_filename
-
-    gc.collect()
-
     try:
-        # --- Diagnostic logging ---
         user = session.get("user")
-        print("===== /api/articles called =====")
-        print("Current session user:", user)
-        print("All form fields:", dict(request.form))
-        print("All files:", request.files)
-    except Exception:
-        print("Logging error:", traceback.format_exc())
+        if not user:
+            return jsonify({"ok": False, "message": "User not logged in"}), 401
 
-    # --- Actual route logic ---
-    action  = (request.form.get("action") or "publish").lower()
-    title   = (request.form.get("title") or "").strip()
-    content = (request.form.get("content") or "").strip()
-    cat_id  = request.form.get("category_id")
-    author  = session.get("user") or "Subscriber"
+        # --- Parse form fields ---
+        action = (request.form.get("action") or "publish").lower()
+        title = (request.form.get("title") or "").strip()
+        category_id = request.form.get("category_id")
+        content = (request.form.get("content") or "").strip()
+        cover_url = (request.form.get("cover_url") or "").strip()
 
-    if not title or not content or not cat_id:
-        return jsonify({"ok": False, "message": "Title, content, and category are required."}), 400
+        # --- Basic validation ---
+        if not title:
+            return jsonify({"ok": False, "message": "Title cannot be empty"}), 400
+        if not category_id or not category_id.isdigit():
+            return jsonify({"ok": False, "message": "Invalid category"}), 400
+        if not content:
+            print("Warning: content is empty")  # don't block
 
-    image_rel = None
-    img_dir_fs = os.path.join(app.root_path, "static", "img")
-    os.makedirs(img_dir_fs, exist_ok=True)
+        publish = (action == "publish")
 
-    up = request.files.get("image")
-    if up and up.filename:
-        safe = secure_filename(up.filename)
-        name, ext = os.path.splitext(safe)
-        unique = f"{name}_{int(time.time())}{ext}"
-        up.save(os.path.join(img_dir_fs, unique))
-        image_rel = f"/static/img/{unique}"
+        # --- Handle uploaded cover image ---
+        image_rel = None
+        img_dir_fs = os.path.join(app.root_path, "static", "img")
+        os.makedirs(img_dir_fs, exist_ok=True)
+        up = request.files.get("image")
+        if up and up.filename:
+            safe_name = secure_filename(up.filename)
+            name, ext = os.path.splitext(safe_name)
+            unique_name = f"{name}_{int(time.time())}{ext}"
+            up.save(os.path.join(img_dir_fs, unique_name))
+            image_rel = f"/static/img/{unique_name}"
 
-    if not image_rel:
-        cover_url = request.form.get("cover_url")
-        if cover_url:
-            copied = _copy_static_file(cover_url, img_dir_fs)
-            if copied:
-                image_rel = copied
+        # --- Minimal DB insert ---
+        conn = get_db_connection()
+        cur = get_cursor(conn)
+        try:
+            cur.execute("""
+                INSERT INTO articles
+                (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                title, content, user,
+                datetime.now() if publish else None,
+                datetime.now(),
+                image_rel,
+                category_id,
+                0 if publish else 1,  # draft flag
+                1,                      # visible (always visible for now)
+                'published' if publish else 'draft'
+            ))
+            conn.commit()
+        finally:
+            cur.close()
+            conn.close()
 
-    try:
-        import_images = json.loads(request.form.get("import_images", "[]"))
-        if isinstance(import_images, list):
-            for rel in import_images[:10]:
-                _copy_static_file(rel, img_dir_fs)
-    except Exception:
-        pass
+        return jsonify({
+            "ok": True,
+            "message": "📝 Draft saved." if not publish else "Article published.",
+            "redirect": url_for("subscriberHomepage")
+        })
 
-    # Profanity + moderation
-    profanity_check = check_profanity(title, content)
-    if not profanity_check["ok"]:
-        return jsonify(profanity_check), 400
-
-    publish_flag, visible_flag, flash_msg = moderate_article(None, title, content)
-    publish = (action == "publish") and publish_flag
-
-    conn = get_db_connection()
-    cur = get_cursor(conn)
-    try:
-        cur.execute("""
-            INSERT INTO articles 
-            (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
-            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, %s)
-        """, (
-            title, content, author,
-            datetime.now() if publish else None,
-            image_rel, cat_id,
-            0 if publish else 1,
-            1 if publish else visible_flag,
-            'published' if publish else None
-        ))
-        conn.commit()
-    finally:
-        cur.close()
-        conn.close()
-
-    print("Memory end:", psutil.Process(os.getpid()).memory_info().rss / 1024**2, "MB")
-
-    return jsonify({
-        "ok": True,
-        "message": "📝 Draft saved." if not publish else flash_msg,
-        "redirect": url_for("subscriberHomepage")
-    })
+    except Exception as e:
+        print("!!! Exception in /api/articles !!!")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({"ok": False, "message": "Internal server error"}), 500
 
 
 
@@ -1158,46 +1138,44 @@ def subscriber_api_my_articles():
     """
 
     # ---------------------------
-    # Build WHERE clauses safely
+    # Build WHERE clauses and params
     # ---------------------------
-    where_clauses = [sql.SQL("a.author = %s")]
+    where_clauses = ["a.author = %s"]
     params = [user]
 
     if status == "published":
-        where_clauses.append(sql.SQL("a.draft = 0"))
-        where_clauses.append(sql.SQL("a.status = %s"))
+        where_clauses += ["a.draft = 0", "a.status = %s"]
         params.append("published")
 
     elif status == "drafts":
-        where_clauses.append(sql.SQL("a.draft = 1"))
+        where_clauses += ["a.draft = 1"]
 
     elif status == "pending":
         status_values = ['pending_revision', 'pending_approval']
-        where_clauses.append(sql.SQL("a.visible = 0"))
+        where_clauses += ["a.visible = 0"]
         if status_values:
-            placeholders = sql.SQL(',').join(sql.Placeholder() * len(status_values))
-            where_clauses.append(sql.SQL("a.status IN ({})").format(placeholders))
-            params.extend(status_values)
+            # Use Postgres ANY(%s) for safe array binding
+            where_clauses += ["a.status = ANY(%s)"]
+            params.append(status_values)
         else:
-            # If no pending statuses, ensure query returns nothing
-            where_clauses.append(sql.SQL("FALSE"))
+            # No statuses to check → return nothing
+            where_clauses += ["FALSE"]
 
     elif status == "reported":
-        where_clauses.append(sql.SQL("a.visible = 0"))
-        where_clauses.append(sql.SQL("a.status = %s"))
+        where_clauses += ["a.visible = 0", "a.status = %s"]
         params.append("reported")
 
     # ---------------------------
-    # Only execute if status is known
+    # Only execute for known status
     # ---------------------------
     if status in ("all", "published", "drafts", "pending", "reported"):
-        final_query = sql.SQL(base_select +
-                              " WHERE " +
-                              sql.SQL(" AND ").join(where_clauses).as_string(cur) +
-                              " ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC LIMIT %s OFFSET %s")
-
+        sql_query = f"""{base_select}
+                        WHERE {' AND '.join(where_clauses)}
+                        ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
+                        LIMIT %s OFFSET %s"""
         params.extend([limit, offset])
-        cur.execute(final_query, tuple(params))
+
+        cur.execute(sql_query, tuple(params))
         rows = cur.fetchall()
 
     cur.close()
