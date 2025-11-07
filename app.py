@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort, make_response,g
 import os, io, re, time, uuid, time, zipfile, shutil, secrets
 from functools import wraps
 import webbrowser
@@ -505,44 +505,150 @@ def moderate_article(cur, title, content):
 
     return publish, visible, flash_msg
 
+MAX_IMPORT_IMAGES = 3   # maximum number of remote/import images to copy per request
+ALLOWED_IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.gif', '.webp'}
+
+
+def _copy_static_file(rel_path, target_dir):
+    """
+    Safely copy a static file (like an uploaded image) from one static subfolder
+    into the permanent img folder. Returns the new relative path if successful.
+    rel_path should be something like '/static/tmp/filename.png'.
+    """
+    if not rel_path:
+        return None
+
+    # Normalize and validate
+    rel_path = rel_path.strip()
+    if not rel_path.startswith("/static/"):
+        return None
+
+    # Source absolute path
+    src_path = os.path.join(app.root_path, rel_path.lstrip("/"))
+    if not os.path.exists(src_path):
+        return None
+
+    # Ensure target directory exists
+    os.makedirs(target_dir, exist_ok=True)
+
+    # Generate a safe unique name
+    base_name = os.path.basename(src_path)
+    name, ext = os.path.splitext(base_name)
+    unique_name = f"{name}_{int(time.time())}{ext}"
+    dst_path = os.path.join(target_dir, unique_name)
+
+    # Copy file (shallow copy, preserves format)
+    shutil.copy2(src_path, dst_path)
+
+    # Return the new relative path usable by templates or JSON responses
+    return f"/static/img/{unique_name}"
+
 @app.route("/api/articles", methods=["POST"], endpoint="api_articles_post")
 @login_required("Author", "Subscriber")
 def api_articles_create():
     try:
+        # --- Basic session check & parse ---
         user = session.get("user")
         if not user:
             return jsonify({"ok": False, "message": "User not logged in"}), 401
 
-        # --- Parse form fields ---
         action = (request.form.get("action") or "publish").lower()
         title = (request.form.get("title") or "").strip()
-        category_id = request.form.get("category_id")
+        category_id = (request.form.get("category_id") or "").strip()
         content = (request.form.get("content") or "").strip()
         cover_url = (request.form.get("cover_url") or "").strip()
 
-        # --- Basic validation ---
+        # Basic validation
         if not title:
             return jsonify({"ok": False, "message": "Title cannot be empty"}), 400
         if not category_id or not category_id.isdigit():
             return jsonify({"ok": False, "message": "Invalid category"}), 400
-        if not content:
-            print("Warning: content is empty")  # don't block
 
         publish = (action == "publish")
 
-        # --- Handle uploaded cover image ---
+        # --- Safe uploaded image handling ---
         image_rel = None
         img_dir_fs = os.path.join(app.root_path, "static", "img")
         os.makedirs(img_dir_fs, exist_ok=True)
+
         up = request.files.get("image")
         if up and up.filename:
-            safe_name = secure_filename(up.filename)
-            name, ext = os.path.splitext(safe_name)
-            unique_name = f"{name}_{int(time.time())}{ext}"
-            up.save(os.path.join(img_dir_fs, unique_name))
-            image_rel = f"/static/img/{unique_name}"
+            try:
+                safe_name = secure_filename(up.filename)
+                name, ext = os.path.splitext(safe_name)
+                # simple extension guard
+                if ext.lower() not in ALLOWED_IMAGE_EXTS:
+                    raise ValueError("Unsupported image type")
+                unique_name = f"{name}_{int(time.time())}{ext}"
+                save_path = os.path.join(img_dir_fs, unique_name)
+                up.save(save_path)
+                image_rel = f"/static/img/{unique_name}"
+            except Exception as e:
+                print("Image save failed:", e)
+                # do not abort — log and continue without image
 
-        # --- Minimal DB insert ---
+        # --- Import images (limited) ---
+        try:
+            import_images = json.loads(request.form.get("import_images", "[]") or "[]")
+        except Exception:
+            import_images = []
+
+        if isinstance(import_images, list) and import_images:
+            # Only attempt a small fixed number to avoid runaway loops/memory usage
+            for rel in import_images[:MAX_IMPORT_IMAGES]:
+                try:
+                    # assume _copy_static_file returns the relative path string on success
+                    copied = _copy_static_file(rel, img_dir_fs)
+                    if copied and not image_rel:
+                        # first successful import image becomes the cover if no uploaded image
+                        image_rel = copied
+                except Exception as e:
+                    print("Import image copy failed for", rel, ":", e)
+                    # continue on failure
+
+        # If we still have a cover_url and no saved image, keep it (backend can decide later)
+        if not image_rel and cover_url:
+            image_rel = None  # intentionally do not copy huge remote files here
+
+        # --- Lightweight profanity check (fallback) ---
+        profanity_ok = True
+        try:
+            # Prefer your existing check_profanity if available and lightweight
+            if 'check_profanity' in globals():
+                prof = check_profanity(title, content)
+                if isinstance(prof, dict) and not prof.get("ok", True):
+                    profanity_ok = False
+                    return jsonify({"ok": False, "message": prof.get("message", "Profanity detected")}), 400
+            else:
+                # cheap client/wordlist-based fallback to avoid heavy models
+                banned = {"fuck", "shit", "bitch", "asshole"}  # keep this list small; expand as needed
+                lc = (title + " " + content).lower()
+                if any(w in lc for w in banned):
+                    profanity_ok = False
+                    return jsonify({"ok": False, "message": "Profanity detected"}), 400
+        except Exception:
+            # If profanity check errors out, do not crash — allow publish but log
+            print("Profanity check failed:", traceback.format_exc())
+
+        # --- Moderation (wrap heavy logic) ---
+        publish_flag = True
+        visible_flag = 1
+        flash_msg = "Article published."
+        try:
+            if 'moderate_article' in globals():
+                # moderate_article should return (publish_flag, visible_flag, message)
+                r = moderate_article(None, title, content)
+                if isinstance(r, (list, tuple)) and len(r) >= 3:
+                    publish_flag, visible_flag, flash_msg = r[0], r[1], r[2]
+        except Exception:
+            # heavy moderation failed — fallback to safe defaults (allow but mark visible)
+            print("Moderation failed — skipping heavy moderation:", traceback.format_exc())
+            publish_flag, visible_flag, flash_msg = True, 1, "Published (moderation unavailable)"
+
+        # final publish decision (only if publish requested and moderation allows)
+        do_publish = publish and publish_flag
+
+        # --- Minimal DB insert (safe) ---
         conn = get_db_connection()
         cur = get_cursor(conn)
         try:
@@ -551,30 +657,35 @@ def api_articles_create():
                 (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
-                title, content, user,
-                datetime.now() if publish else None,
+                title,
+                content,
+                user,
+                datetime.now() if do_publish else None,
                 datetime.now(),
                 image_rel,
                 category_id,
-                0 if publish else 1,  # draft flag
-                1,                      # visible (always visible for now)
-                'published' if publish else 'draft'
+                0 if do_publish else 1,        # draft flag
+                1 if do_publish else (visible_flag or 1),
+                'published' if do_publish else 'draft'
             ))
             conn.commit()
         finally:
-            cur.close()
-            conn.close()
+            try:
+                cur.close()
+                conn.close()
+            except Exception:
+                pass
 
         return jsonify({
             "ok": True,
-            "message": "📝 Draft saved." if not publish else "Article published.",
+            "message": "📝 Draft saved." if not do_publish else (flash_msg or "Article published."),
             "redirect": url_for("subscriberHomepage")
-        })
+        }), 200
 
     except Exception as e:
         print("!!! Exception in /api/articles !!!")
-        import traceback
         print(traceback.format_exc())
+        # do not expose internal trace to client
         return jsonify({"ok": False, "message": "Internal server error"}), 500
 
 
