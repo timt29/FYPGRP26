@@ -27,7 +27,7 @@
         <div class="topbar">
             <h1>Moderator's Dashboard</h1>
             <div class="admin-menu">
-                <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
+                <button class="admin-btn" onclick="toggleDropdown()">{{ name }} ▼</button>
                 <div class="dropdown" id="admin-dropdown">
                     <a class="logout-link" href="/logout">Logout</a>
                 </div>
@@ -52,7 +52,7 @@
                 </a>
                 <a href="/pendingArticles" class="card-link">
                     <div class="card">
-                        <h3>5</h3>
+                        <h3>{{ pending_articles }}</h3>
                         <p>Article Pending Approval</p>
                     </div>
                 </a>

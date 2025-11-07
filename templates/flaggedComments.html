@@ -26,7 +26,7 @@
         <div class="topbar">
             <h1>Flagged Comments</h1>
             <div class="admin-menu">
-                <button class="admin-btn" onclick="toggleDropdown()">Moderator ▼</button>
+                <button class="admin-btn" onclick="toggleDropdown()">{{ name }} ▼</button>
                 <div class="dropdown" id="admin-dropdown">
                     <a class="logout-link" href="/logout">Logout</a>
                 </div>
@@ -99,6 +99,9 @@
             <p id="comment-modal-date"></p>
             <hr>
             <div id="comment-modal-content" style="max-height: 300px; overflow-y: auto;"></div>
+            <hr>
+            <p><strong>Reports:</strong></p>
+            <div id="comment-modal-reports" style="max-height: 150px; overflow-y: auto; color: red;"></div>
             <div class="buttons">
                 <button type="button" class="btn btn-primary" id="approveComment">Approve</button>
                 <button type="button" class="btn btn-danger" id="rejectComment">Reject</button>
@@ -106,6 +109,7 @@
             </div>
         </div>
     </div>
+
 
     <script>
         // Sidebar dropdown
@@ -154,6 +158,13 @@
         let comments = [{% for c in comments %}{ id: {{ c.commentid }}, rowIndex: {{ loop.index0 }} },{% endfor %}];
         let currentIndex = 0;
 
+        const reasonColors = {
+            "harassment": "red",
+            "inappropriate": "orange",
+            "spam": "blue",
+            "other": "gray"
+        };
+
         async function viewComment(commentid) {
             try {
                 const res = await fetch(`/getComment/${commentid}`);
@@ -164,6 +175,23 @@
                 document.getElementById('comment-modal-date').textContent = "Posted: " + comment.created_at;
                 document.getElementById('comment-modal-content').textContent = comment.comment_text;
 
+                // ✅ Populate all reports
+                const reportsDiv = document.getElementById('comment-modal-reports');
+                reportsDiv.innerHTML = ""; // clear previous reports
+                if (comment.reports && comment.reports.length > 0) {
+                    comment.reports.forEach(r => {
+                        const div = document.createElement('div');
+                        div.style.marginBottom = "6px";
+
+                        // Use color based on reason
+                        const color = reasonColors[r.reason] || "black";
+                        div.innerHTML = `<strong>${r.reporter}</strong> reported for <em style="color:${color}">${r.reason}</em>: ${r.details || 'No details'} <span style="font-size:0.8em;color:#555;">(${r.reported_at})</span>`;
+                        reportsDiv.appendChild(div);
+                    });
+                } else {
+                    reportsDiv.textContent = "No reports found.";
+                }
+
                 currentIndex = comments.findIndex(c => c.id === commentid);
 
                 document.getElementById('commentModal').classList.add('show');
@@ -172,6 +200,7 @@
                 alert(err.message);
             }
         }
+
 
         document.getElementById('closeCommentModal').addEventListener('click', () => {
             const modal = document.getElementById('commentModal');
