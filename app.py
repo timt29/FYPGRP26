@@ -980,35 +980,35 @@ def subscriber_toggle_pin():
         return jsonify(ok=False, message="articleid is required"), 400
 
     conn = get_db_connection()
-    cur  = get_cursor(conn)
+    cur  = get_cursor(conn)  # should be RealDictCursor
 
-    # Check current state
-    cur.execute("""
-        SELECT id FROM subscriber_pins
-        WHERE userid=%s AND articleid=%s
-        LIMIT 1
-    """, (session["userid"], article_id))
-    row = cur.fetchone()
+    try:
+        # Check current state
+        cur.execute("""
+            SELECT id FROM subscriber_pins
+            WHERE userid=%s AND articleid=%s
+            LIMIT 1
+        """, (session["userid"], article_id))
+        row = cur.fetchone()
 
-    if row:
-        cur.execute("DELETE FROM subscriber_pins WHERE id=%s", (row[0],))
-        conn.commit()
-        cur.close(); conn.close()
-        return jsonify(ok=True, state="unpinned", message="Article unpinned")
-    else:
-        try:
+        if row:
+            cur.execute("DELETE FROM subscriber_pins WHERE id=%s", (row['id'],))
+            conn.commit()
+            return jsonify(ok=True, state="unpinned", message="Article unpinned")
+        else:
             cur.execute("""
                 INSERT INTO subscriber_pins (userid, articleid)
                 VALUES (%s, %s)
             """, (session["userid"], article_id))
             conn.commit()
-            cur.close(); conn.close()
             return jsonify(ok=True, state="pinned", message="Article pinned")
-        except Exception as e:
-            conn.rollback()
-            cur.close(); conn.close()
-            return jsonify(ok=False, message="Unable to pin"), 500
-        
+    except Exception:
+        conn.rollback()
+        return jsonify(ok=False, message="Unable to pin"), 500
+    finally:
+        cur.close()
+        conn.close()
+
 # ---------- Article Like/Dislike API ---------- 
 @app.route('/subscriber/api/article/react', methods=['POST'])
 @login_required("Author", "Subscriber")
@@ -1167,22 +1167,26 @@ def subscriber_api_my_articles():
     """
 
     rows = []
+    user = session.get("user")
+
     if status in ("all", "published", "drafts", "pending"):
         where  = ["a.author = %s"]
-        params = [session.get("user")]
+        params = [user]
 
         if status == "published":
-            where += ["a.draft = 0", "a.status = 'published'"]
+            where += ["a.draft = 0", "a.status = %s"]
+            params.append('published')
         elif status == "drafts":
             where += ["a.draft = 1"]
         elif status == "pending":
-            where += ["a.visible = 0", "a.status IN ('pending_revision','pending_approval')"]
+            where += ["a.visible = 0", "a.status IN (%s, %s)"]
+            params.extend(['pending_revision', 'pending_approval'])
 
         sql = f"""{base_select}
                   WHERE {" AND ".join(where)}
                   ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
                   LIMIT %s OFFSET %s"""
-        params += [limit, offset]
+        params.extend([limit, offset])
         cur.execute(sql, tuple(params))
         rows = cur.fetchall()
 
@@ -1190,13 +1194,14 @@ def subscriber_api_my_articles():
         sql = f"""{base_select}
                   WHERE a.author = %s
                     AND a.visible = 0
-                    AND a.status  = 'reported'
+                    AND a.status  = %s
                   ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
                   LIMIT %s OFFSET %s"""
-        cur.execute(sql, (session.get("user"), limit, offset))
+        cur.execute(sql, (user, 'reported', limit, offset))
         rows = cur.fetchall()
 
-    cur.close(); conn.close()
+    cur.close()
+    conn.close()
     return jsonify(rows)
 
 # View: load edit page 
@@ -1514,9 +1519,15 @@ def subscriber_api_comment_create():
     cur.close()
     cur = get_cursor(conn)
     cur.execute("""
-        INSERT INTO comments (articleid, userid, comment_text, is_reply, reply_to_comment_id)
-        VALUES (%s, %s, %s, %s, %s)
-    """, (article_id, uid, text, bool(top_parent_id), top_parent_id))
+    INSERT INTO comments (articleid, userid, comment_text, is_reply, reply_to_comment_id)
+    VALUES (%s, %s, %s, %s, %s)
+    """, (
+        article_id,
+        uid,
+        text,
+        1 if top_parent_id else 0,  # convert boolean to smallint
+        top_parent_id  # None is fine for NULL
+    ))
 
     conn.commit()
     cur.close(); conn.close()
