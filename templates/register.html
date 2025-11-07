@@ -46,39 +46,51 @@
     <!-- Pre-Registration Modal -->
     <div id="preRegisterModal" class="pre-modal">
       <div class="pre-modal-content">
-        <h1>Welcome to EchoPress!</h1>
-        <p>Choose your role and see how each one shapes the community:</p>
+        <h1>Start your journey with EchoPress - read, write and connect today!</h1>
+        <p>Join our growing community of readers and storytellers</p>
+        <p>Start writing for free today!</p>
 
         <div class="role-cards">
-          <div class="role-card">
-            <h2>Reader</h2>
+          <!-- Non-registered Users -->
+          <div class="role-card free-tier">
+            <h2>Non-registered Users</h2>
+            <p class="feature-heading">Features:</p>
             <ul>
-              <li>Browse and read articles</li>
-              <li>Follow your favorite authors</li>
-              <li>Join discussions</li>
+              <li>Browse and read articles of your choices</li>
+              <li>Share articles with your friends</li>
             </ul>
+            <button class="join-btn" disabled>FREE</button>
           </div>
 
+          <!-- Subscriber -->
           <div class="role-card highlight">
             <h2>Subscriber</h2>
+            <button class="join-btn" id="subscriberBtn" onclick="selectRole('Subscriber')">Join for FREE!</button>
+            <p class="feature-heading">Features:</p>
             <ul>
-              <li>Enjoy ad-free experience</li>
-              <li>Access premium stories</li>
-              <li>Support content creators</li>
+              <li>Publish your own stories and share your voice</li>
+              <li>Comment and discuss with other readers</li>
+              <li>Unlimited access to all articles</li>
+              <li>Save and Bookmark your favorites for later</li>
+              <li>Track your story performance and engagement</li>
+              <li>No hidden fees - unsubscribe anytime</li>
             </ul>
           </div>
 
-          <div class="role-card">
+          <!-- Author -->
+          <div class="role-card premium-tier">
+            <div class="ribbon">Popular Choice</div>
             <h2>Author</h2>
+            <p class="subscription-text">Become an Author now with just - <strong>$5/month</strong></p>
+            <p class="feature-heading">Features:</p>
             <ul>
-              <li>Publish your own articles</li>
-              <li>Gain followers and insights</li>
-              <li>Participate in community reviews</li>
+              <li>Subscriber features with additional features such as:</li>
+              <li>Get Authenticated and Verified</li>
+              <li>Publish your own articles to get featured at the top!</li>
             </ul>
+            <button class="join-btn" disabled>UPGRADE</button>
           </div>
         </div>
-
-        <button onclick="closePreRegister()">Continue</button>
       </div>
     </div>
 
@@ -141,6 +153,22 @@
   </div>
 
   <script>
+  // Only Subscriber button works: set role and close modal
+  function selectRole(role) {
+    // Add a hidden input for role in the registration form
+    let form = document.querySelector("form[action='/register']");
+    if (!form.querySelector("input[name='role']")) {
+      let input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "role";
+      form.appendChild(input);
+    }
+    form.querySelector("input[name='role']").value = role;
+
+    // Close the pre-registration modal
+    document.getElementById("preRegisterModal").style.display = "none";
+  }
+
   function closePreRegister() {
     document.getElementById("preRegisterModal").style.display = "none";
   }
