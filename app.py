@@ -508,10 +508,23 @@ def moderate_article(cur, title, content):
 @app.route("/api/articles", methods=["POST"], endpoint="api_articles_post")
 @login_required("Author", "Subscriber")
 def api_articles_create():
-    import gc, os, time, json
+    import gc, os, time, json, traceback, psutil
+    from datetime import datetime
+    from werkzeug.utils import secure_filename
+
     gc.collect()
 
+    try:
+        # --- Diagnostic logging ---
+        user = session.get("user")
+        print("===== /api/articles called =====")
+        print("Current session user:", user)
+        print("All form fields:", dict(request.form))
+        print("All files:", request.files)
+    except Exception:
+        print("Logging error:", traceback.format_exc())
 
+    # --- Actual route logic ---
     action  = (request.form.get("action") or "publish").lower()
     title   = (request.form.get("title") or "").strip()
     content = (request.form.get("content") or "").strip()
@@ -525,7 +538,6 @@ def api_articles_create():
     img_dir_fs = os.path.join(app.root_path, "static", "img")
     os.makedirs(img_dir_fs, exist_ok=True)
 
-    # Handle uploaded image safely
     up = request.files.get("image")
     if up and up.filename:
         safe = secure_filename(up.filename)
@@ -534,7 +546,6 @@ def api_articles_create():
         up.save(os.path.join(img_dir_fs, unique))
         image_rel = f"/static/img/{unique}"
 
-    # Handle cover_url
     if not image_rel:
         cover_url = request.form.get("cover_url")
         if cover_url:
@@ -542,7 +553,6 @@ def api_articles_create():
             if copied:
                 image_rel = copied
 
-    # Limit import_images to avoid runaway loop
     try:
         import_images = json.loads(request.form.get("import_images", "[]"))
         if isinstance(import_images, list):
@@ -586,6 +596,7 @@ def api_articles_create():
         "message": "📝 Draft saved." if not publish else flash_msg,
         "redirect": url_for("subscriberHomepage")
     })
+
 
 
 # (MW) --------Import document, extract text & images--------
@@ -1127,16 +1138,16 @@ def subscriber_api_my_articles():
                a.status,
                a.published_at, a.updated_at,
                CASE
-                WHEN a.image IS NULL OR a.image = '' THEN NULL
-                WHEN a.image ~ '^(https?:)?//' THEN a.image
-                WHEN a.image LIKE '/static/%' THEN a.image
-                WHEN a.image LIKE './static/%' THEN REPLACE(a.image, './static', '/static')
-                WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
-                WHEN a.image LIKE 'static/%' THEN '/' || a.image
-                WHEN a.image LIKE 'img/%' THEN '/static/' || a.image
-                WHEN a.image LIKE 'uploads/%' THEN '/static/' || a.image
-                ELSE '/static/img/' || a.image
-                END AS image,
+                    WHEN a.image IS NULL OR a.image = '' THEN NULL
+                    WHEN a.image ~ '^(https?:)?//' THEN a.image
+                    WHEN a.image LIKE '/static/%' THEN a.image
+                    WHEN a.image LIKE './static/%' THEN REPLACE(a.image, './static', '/static')
+                    WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
+                    WHEN a.image LIKE 'static/%' THEN '/' || a.image
+                    WHEN a.image LIKE 'img/%' THEN '/static/' || a.image
+                    WHEN a.image LIKE 'uploads/%' THEN '/static/' || a.image
+                    ELSE '/static/img/' || a.image
+               END AS image,
                c.name AS category
         FROM articles a
         LEFT JOIN categories c ON a.catid = c.categoryid
@@ -1151,36 +1162,44 @@ def subscriber_api_my_articles():
 
         if status == "published":
             where += ["a.draft = 0", "a.status = %s"]
-            params.append('published')
+            params.append("published")
+
         elif status == "drafts":
             where += ["a.draft = 1"]
+
         elif status == "pending":
             status_values = ['pending_revision', 'pending_approval']
-            where += ["a.visible = 0", f"a.status IN ({','.join(['%s']*len(status_values))})"]
-            params.extend(status_values)
+            where += ["a.visible = 0"]
+            if status_values:
+                # Create a safe IN clause with correct number of %s
+                placeholders = ','.join(['%s']*len(status_values))
+                where += [f"a.status IN ({placeholders})"]
+                params.extend(status_values)
 
+        # Add limit and offset
         sql = f"""{base_select}
-                WHERE {" AND ".join(where)}
-                ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
-                LIMIT %s OFFSET %s"""
+                  WHERE {" AND ".join(where)}
+                  ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
+                  LIMIT %s OFFSET %s"""
         params.extend([limit, offset])
+
         cur.execute(sql, tuple(params))
         rows = cur.fetchall()
-
 
     elif status == "reported":
         sql = f"""{base_select}
                   WHERE a.author = %s
                     AND a.visible = 0
-                    AND a.status  = %s
+                    AND a.status = %s
                   ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
                   LIMIT %s OFFSET %s"""
-        cur.execute(sql, (user, 'reported', limit, offset))
+        cur.execute(sql, (user, "reported", limit, offset))
         rows = cur.fetchall()
 
     cur.close()
     conn.close()
     return jsonify(rows)
+
 
 # View: load edit page 
 @app.route("/subscriber/edit-article/<int:article_id>")
