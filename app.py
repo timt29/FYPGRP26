@@ -1132,7 +1132,9 @@ def subscriber_api_my_articles():
     from psycopg2 import sql
 
     user = session.get("user")
-
+ # --- DEBUG: check what is stored in session ---
+    print("SESSION USER:", session.get("user"))
+    
     # ✅ FIX: safely handle string or dict session user
     if isinstance(user, dict):
         user_id = user.get("id")
