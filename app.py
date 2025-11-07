@@ -402,7 +402,7 @@ def api_articles():
     cur = get_cursor(conn)
 
     params = []
-    where  = ["a.draft = FALSE", "a.visible = 1"]   # only published & visible
+    where  = ["a.draft = 0", "a.visible = 1"]   # only published & visible
 
     # category filter
     join_cat = "LEFT JOIN categories c ON a.catid = c.categoryid"
@@ -565,13 +565,13 @@ def api_articles_create():
         INSERT INTO articles 
           (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
         VALUES 
-          (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, 1, 'published')
+          (%s, %s, %s, NOW(), NOW(), %s, %s, 0, 1, 'published')
     """, (title, content, author, image_rel, cat_id))
     else:
         cur.execute("""
         INSERT INTO articles 
         (title, content, author, published_at, updated_at, image, catid, draft, visible)
-        VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
+        VALUES (%s, %s, %s, NULL, NOW(), %s, %s, 1, %s)
         """, (title, content, author, image_rel, cat_id, visible))
 
     conn.commit()
@@ -834,7 +834,7 @@ def subscriber_search_api():
     conn = get_db_connection()
     cur  = get_cursor(conn)
 
-    where   = ["a.draft = FALSE", "a.visible = 1"]     # published & visible only
+    where   = ["a.draft = 0", "a.visible = 1"]     # published & visible only
     params  = []
     joincat = "LEFT JOIN categories c ON a.catid = c.categoryid"
 
@@ -1168,9 +1168,9 @@ def subscriber_api_my_articles():
         params = [session.get("user")]
 
         if status == "published":
-            where += ["a.draft = FALSE", "a.status = 'published'"]
+            where += ["a.draft = 0", "a.status = 'published'"]
         elif status == "drafts":
-            where += ["a.draft = TRUE"]
+            where += ["a.draft = 1"]
         elif status == "pending":
             where += ["a.visible = 0", "a.status IN ('pending_revision','pending_approval')"]
 
@@ -1367,7 +1367,7 @@ def subscriber_api_bookmarks():
         JOIN articles a        ON a.articleid = sp.articleid
         LEFT JOIN categories c ON a.catid = c.categoryid
         WHERE sp.userid = %s
-          AND (a.draft IS NULL OR a.draft = FALSE)
+          AND (a.draft IS NULL OR a.draft = 0)
         ORDER BY sp.pinned_at DESC
     """, (uid,))
     rows = cur.fetchall()
@@ -2466,7 +2466,7 @@ def logout():
         cursor = get_cursor(conn)
         cursor.execute("""
             UPDATE users 
-            SET is_logged_in = FALSE, last_active = NOW()
+            SET is_logged_in = 0, last_active = NOW()
             WHERE userid = %s
         """, (user_id,))
         conn.commit()
