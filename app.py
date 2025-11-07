@@ -508,6 +508,10 @@ def moderate_article(cur, title, content):
 @app.route("/api/articles", methods=["POST"], endpoint="api_articles_post")
 @login_required("Author", "Subscriber")
 def api_articles_create():
+    import gc, os, time, json
+    gc.collect()
+
+
     action  = (request.form.get("action") or "publish").lower()
     title   = (request.form.get("title") or "").strip()
     content = (request.form.get("content") or "").strip()
@@ -519,21 +523,18 @@ def api_articles_create():
 
     image_rel = None
     img_dir_fs = os.path.join(app.root_path, "static", "img")
+    os.makedirs(img_dir_fs, exist_ok=True)
 
-    # 1) Handle uploaded image
+    # Handle uploaded image safely
     up = request.files.get("image")
     if up and up.filename:
-        try:
-            os.makedirs(img_dir_fs, exist_ok=True)
-            safe = secure_filename(up.filename)
-            name, ext = os.path.splitext(safe)
-            unique = f"{name}_{int(time.time())}{ext}"
-            up.save(os.path.join(img_dir_fs, unique))
-            image_rel = f"/static/img/{unique}"
-        except Exception as e:
-            print("Image upload failed:", e)
+        safe = secure_filename(up.filename)
+        name, ext = os.path.splitext(safe)
+        unique = f"{name}_{int(time.time())}{ext}"
+        up.save(os.path.join(img_dir_fs, unique))
+        image_rel = f"/static/img/{unique}"
 
-    # 2) Else handle cover_url
+    # Handle cover_url
     if not image_rel:
         cover_url = request.form.get("cover_url")
         if cover_url:
@@ -541,92 +542,50 @@ def api_articles_create():
             if copied:
                 image_rel = copied
 
-    # 3) Optional: copy import_images
+    # Limit import_images to avoid runaway loop
     try:
-        import_images_json = request.form.get("import_images", "[]")
-        import_images = json.loads(import_images_json) if import_images_json else []
+        import_images = json.loads(request.form.get("import_images", "[]"))
         if isinstance(import_images, list):
-            for rel in import_images:
+            for rel in import_images[:10]:
                 _copy_static_file(rel, img_dir_fs)
     except Exception:
-        pass  # non-fatal
+        pass
 
-    # 4) Profanity check
+    # Profanity + moderation
     profanity_check = check_profanity(title, content)
     if not profanity_check["ok"]:
         return jsonify(profanity_check), 400
 
-    # 5) AI Moderation
     publish_flag, visible_flag, flash_msg = moderate_article(None, title, content)
     publish = (action == "publish") and publish_flag
 
     conn = get_db_connection()
     cur = get_cursor(conn)
-
     try:
-        # Set flags for PostgreSQL
-        draft_flag = 0 if publish else 1
-        visible_flag = 1 if publish else visible_flag
-        status_val = 'published' if publish else None
-        published_at_val = datetime.now() if publish else None
-
         cur.execute("""
             INSERT INTO articles 
             (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
             VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, %s)
         """, (
-            title,
-            content,
-            author,
-            published_at_val,
-            image_rel,
-            cat_id,
-            draft_flag,
-            visible_flag,
-            status_val
+            title, content, author,
+            datetime.now() if publish else None,
+            image_rel, cat_id,
+            0 if publish else 1,
+            1 if publish else visible_flag,
+            'published' if publish else None
         ))
         conn.commit()
-    except Exception as e:
-        conn.rollback()
-        print("Error inserting article:", e)
-        return jsonify(ok=False, message="Failed to save article"), 500
     finally:
         cur.close()
         conn.close()
+
+    print("Memory end:", psutil.Process(os.getpid()).memory_info().rss / 1024**2, "MB")
 
     return jsonify({
         "ok": True,
         "message": "📝 Draft saved." if not publish else flash_msg,
         "redirect": url_for("subscriberHomepage")
     })
-
-
-def _copy_static_file(rel_url: str, dest_dir: str) -> Optional[str]:
-    """
-    Copies a static file to /static/img/<unique> for permanence.
-    Returns the new web path or None if failed.
-    """
-    if not rel_url or not rel_url.startswith("/static/"):
-        return None
-
-    try:
-        src_path = Path(app.root_path, rel_url.lstrip("/")).resolve()
-        if not src_path.exists() or not src_path.is_file():
-            return None
-
-        dest_dir_path = Path(dest_dir)
-        dest_dir_path.mkdir(parents=True, exist_ok=True)
-
-        stem = src_path.stem
-        ext  = src_path.suffix
-        unique = f"{stem}_{int(time.time())}{ext}"
-        dest_path = dest_dir_path / unique
-
-        shutil.copy2(src_path, dest_path)
-        return f"/static/img/{unique}"
-    except Exception as e:
-        print("File copy failed:", e)
-        return None
 
 
 # (MW) --------Import document, extract text & images--------
