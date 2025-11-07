@@ -344,20 +344,16 @@ def modHomepage():
         flagged_articles = cursor.fetchone()["total"]
 
         # Count flagged comments with pending status
-        cursor.execute("""
-            SELECT COUNT(*) AS total
-            FROM comment_reports
-            WHERE status = 'pending'
-        """)
+        cursor.execute("""SELECT COUNT(*) AS total FROM comment_reports WHERE status = 'pending' """)
         flagged_comments = cursor.fetchone()["total"]
 
         # Optionally: count pending articles
-        # cursor.execute("SELECT COUNT(*) AS total FROM articles WHERE status = 'pending'")
-        # pending_articles = cursor.fetchone()["total"]
+        cursor.execute("SELECT COUNT(*) AS total FROM articles WHERE status = 'pending'")
+        pending_articles = cursor.fetchone()["total"]
 
     except mysql.connector.Error as err:
         print("Database error:", err)
-        flagged_articles = flagged_comments = 0
+        flagged_articles = flagged_comments = pending_articles = 0
 
     finally:
         cursor.close()
@@ -366,8 +362,8 @@ def modHomepage():
     return render_template(
         "modHomepage.html",
         flagged_articles=flagged_articles,
-        flagged_comments=flagged_comments
-        # pending_articles=pending_articles
+        flagged_comments=flagged_comments,
+        pending_articles=pending_articles
     )
 
 # (YY)
@@ -524,25 +520,28 @@ def api_articles_create():
     image_rel = None
     img_dir_fs = os.path.join(app.root_path, "static", "img")
 
-    # 1) Directly uploaded file has highest priority
+    # 1) Handle uploaded image
     up = request.files.get("image")
     if up and up.filename:
-        os.makedirs(img_dir_fs, exist_ok=True)
-        safe = secure_filename(up.filename)
-        name, ext = os.path.splitext(safe)
-        unique = f"{name}_{int(time.time())}{ext}"
-        up.save(os.path.join(img_dir_fs, unique))
-        image_rel = f"/static/img/{unique}"
-    else:
-        # 2) Else, cover_url from importer (points to /static/uploads/articles/...)
+        try:
+            os.makedirs(img_dir_fs, exist_ok=True)
+            safe = secure_filename(up.filename)
+            name, ext = os.path.splitext(safe)
+            unique = f"{name}_{int(time.time())}{ext}"
+            up.save(os.path.join(img_dir_fs, unique))
+            image_rel = f"/static/img/{unique}"
+        except Exception as e:
+            print("Image upload failed:", e)
+
+    # 2) Else handle cover_url
+    if not image_rel:
         cover_url = request.form.get("cover_url")
         if cover_url:
             copied = _copy_static_file(cover_url, img_dir_fs)
             if copied:
                 image_rel = copied
 
-    # 3) (Optional) also persist any other extracted images if provided (not used by DB image field)
-    #    frontend sends JSON array in 'import_images'; we copy them into static/img for permanence.
+    # 3) Optional: copy import_images
     try:
         import_images_json = request.form.get("import_images", "[]")
         import_images = json.loads(import_images_json) if import_images_json else []
@@ -552,35 +551,48 @@ def api_articles_create():
     except Exception:
         pass  # non-fatal
 
-    publish = (action == "publish")
-    conn = get_db_connection()
-    cur = get_cursor(conn)
-
-    # --- Profanity Filter --- #
+    # 4) Profanity check
     profanity_check = check_profanity(title, content)
     if not profanity_check["ok"]:
         return jsonify(profanity_check), 400
-    
-    # --- AI Moderation --- #
-    publish, visible, flash_msg = moderate_article(cur, title, content)
 
-    if publish:
-        cur.execute("""
-        INSERT INTO articles 
-          (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
-        VALUES 
-          (%s, %s, %s, NOW(), NOW(), %s, %s, 0, 1, 'published')
-    """, (title, content, author, image_rel, cat_id))
-    else:
-        cur.execute("""
-        INSERT INTO articles 
-        (title, content, author, published_at, updated_at, image, catid, draft, visible)
-        VALUES (%s, %s, %s, NULL, NOW(), %s, %s, 1, %s)
-        """, (title, content, author, image_rel, cat_id, visible))
+    # 5) AI Moderation
+    publish_flag, visible_flag, flash_msg = moderate_article(None, title, content)
+    publish = (action == "publish") and publish_flag
 
-    conn.commit()
-    cur.close()
-    conn.close()
+    conn = get_db_connection()
+    cur = get_cursor(conn)
+
+    try:
+        # Set flags for PostgreSQL
+        draft_flag = 0 if publish else 1
+        visible_flag = 1 if publish else visible_flag
+        status_val = 'published' if publish else None
+        published_at_val = datetime.now() if publish else None
+
+        cur.execute("""
+            INSERT INTO articles 
+            (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
+            VALUES (%s, %s, %s, %s, NOW(), %s, %s, %s, %s, %s)
+        """, (
+            title,
+            content,
+            author,
+            published_at_val,
+            image_rel,
+            cat_id,
+            draft_flag,
+            visible_flag,
+            status_val
+        ))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        print("Error inserting article:", e)
+        return jsonify(ok=False, message="Failed to save article"), 500
+    finally:
+        cur.close()
+        conn.close()
 
     return jsonify({
         "ok": True,
@@ -588,29 +600,34 @@ def api_articles_create():
         "redirect": url_for("subscriberHomepage")
     })
 
+
 def _copy_static_file(rel_url: str, dest_dir: str) -> Optional[str]:
     """
-    rel_url: like '/static/uploads/articles/<batch>/img/file.png'
-    dest_dir: absolute filesystem dir for static/img
-    Returns a new web path '/static/img/<unique>' or None.
+    Copies a static file to /static/img/<unique> for permanence.
+    Returns the new web path or None if failed.
     """
     if not rel_url or not rel_url.startswith("/static/"):
         return None
 
-    src_path = Path(app.root_path, rel_url.lstrip("/")).resolve()
-    if not src_path.exists() or not src_path.is_file():
+    try:
+        src_path = Path(app.root_path, rel_url.lstrip("/")).resolve()
+        if not src_path.exists() or not src_path.is_file():
+            return None
+
+        dest_dir_path = Path(dest_dir)
+        dest_dir_path.mkdir(parents=True, exist_ok=True)
+
+        stem = src_path.stem
+        ext  = src_path.suffix
+        unique = f"{stem}_{int(time.time())}{ext}"
+        dest_path = dest_dir_path / unique
+
+        shutil.copy2(src_path, dest_path)
+        return f"/static/img/{unique}"
+    except Exception as e:
+        print("File copy failed:", e)
         return None
 
-    dest_dir_path = Path(dest_dir)
-    dest_dir_path.mkdir(parents=True, exist_ok=True)
-
-    stem = src_path.stem
-    ext  = src_path.suffix
-    unique = f"{stem}_{int(time.time())}{ext}"
-    dest_path = dest_dir_path / unique
-
-    shutil.copy2(src_path, dest_path)
-    return f"/static/img/{unique}"
 
 # (MW) --------Import document, extract text & images--------
 @app.post("/subscriber/api/import-article")
@@ -1589,49 +1606,86 @@ def subscriber_api_comment_react(comment_id):
     conn = get_db_connection()
     cur = get_cursor(conn)
 
-    cur.execute("SELECT reaction FROM comment_reactions WHERE commentid=%s AND userid=%s",
-                (comment_id, uid))
+    # Fetch previous reaction by this user
+    cur.execute(
+        "SELECT reaction FROM comment_reactions WHERE commentid=%s AND userid=%s",
+        (comment_id, uid)
+    )
     row = cur.fetchone()
     prev = row[0] if row else None
 
+    # Fetch current likes/dislikes from the comment
     cur.execute("SELECT likes, dislikes FROM comments WHERE commentid=%s", (comment_id,))
     cd = cur.fetchone()
     if not cd:
-        cur.close(); conn.close()
+        cur.close()
+        conn.close()
         return jsonify(ok=False, message="Comment not found"), 404
-    likes, dislikes = cd
+
+    # ✅ Convert to integers to prevent TypeError
+    likes, dislikes = int(cd[0] or 0), int(cd[1] or 0)
 
     if action == "clear":
-        if prev == "like":    likes    = max(0, likes - 1)
-        elif prev == "dislike": dislikes = max(0, dislikes - 1)
+        if prev == "like":
+            likes = max(0, likes - 1)
+        elif prev == "dislike":
+            dislikes = max(0, dislikes - 1)
         if prev:
-            cur.execute("DELETE FROM comment_reactions WHERE commentid=%s AND userid=%s",
-                        (comment_id, uid))
+            cur.execute(
+                "DELETE FROM comment_reactions WHERE commentid=%s AND userid=%s",
+                (comment_id, uid)
+            )
     else:
         if prev == action:
-            if action == "like": likes = max(0, likes - 1)
-            else:                dislikes = max(0, dislikes - 1)
-            cur.execute("DELETE FROM comment_reactions WHERE commentid=%s AND userid=%s",
-                        (comment_id, uid))
+            # Clicking the same reaction again clears it
+            if action == "like":
+                likes = max(0, likes - 1)
+            else:
+                dislikes = max(0, dislikes - 1)
+            cur.execute(
+                "DELETE FROM comment_reactions WHERE commentid=%s AND userid=%s",
+                (comment_id, uid)
+            )
             action = "clear"
         else:
-            if prev == "like": likes = max(0, likes - 1)
-            elif prev == "dislike": dislikes = max(0, dislikes - 1)
-            if action == "like": likes += 1
-            else:                dislikes += 1
+            # Remove previous reaction if exists
+            if prev == "like":
+                likes = max(0, likes - 1)
+            elif prev == "dislike":
+                dislikes = max(0, dislikes - 1)
+
+            # Apply new reaction
+            if action == "like":
+                likes += 1
+            else:
+                dislikes += 1
+
+            # ✅ PostgreSQL-safe upsert
             cur.execute("""
-                INSERT INTO comment_reactions (commentid, userid, reaction)
-                VALUES (%s,%s,%s)
-                ON DUPLICATE KEY UPDATE reaction=VALUES(reaction), updated_at=CURRENT_TIMESTAMP
+                INSERT INTO comment_reactions (commentid, userid, reaction, updated_at)
+                VALUES (%s, %s, %s, CURRENT_TIMESTAMP)
+                ON CONFLICT (commentid, userid) DO UPDATE
+                  SET reaction = EXCLUDED.reaction,
+                      updated_at = CURRENT_TIMESTAMP
             """, (comment_id, uid, action))
 
-    cur.execute("UPDATE comments SET likes=%s, dislikes=%s WHERE commentid=%s",
-                (likes, dislikes, comment_id))
-    conn.commit()
-    cur.close(); conn.close()
+    # Update counts in the comments table
+    cur.execute(
+        "UPDATE comments SET likes=%s, dislikes=%s WHERE commentid=%s",
+        (likes, dislikes, comment_id)
+    )
 
-    return jsonify(ok=True, likes=likes, dislikes=dislikes,
-                   state=None if action=="clear" else action)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify(
+        ok=True,
+        likes=likes,
+        dislikes=dislikes,
+        state=None if action == "clear" else action
+    )
+
 
 @app.route("/subscriber/report_article", methods=["POST"])
 @login_required("Author", "Subscriber")
@@ -2874,7 +2928,7 @@ def report_new_users():
     cursor.execute("""
         SELECT userid, name, email, usertype, created_at
         FROM users
-        WHERE created_at >= NOW() - INTERVAL 7 DAY
+        WHERE created_at >= NOW() - INTERVAL '7 days'
         ORDER BY created_at DESC
     """)
     new_users = cursor.fetchall()

@@ -21,7 +21,6 @@
 
     <!-- Navigation -->
     <nav class="navbar">
-      <a href="{{ url_for('index') }}">For You</a>
       {% for cat in nav_categories %}
       <a href="{{ url_for('category', category_name=cat['name']) }}"
         >{{ cat['name'] }}</a
