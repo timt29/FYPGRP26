@@ -102,7 +102,25 @@ def get_cursor(conn):
     return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
 # ---------- Auth wrapper ---------- # (YY)
-def login_required(role=None):
+from functools import wraps
+from flask import session, redirect, url_for, flash
+
+def login_required(*roles):
+    """
+    Usage:
+      @login_required()                        -> requires login (any role)
+      @login_required("Subscriber")            -> only Subscriber
+      @login_required("Author","Subscriber")   -> either role
+      @login_required(("Author","Subscriber")) -> tuple/list also works
+    """
+    # Normalize to a set; None means "any role"
+    if len(roles) == 1 and isinstance(roles[0], (list, tuple, set)):
+        allowed = set(roles[0])
+    elif roles:
+        allowed = set(roles)
+    else:
+        allowed = None
+
     def wrapper(fn):
         @wraps(fn)
         def decorated_view(*args, **kwargs):
@@ -111,9 +129,8 @@ def login_required(role=None):
                 session.clear()
                 return redirect(url_for("login"))
 
-            # If a role is required → check it
-            if role and session.get("usertype") != role:
-                # Wrong role? Destroy session completely
+            # role check if specific roles required
+            if allowed is not None and session.get("usertype") not in allowed:
                 session.clear()
                 flash("Access denied. Please log in again.", "danger")
                 return redirect(url_for("login"))
@@ -143,8 +160,8 @@ def index():
 @app.route("/article/<int:article_id>")
 def article(article_id):
     conn = get_db_connection()
-    cursor = get_cursor(conn)
-    cursor.execute("SELECT * FROM articles WHERE articleid = %s", (article_id,))
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM articles WHERE articleID = %s", (article_id,))
     article = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -235,8 +252,6 @@ def search():
         search_query=query
     )
 
-
-
 def get_categories():
     conn = get_db_connection()
     cursor = get_cursor(conn)
@@ -268,8 +283,15 @@ def category(category_name):
     # Pass a flag if no articles found
     return render_template("index.html", articles=articles, category_name=category_name, no_articles=(len(articles) == 0))
 
-
 # ---------- Role homepages ---------- # (YY)
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html")
+
 @app.route("/adminHomepage")
 @login_required("Admin")
 def adminHomepage():
@@ -344,11 +366,9 @@ def modHomepage():
         # pending_articles=pending_articles
     )
 
-
-
 # (YY)
 @app.route("/subscriberHomepage")
-@login_required("Subscriber")
+@login_required("Subscriber" , "Author")
 def subscriberHomepage():
     conn = get_db_connection()
     cur = get_cursor(conn)
@@ -367,28 +387,30 @@ def subscriberHomepage():
         categories=categories,
         active_category=active_category
     )
-
+	
 # (MW)
 # API: articles feed for subscriberHomepage
 @app.route("/api/articles")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def api_articles():
-    cat = request.args.get("cat") 
-    q     = (request.args.get("q") or "").strip()
-    limit = int(request.args.get("limit", 10))
+    cat    = request.args.get("cat")
+    q      = (request.args.get("q") or "").strip()
+    limit  = int(request.args.get("limit", 10))
     offset = int(request.args.get("offset", 0))
 
     conn = get_db_connection()
     cur = get_cursor(conn)
 
     params = []
-    where  = ["a.draft = FALSE", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
+    where  = ["a.draft = FALSE", "a.visible = 1"]   # only published & visible
 
-    join   = "LEFT JOIN categories c ON a.catid = c.categoryid"
+    # category filter
+    join_cat = "LEFT JOIN categories c ON a.catid = c.categoryid"
     if cat:
         where.append("c.name = %s")
         params.append(cat)
 
+    # search filter
     if q:
         where.append("(a.title LIKE %s OR a.content LIKE %s)")
         like = f"%{q}%"
@@ -398,9 +420,16 @@ def api_articles():
         SELECT a.articleid, a.title, a.content, a.author,
                a.published_at, a.updated_at, a.image, c.name AS category
         FROM articles a
-        {join}
+        {join_cat}
         WHERE {" AND ".join(where)}
-        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+        ORDER BY
+          CASE WHEN (EXISTS (
+            SELECT 1 FROM users u
+            WHERE TRIM(LOWER(u.name)) = TRIM(LOWER(a.author))
+              AND TRIM(LOWER(u.usertype)) = 'author'
+          )) THEN 0 ELSE 1 END,
+          COALESCE(a.published_at, a.updated_at) DESC,
+          a.articleid DESC
         LIMIT %s OFFSET %s
     """
     params.extend([limit, offset])
@@ -411,12 +440,12 @@ def api_articles():
     return jsonify(rows)
 
 @app.route("/subscriber/create-article")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriberCreateArticle():
     return render_template("subscriberCreateArticle.html")
 
 @app.route("/api/categories")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def api_categories():
     conn = get_db_connection()
     cur = get_cursor(conn)
@@ -477,7 +506,7 @@ def moderate_article(cur, title, content):
     return publish, visible, flash_msg
 
 @app.route("/api/articles", methods=["POST"], endpoint="api_articles_post")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def api_articles_create():
     action  = (request.form.get("action") or "publish").lower()
     title   = (request.form.get("title") or "").strip()
@@ -534,9 +563,10 @@ def api_articles_create():
     if publish:
         cur.execute("""
         INSERT INTO articles 
-        (title, content, author, published_at, updated_at, image, catid, draft, visible)
-        VALUES (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, %s)
-        """, (title, content, author, image_rel, cat_id, visible))
+          (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
+        VALUES 
+          (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, 1, 'published')
+    """, (title, content, author, image_rel, cat_id))
     else:
         cur.execute("""
         INSERT INTO articles 
@@ -580,7 +610,7 @@ def _copy_static_file(rel_url: str, dest_dir: str) -> Optional[str]:
 
 # (MW) --------Import document, extract text & images--------
 @app.post("/subscriber/api/import-article")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def api_import_article():
     file = request.files.get("file")
     if not file or not file.filename:
@@ -692,7 +722,6 @@ def _extract_images_docx(raw_bytes: bytes, img_dir: str, base_id: str):
                 image_names.append(fname)
     return image_names
 
-
 def _convert_doc_to_docx(raw_bytes: bytes) -> bytes:
     import tempfile, win32com.client as win32
     with tempfile.TemporaryDirectory() as td:
@@ -713,7 +742,6 @@ def _convert_doc_to_docx(raw_bytes: bytes) -> bytes:
         with open(dst, "rb") as f:
             return f.read()
 
-
 def _save_text_file(text: str, base_dir: str, base_id: str):
     os.makedirs(base_dir, exist_ok=True)
     out_path = os.path.join(base_dir, "extracted.txt")
@@ -724,10 +752,9 @@ def _save_text_file(text: str, base_dir: str, base_id: str):
         # Non-fatal; ignore disk errors here
         pass
 
-
 # (MW) ------AI: suggest title, clean up text, pick category------
 @app.post("/subscriber/api/ai-suggest")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def api_ai_suggest():
     # Read JSON
     try:
@@ -797,75 +824,92 @@ def api_ai_suggest():
 
 # (MW)
 @app.route("/subscriber/api/articles", endpoint="subscriber_search_api")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_search_api():
-    cat   = request.args.get("cat")
-    q     = (request.args.get("q") or "").strip()
-    limit = int(request.args.get("limit", 10))
-    offset= int(request.args.get("offset", 0))
+    cat    = request.args.get("cat")               # category name or ""
+    q      = (request.args.get("q") or "").strip()
+    limit  = int(request.args.get("limit", 30))
+    offset = int(request.args.get("offset", 0))
 
     conn = get_db_connection()
     cur  = get_cursor(conn)
 
-    where  = ["a.draft = 0", "a.visible = 1"]  # <-- exclude drafts and hidden/flagged
-    params = []
+    where   = ["a.draft = FALSE", "a.visible = 1"]     # published & visible only
+    params  = []
+    joincat = "LEFT JOIN categories c ON a.catid = c.categoryid"
 
     if cat:
         where.append("c.name = %s")
         params.append(cat)
 
     if q:
-        like = f"%{q}%"
         where.append("(a.title LIKE %s OR a.content LIKE %s)")
+        like = f"%{q}%"
         params.extend([like, like])
 
+    # Author-first showing in homepage 
     sql = f"""
-        SELECT a.articleid, a.title, a.content, a.author,
-               a.published_at, a.updated_at, a.image, c.name AS category
-        FROM articles a
-        LEFT JOIN categories c ON a.catid = c.categoryid
-        WHERE {' AND '.join(where)}
-        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
-        LIMIT %s OFFSET %s
+      SELECT
+        a.articleid, a.title, a.content, a.author,
+        a.published_at, a.updated_at, a.image,
+        c.name AS category
+      FROM articles a
+      {joincat}
+      WHERE {" AND ".join(where)}
+      ORDER BY
+        CASE WHEN (EXISTS (
+          SELECT 1 FROM users u
+          WHERE TRIM(LOWER(u.name)) = TRIM(LOWER(a.author))
+            AND TRIM(LOWER(u.usertype)) = 'author'
+        )) THEN 0 ELSE 1 END,
+        COALESCE(a.published_at, a.updated_at) DESC,
+        a.articleid DESC
+      LIMIT %s OFFSET %s
     """
     params.extend([limit, offset])
+
     cur.execute(sql, tuple(params))
     rows = cur.fetchall()
-    
-    for r in rows:
-        html = r.get("content") or ""
-        r["content_html"]  = html
-        r["content_plain"] = re.sub(r"<[^>]+>", "", html)
-
-    cur.close()
-    conn.close()
+    cur.close(); conn.close()
     return jsonify(rows)
 
 # (MW)
 # -------View route (full-page article, shows pin state)----------------
 @app.route("/subscriber/article/<int:article_id>")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_article_view(article_id):
     conn = get_db_connection()
     cur  = get_cursor(conn)
 
     cur.execute("""
-        SELECT a.articleid, a.title, a.content, a.author,
-               a.published_at, a.updated_at,
-               CASE
-                 WHEN a.image IS NULL OR a.image = '' THEN NULL
-                 WHEN a.image LIKE 'http%' THEN a.image
-                 WHEN a.image LIKE '/static/%' THEN a.image
-                 WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
-                 ELSE CONCAT('/static/img/', a.image)
-               END AS image,
-               c.name AS category
+        SELECT
+        a.articleid, a.title, a.content, a.author,
+        a.published_at, a.updated_at, a.likes, a.dislikes,
+        CASE
+            WHEN a.image IS NULL OR a.image = '' THEN NULL
+            WHEN a.image LIKE 'http%%' THEN a.image
+            WHEN a.image LIKE '/static/%%' THEN a.image
+            WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image, '../static', '/static')
+            ELSE CONCAT('/static/img/', a.image)
+        END AS image,
+        c.name AS category,
+        u.userid        AS author_userid,
+        u.usertype      AS author_usertype,  
+        CASE
+            WHEN u.image IS NULL OR u.image = '' THEN NULL
+            WHEN u.image LIKE 'http%%' THEN u.image
+            WHEN u.image LIKE '/static/%%' THEN u.image
+            WHEN u.image LIKE '../static/%%' THEN REPLACE(u.image, '../static', '/static')
+            ELSE CONCAT('/static/img/', u.image)
+        END AS author_image
         FROM articles a
         LEFT JOIN categories c ON a.catid = c.categoryid
+        LEFT JOIN users u      ON u.name = a.author
         WHERE a.articleid = %s
-          AND a.draft = FALSE
-        LIMIT 1
+        AND (a.draft IS NULL OR a.draft = 0)
+        LIMIT 1;
     """, (article_id,))
+
     article = cur.fetchone()
     if not article:
         cur.close(); conn.close()
@@ -903,9 +947,27 @@ def subscriber_article_view(article_id):
         summary_points=summary_points
     )
 
+@app.template_filter("dmyhm")
+def fmt_ddmmyyyy_hhmm_ampm(dt):
+    if not dt: return ""
+    from datetime import datetime
+    if isinstance(dt, str):
+        try:
+            dt = datetime.strptime(dt, "%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            return dt
+    s = dt.strftime("%d/%m/%Y %I:%M %p")
+    return s[:-2] + s[-2:].lower()
+
+def initials_from(name):
+    parts = (name or "").strip().split()
+    if not parts:
+        return "U"
+    return (parts[0][:1] + (parts[1][:1] if len(parts) > 1 else "")).upper()
+
 
 @app.route("/subscriber/api/pin", methods=["POST"])
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_toggle_pin():
     data = request.get_json(silent=True) or {}
     article_id = data.get("articleid")
@@ -942,16 +1004,136 @@ def subscriber_toggle_pin():
             conn.rollback()
             cur.close(); conn.close()
             return jsonify(ok=False, message="Unable to pin"), 500
+        
+# ---------- Article Like/Dislike API ---------- 
+@app.route('/subscriber/api/article/react', methods=['POST'])
+@login_required("Author", "Subscriber")
+def subscriber_article_react():
+    data = request.get_json(silent=True) or {}
+    try:
+        articleid = int(data.get('articleid') or 0)
+    except Exception:
+        articleid = 0
+    action = (data.get('action') or '').strip().lower()  # 'like' | 'dislike'
+
+    if action not in ('like','dislike') or not articleid:
+        return jsonify(ok=False, message='Bad request'), 400
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    try:
+        uid = session.get('userid')
+        if uid is None:
+            uname = (session.get('user') or '').strip()
+            if not uname:
+                return jsonify(ok=False, message='Not signed in'), 401
+            cur_lookup = conn.cursor()
+            try:
+                cur_lookup.execute(
+                    "SELECT userid FROM users WHERE username=%s OR name=%s LIMIT 1",
+                    (uname, uname)
+                )
+                row = cur_lookup.fetchone()
+            finally:
+                cur_lookup.close()
+            if not row:
+                return jsonify(ok=False, message='User not found'), 401
+            uid = int(row[0])
+            session['userid'] = uid
+        else:
+            uid = int(uid)
+
+        conn.start_transaction()
+
+        cur.execute("""
+            SELECT reaction
+            FROM article_reactions
+            WHERE articleid=%s AND userid=%s
+            FOR UPDATE
+        """, (articleid, uid))
+        row = cur.fetchone()
+        prev = (row['reaction'] if row else None)
+
+        # compute deltas
+        d_like = d_dislike = 0
+        if prev is None:
+            # new reaction
+            if action == 'like':    d_like = 1
+            if action == 'dislike': d_dislike = 1
+            cur.execute("""
+                INSERT INTO article_reactions (articleid, userid, reaction)
+                VALUES (%s, %s, %s)
+            """, (articleid, uid, action))
+            state = action
+        elif prev == action:
+            # toggle off
+            if action == 'like':    d_like = -1
+            if action == 'dislike': d_dislike = -1
+            cur.execute("""
+                DELETE FROM article_reactions
+                WHERE articleid=%s AND userid=%s
+            """, (articleid, uid))
+            state = 'none'
+        else:
+            # switch
+            if prev == 'like' and action == 'dislike':
+                d_like, d_dislike = -1, +1
+            elif prev == 'dislike' and action == 'like':
+                d_like, d_dislike = +1, -1
+            cur.execute("""
+                UPDATE article_reactions
+                SET reaction=%s, updated_at=NOW()
+                WHERE articleid=%s AND userid=%s
+            """, (action, articleid, uid))
+            state = action
+
+        cur.execute("""
+            UPDATE articles
+            SET likes    = GREATEST(likes + %s, 0),
+                dislikes = GREATEST(dislikes + %s, 0)
+            WHERE articleid=%s
+        """, (d_like, d_dislike, articleid))
+
+        # return the fresh totals from articles
+        cur.execute("SELECT likes, dislikes FROM articles WHERE articleid=%s FOR UPDATE", (articleid,))
+        agg = cur.fetchone() or {'likes': 0, 'dislikes': 0}
+        likes    = int(agg['likes'] or 0)
+        dislikes = int(agg['dislikes'] or 0)
+
+        conn.commit()
+        return jsonify(ok=True, state=state, likes=likes, dislikes=dislikes)
+    except Exception as e:
+        conn.rollback()
+        return jsonify(ok=False, message=f"Server error: {e}"), 500
+    finally:
+        try: cur.close()
+        except: pass
+        try: conn.close()
+        except: pass
 
 # --- My Articles: page ---
 @app.route("/subscriber/my-articles")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_my_articles():
     return render_template("subscriberMyArticles.html")
 
+def _norm_image_path(p):
+    if not p:
+        return None
+    p = p.strip()
+    if p.startswith(("http://", "https://")):
+        return p
+    if p.startswith("/static/"):
+        return p
+    if p.startswith("./static/"):
+        return p[1:]  
+    if p.startswith(("uploads/", "img/")):
+        return "/static/" + p              
+    return "/static/uploads/" + p
+
 # --- My Articles: JSON API ---
 @app.route("/subscriber/api/my-articles")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_api_my_articles():
     status = (request.args.get("status") or "all").lower()
     limit  = int(request.args.get("limit", 20))
@@ -960,15 +1142,19 @@ def subscriber_api_my_articles():
     conn = get_db_connection()
     cur  = get_cursor(conn)
 
-    base_select = """
+    base_select = r"""
         SELECT a.articleid, a.title, a.content, a.draft,
-               a.status,                        -- expose status to the UI
+               a.status,
                a.published_at, a.updated_at,
                CASE
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
-                 WHEN a.image LIKE 'http%' THEN a.image
+                 WHEN a.image REGEXP '^(https?:)?//' THEN a.image
                  WHEN a.image LIKE '/static/%' THEN a.image
-                 WHEN a.image LIKE './static/%' THEN REPLACE(a.image, './static', '/static')
+                 WHEN a.image LIKE './static/%'  THEN REPLACE(a.image, './static',  '/static')
+                 WHEN a.image LIKE '../static/%' THEN REPLACE(a.image, '../static', '/static')
+                 WHEN a.image LIKE 'static/%'    THEN CONCAT('/', a.image)
+                 WHEN a.image LIKE 'img/%'       THEN CONCAT('/static/', a.image)
+                 WHEN a.image LIKE 'uploads/%'   THEN CONCAT('/static/', a.image)
                  ELSE CONCAT('/static/img/', a.image)
                END AS image,
                c.name AS category
@@ -986,26 +1172,23 @@ def subscriber_api_my_articles():
         elif status == "drafts":
             where += ["a.draft = TRUE"]
         elif status == "pending":
-            where += ["a.status = 'pending_revision'"]
+            where += ["a.visible = 0", "a.status IN ('pending_revision','pending_approval')"]
 
         sql = f"""{base_select}
                   WHERE {" AND ".join(where)}
-                  ORDER BY COALESCE(a.published_at, a.updated_at) DESC
+                  ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
                   LIMIT %s OFFSET %s"""
         params += [limit, offset]
         cur.execute(sql, tuple(params))
         rows = cur.fetchall()
 
     elif status == "reported":
-        sql = f"""
-            {base_select}
-            INNER JOIN article_reports ar ON ar.article_id = a.articleid
-            WHERE a.author = %s
-              AND ar.status = 'pending'
-            GROUP BY a.articleid
-            ORDER BY MAX(ar.updated_at) DESC
-            LIMIT %s OFFSET %s
-        """
+        sql = f"""{base_select}
+                  WHERE a.author = %s
+                    AND a.visible = 0
+                    AND a.status  = 'reported'
+                  ORDER BY COALESCE(a.updated_at, a.published_at) DESC, a.articleid DESC
+                  LIMIT %s OFFSET %s"""
         cur.execute(sql, (session.get("user"), limit, offset))
         rows = cur.fetchall()
 
@@ -1014,7 +1197,7 @@ def subscriber_api_my_articles():
 
 # View: load edit page 
 @app.route("/subscriber/edit-article/<int:article_id>")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_edit_article(article_id):
     conn = get_db_connection()
     cur  = get_cursor(conn)
@@ -1033,76 +1216,134 @@ def subscriber_edit_article(article_id):
 
 # API: update article 
 @app.route("/subscriber/api/article/<int:article_id>", methods=["POST"])
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_update_article(article_id):
-    action      = (request.form.get("action") or "").lower()   # 'draft' | 'publish'
+    action      = (request.form.get("action") or "").lower()   # 'draft' | 'publish' | 'review'
     title       = (request.form.get("title") or "").strip()
     content     = (request.form.get("content") or "").strip()
-    category_id = request.form.get("category_id")
+    category_id = (request.form.get("category_id") or "").strip()
     image_file  = request.files.get("image")
 
+    # Basic validation
     if not title or not content or not category_id:
         return jsonify(ok=False, message="Title, content and category are required."), 400
-
-    draft_flag = (action != "publish")
 
     conn = get_db_connection()
     cur  = get_cursor(conn)
 
-    cur.execute("SELECT author FROM articles WHERE articleid=%s LIMIT 1", (article_id,))
+    # Check ownership + fetch current status/visible/draft
+    cur.execute("""
+        SELECT author, status, visible, draft
+        FROM articles
+        WHERE articleid = %s
+        LIMIT 1
+    """, (article_id,))
     row = cur.fetchone()
     if not row or row["author"] != session.get("user"):
         cur.close(); conn.close()
         return jsonify(ok=False, message="Forbidden"), 403
 
-    # --- Run moderation only when publishing ---
-    if not draft_flag:
-        # Profanity check
-        profanity_check = check_profanity(title, content)
-        if not profanity_check["ok"]:
-            cur.close(); conn.close()
-            return jsonify(profanity_check), 400
+    current_status = (row["status"] or "").lower()
+    is_restricted  = current_status in ("reported", "pending_revision", "pending_approval")
 
-        # AI moderation
-        publish, visible, flash_msg = moderate_article(cur, title, content)
-    else:
-        flash_msg = "Draft saved."
+    # Decide behavior by action
+    is_draft   = (action == "draft")
+    is_publish = (action == "publish")
+    is_review  = (action == "review")
 
+    # Enforce rule: restricted articles can ONLY be saved for review
+    if is_restricted and not is_review:
+        cur.close(); conn.close()
+        return jsonify(ok=False, message="This article is under review. Only 'Save & Submit' is allowed."), 400
+
+    # Handle image upload (optional)
     image_name = None
     if image_file and image_file.filename:
         image_name = image_file.filename
         image_path = os.path.join(app.static_folder, "img", image_name)
         image_file.save(image_path)
 
-    # Build UPDATE
-    fields = ["title=%s", "content=%s", "catid=%s", "draft=%s", "updated_at=NOW()"]
-    params = [title, content, category_id, draft_flag]
+    # Build UPDATE fields common to all actions
+    fields = ["title=%s","content=%s","catid=%s","updated_at=NOW()"]
+    params = [title, content, category_id]
 
-    if not draft_flag:
-        fields.append("published_at=NOW()")
+    flash_msg = "Saved."
 
+    if is_review:
+        # Your requirement:
+        # status = pending_approval, draft = 1, visible = 0 (no publish_at)
+        fields += ["status='pending_approval'", "draft=1", "visible=0"]
+        flash_msg = "Submitted for review."
+    elif is_draft:
+        # Regular draft save (keep visible as-is)
+        fields += ["draft=1"]
+        flash_msg = "Draft saved."
+    elif is_publish:
+        # Publishing path (run moderation)
+        # -> Profanity check
+        profanity_check = check_profanity(title, content)
+        if not profanity_check.get("ok", False):
+            cur.close(); conn.close()
+            return jsonify(ok=False, message=profanity_check.get("message","Failed profanity check.")), 400
+
+        # -> AI moderation decides final visibility & message
+        publish, visible, mod_msg = moderate_article(cur, title, content)
+        # publish True means pass moderation; write publish timestamp
+        if publish:
+            fields += ["draft=0", "status='published'", "visible=%s", "published_at=NOW()"]
+            params.append(int(bool(visible)))
+        else:
+            # If moderation says not publishable now, keep it as draft but reflect visibility
+            fields += ["draft=1", "status='draft'", "visible=%s"]
+            params.append(0)
+        flash_msg = mod_msg or ("Published." if publish else "Saved (not published).")
+
+    # Image if present
     if image_name:
         fields.append("image=%s")
         params.append(image_name)
 
+    # WHERE + commit
     params.append(article_id)
-
     cur.execute(f"UPDATE articles SET {', '.join(fields)} WHERE articleid=%s", params)
     conn.commit()
     cur.close(); conn.close()
-
     return jsonify(ok=True, message=flash_msg, redirect=url_for("subscriber_my_articles"))
 
+# Edit Reported Articles Page
+@app.route("/subscriber/edit-reported-article/<int:article_id>")
+@login_required("Author", "Subscriber")
+def subscriber_edit_reported_article(article_id):
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+    cur.execute("""
+        SELECT a.articleid, a.title, a.content, a.catid, a.image, a.draft,
+               a.published_at, a.updated_at, a.status, a.visible
+        FROM articles a
+        WHERE a.articleid = %s AND a.author = %s
+        LIMIT 1
+    """, (article_id, session.get("user")))
+    article = cur.fetchone()
+    cur.close(); conn.close()
+    if not article:
+        return ("Forbidden", 403)
+
+    # Guard: only allow reported/pending here (tweak if you like)
+    if article["status"] not in ("reported", "pending_revision", "pending_approval"):
+        return redirect(url_for("subscriber_edit_reported_article", article_id=article_id))
+
+    # Reuse existing template; tell it we're in review mode
+    return render_template("subscriberEditReportedArticles.html", article=article, review_mode=True)
 
 # Bookmarks page
 @app.route("/subscriber/bookmarks")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_bookmarks():
     return render_template("subscriberBookmarks.html")
 
 # Bookmarks data for the logged-in user
 @app.route("/subscriber/api/bookmarks")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_api_bookmarks():
     uid = session.get("userid")
     if uid is None:
@@ -1170,7 +1411,7 @@ def _norm_img(p: Optional[str]) -> Optional[str]:
     return "/static/profilePictures/" + p.lstrip("/")
 
 @app.get("/subscriber/api/comments")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_api_comments():
     from app import get_db_connection  # if your factory exposes it here
 
@@ -1193,6 +1434,7 @@ def subscriber_api_comments():
             c.reply_to_comment_id,
             u.name  AS author,
             u.image AS author_image,
+            u.usertype      AS author_usertype,
             (c.userid = %s) AS mine
         FROM comments c
         JOIN users u ON u.userid = c.userid
@@ -1229,12 +1471,14 @@ def subscriber_api_comments():
             "mine": bool(r["mine"]),
             "my_reaction": my_reaction_map.get(r["commentid"]),
             "is_reply": bool(r.get("is_reply")),
-            "parent_id": r.get("reply_to_comment_id")
+            "parent_id": r.get("reply_to_comment_id"),
+            "author_id": r["userid"],
+            "author_usertype": (r.get("author_usertype") or "")
         })
     return jsonify(out)
 
 @app.post("/subscriber/api/comments")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_api_comment_create():
     from app import get_db_connection
 
@@ -1275,7 +1519,7 @@ def subscriber_api_comment_create():
     return jsonify({"ok": True})
 
 @app.put("/subscriber/api/comments/<int:comment_id>")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_api_comment_update(comment_id):
     from app import get_db_connection
 
@@ -1285,7 +1529,7 @@ def subscriber_api_comment_update(comment_id):
         return jsonify(ok=False, message="text required"), 400
 
     conn = get_db_connection()
-    cur = get_cursor(conn)
+    cur = conn.cursor()
     cur.execute("SELECT userid FROM comments WHERE commentid=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
@@ -1299,13 +1543,13 @@ def subscriber_api_comment_update(comment_id):
     return jsonify(ok=True)
 
 @app.delete("/subscriber/api/comments/<int:comment_id>")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_api_comment_delete(comment_id):
     from app import get_db_connection
 
     uid = session.get("userid")
     conn = get_db_connection()
-    cur = get_cursor(conn)
+    cur = conn.cursor()
     cur.execute("SELECT userid FROM comments WHERE commentid=%s", (comment_id,))
     row = cur.fetchone()
     if not row:
@@ -1318,7 +1562,7 @@ def subscriber_api_comment_delete(comment_id):
     return jsonify(ok=True)
 
 @app.post("/subscriber/api/comments/<int:comment_id>/react")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_api_comment_react(comment_id):
     from app import get_db_connection
 
@@ -1375,10 +1619,10 @@ def subscriber_api_comment_react(comment_id):
                    state=None if action=="clear" else action)
 
 @app.route("/subscriber/report_article", methods=["POST"])
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def report_article():
     data = request.get_json(silent=True) or {}
-    # frontend sends "id"; keep backward compat with "articleid"
+    # frontend sends "id"; keep backward compat with "articleID"
     article_id = data.get("id") or data.get("articleid")
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
@@ -1418,6 +1662,11 @@ def report_article():
             INSERT INTO article_reports (article_id, reporter_id, reason, details, created_at)
             VALUES (%s, %s, %s, %s, NOW())
         """, (article_id, reporter_id, reason, details))
+        cur.execute("""
+            UPDATE articles
+            SET status = 'reported', visible = 1, updated_at = NOW()
+            WHERE articleid = %s AND status IN ('draft','published')
+        """, (article_id,))
         conn.commit()
         return jsonify(ok=True, message="Report submitted successfully.")
     except mysql.connector.Error as err:
@@ -1428,10 +1677,9 @@ def report_article():
         cur.close(); conn.close()
 
 @app.route("/subscriber/report_comment", methods=["POST"])
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def report_comment():
     data = request.get_json(silent=True) or {}
-    # frontend sends "id"; keep backward compat with "commentid"
     comment_id = data.get("id") or data.get("commentid")
     reason     = (data.get("reason") or "").strip()
     details    = (data.get("details") or "").strip()
@@ -1445,7 +1693,6 @@ def report_comment():
     conn = get_db_connection()
     cur  = get_cursor(conn)
     try:
-        # 1) de-dupe (same user reporting same comment)
         cur.execute(
             "SELECT 1 FROM comment_reports WHERE comment_id = %s AND reporter_id = %s LIMIT 1",
             (comment_id, reporter_id)
@@ -1453,7 +1700,6 @@ def report_comment():
         if cur.fetchone():
             return jsonify(ok=False, message="You have already reported this comment."), 400
 
-        # 2) insert
         cur.execute("""
             INSERT INTO comment_reports (comment_id, reporter_id, reason, details, created_at)
             VALUES (%s, %s, %s, %s, NOW())
@@ -1482,7 +1728,7 @@ def save_profile_image(file_storage):
     return f"/static/profilePictures/{unique}"
 
 @app.route("/profile")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def profile():
     uid = session["userid"]
 
@@ -1501,14 +1747,12 @@ def profile():
         flash("User not found.", "error")
         return redirect(url_for("subscriberHomepage"))
 
-    # Normalize stored image paths so the browser can render them
     img = (u.get("image") or "")
     if img.startswith("../static/"):
         u["image"] = img.replace("../static", "/static")
     elif img.startswith("./static/"):
         u["image"] = img.replace("./static", "/static")
 
-    # Optional: also pass a 'profile' dict since the template may use either
     profile = {
         "display_name": u["name"],
         "email": u["email"],
@@ -1517,7 +1761,6 @@ def profile():
         "avatar_url": u.get("image"),
     }
 
-    # Your template expects 'pinned' and 'articles' too; pass empty lists for now
     return render_template(
         "subscriberProfile.html",
         user=u,
@@ -1527,7 +1770,7 @@ def profile():
     )
 
 @app.route("/profile/update", methods=["POST"])
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def profile_update():
     uid = session["userid"]
     next_url = request.form.get("next") or request.referrer or url_for("subscriberHomepage")
@@ -1536,7 +1779,6 @@ def profile_update():
     bio  = (request.form.get("bio")  or "").strip()
     avatar_file = request.files.get("avatar")
 
-    # --- fetch current user values for change detection ---
     conn = get_db_connection()
     cur  = get_cursor(conn)
     cur.execute("SELECT name, bio, image FROM users WHERE userid=%s LIMIT 1", (uid,))
@@ -1545,16 +1787,13 @@ def profile_update():
 
     current_name = (row.get("name") or "").strip() if row else ""
     current_bio  = (row.get("bio") or "").strip() if row else ""
-    # NOTE: we only treat avatar as changed if a file is uploaded
 
     no_text_change = (name == current_name and bio == current_bio)
     no_avatar_upload = not (avatar_file and avatar_file.filename)
 
     if no_text_change and no_avatar_upload:
-        # nothing to do → show "No changes" toast on profile for 2s, then return to last page
         return redirect(url_for("profile", nochange=1, next=next_url))
 
-    # --- if we reach here, at least one field changed ---
     new_img = None
     if avatar_file and avatar_file.filename:
         new_img = save_profile_image(avatar_file)
@@ -1575,32 +1814,130 @@ def profile_update():
     finally:
         cur.close(); conn.close()
 
-    # success → show toast on profile for 2s, then return to last page
     return redirect(url_for("profile", updated=1, next=next_url))
 
-@app.get("/subscriber/profile/<int:user_id>")
-@login_required("Subscriber")
-def subscriber_profile_view(user_id: int):
+from flask import jsonify
+
+# only Authors can downgrade to Subscriber
+@app.post("/api/profile/downgrade-author")
+@login_required("Author")  
+def api_downgrade_author():
+    uid   = session["userid"]
+    role  = session.get("usertype") or session.get("role") or "Author"
+
+    if role != "Author":
+        return jsonify(ok=False, message="Only Author accounts can downgrade."), 403
+
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE users
+               SET previous_usertype = usertype,
+                   usertype = 'Subscriber'
+             WHERE userid = %s
+             LIMIT 1
+        """, (uid,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify(ok=False, message=str(e)), 500
+    finally:
+        cur.close(); conn.close()
+
+    session["usertype"] = "Subscriber"
+    session["role"] = "Subscriber"
+
+    return jsonify(ok=True,
+                   message="Role downgraded to Subscriber.",
+                   redirect=url_for("subscriberHomepage"))
+
+# only Subscribers can cancel sunscription
+@app.post("/api/profile/cancel-subscription")
+@login_required("Subscriber")  
+def api_cancel_subscription():
+    uid  = session["userid"]
+    role = session.get("usertype") or session.get("role") or "Subscriber"
+
+    if role != "Subscriber":
+        return jsonify(ok=False, message="Only Subscriber accounts can be cancelled here."), 403
+
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM users WHERE userid=%s LIMIT 1", (uid,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify(ok=False, message=str(e)), 500
+    finally:
+        cur.close(); conn.close()
+
+    session.clear()
+
+    return jsonify(ok=True,
+                   message="Subscription cancelled.",
+                   redirect=url_for("index"))
+
+@app.route("/subscriber/profile/<int:user_id>")
+@login_required("Author", "Subscriber")
+def subscriber_profile_view(user_id):
     conn = get_db_connection()
     cur  = get_cursor(conn)
 
     cur.execute("""
         SELECT userid, name, email, usertype, image, bio
         FROM users
-        WHERE userid = %s
-        LIMIT 1
+        WHERE userid=%s
     """, (user_id,))
-    u = cur.fetchone()
+    user = cur.fetchone()
+    if not user:
+        cur.close(); conn.close()
+        return ("User not found", 404)
 
+    img = (user.get("image") or "").strip()
+    show_img = None
+    if img:
+        if img.startswith("http://") or img.startswith("https://"):
+            show_img = img
+        elif img.startswith("/static/"):
+            show_img = img
+        elif img.startswith("../static/"):
+            show_img = img.replace("../static", "/static")
+        elif img.startswith("./static/"):
+            show_img = img.replace("./static", "/static")
+        else:
+            show_img = f"/static/profilePictures/{img}"
+    user["image_url"] = show_img
+
+    cur.execute("""
+        SELECT a.articleid, a.title, a.published_at, a.image
+        FROM articles a
+        WHERE a.author = %s
+          AND a.visible = 1
+          AND a.status = 'published'
+        ORDER BY COALESCE(a.published_at, a.updated_at) DESC, a.articleid DESC
+        LIMIT 12
+    """, (user["name"],))
+    articles = cur.fetchall()
+
+    cur.close(); conn.close()
+    return render_template("subscriberViewProfile.html", user=user, articles=articles)
+
+@app.get("/subscriber/api/profile/<int:user_id>/articles")
+@login_required("Author", "Subscriber")
+def api_profile_articles(user_id):
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    cur.execute("SELECT name FROM users WHERE userid=%s", (user_id,))
+    u = cur.fetchone()
     if not u:
         cur.close(); conn.close()
-        abort(404)
+        return jsonify(ok=False, message="User not found"), 404
 
-    img = (u.get("image") or "")
-    if img.startswith("../static/"):
-        u["image"] = img.replace("../static", "/static")
-    elif img.startswith("./static/"):
-        u["image"] = img.replace("./static", "/static")
+    limit  = int(request.args.get("limit", 24))
+    offset = int(request.args.get("offset", 0))
 
     cur.execute("""
         SELECT a.articleid, a.title, a.published_at,
@@ -1608,39 +1945,44 @@ def subscriber_profile_view(user_id: int):
                  WHEN a.image IS NULL OR a.image = '' THEN NULL
                  WHEN a.image LIKE 'http%%' THEN a.image
                  WHEN a.image LIKE '/static/%%' THEN a.image
-                 WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image, '../static', '/static')
+                 WHEN a.image LIKE '../static/%%' THEN REPLACE(a.image,'../static','/static')
+                 WHEN a.image LIKE './static/%%'  THEN REPLACE(a.image,'./static','/static')
                  ELSE CONCAT('/static/img/', a.image)
                END AS image
         FROM articles a
-        WHERE a.author = %s AND a.draft = 0 AND a.visible = 1
-        ORDER BY COALESCE(a.published_at, a.updated_at) DESC
-        LIMIT 50
-    """, (u["name"],))
-    articles = cur.fetchall() or []
+        WHERE a.author = %s
+          AND a.visible = 1
+          AND a.status  = 'published'
+        ORDER BY COALESCE(a.published_at, a.updated_at) DESC, a.articleid DESC
+        LIMIT %s OFFSET %s
+    """, (u["name"], limit, offset))
+    rows = cur.fetchall()
+    cur.close(); conn.close()
+    return jsonify(ok=True, items=rows)
 
+@app.get("/subscriber/author/<int:author_id>")
+@login_required("Author", "Subscriber")
+def subscriber_article_list_by_author(author_id):
+    conn = get_db_connection(); cur = conn.cursor(dictionary=True)
+    cur.execute("SELECT userid, name, image, bio FROM users WHERE userid=%s", (author_id,))
+    author = cur.fetchone()
+
+    cur.execute("""
+        SELECT articleid, title, content, image, published_at, updated_at
+        FROM articles
+        WHERE author = %s AND draft = 0
+        ORDER BY COALESCE(published_at, updated_at) DESC
+    """, (author_id,))
+    articles = cur.fetchall()
     cur.close(); conn.close()
 
-    profile = {
-        "id": u["userid"],
-        "display_name": u["name"],
-        "email": u["email"],
-        "usertype": u["usertype"],
-        "bio": u.get("bio"),
-        "avatar_url": u.get("image"),
-    }
+    return render_template("subscriberAuthorArticles.html",
+                           author=author, articles=articles)
 
-    return render_template(
-        "subscriberViewProfile.html",
-        user=u,              
-        profile=profile,    
-        articles=articles,  
-    )
-
-@app.route("/subscriber/api/articles/<int:article_id>/delete", methods=["DELETE"])
-@login_required("Subscriber")
+@app.post("/subscriber/api/articles/<int:article_id>/delete")
+@login_required("Author", "Subscriber")
 def subscriber_delete_article(article_id):
     username = session.get("user")  # current logged-in subscriber
-
     conn = get_db_connection()
     cur = get_cursor(conn)
 
@@ -1664,7 +2006,6 @@ def subscriber_delete_article(article_id):
     
 # (MW) --- Ads API: random visible ad for sidebar rotation ---
 @app.route("/api/ads/random")
-@login_required("Subscriber")
 def api_random_ad():
     conn = get_db_connection()
     cur  = get_cursor(conn)
@@ -1685,11 +2026,9 @@ def api_random_ad():
     def norm_image(p: str) -> str:
         if not p: return "/static/img/placeholder.png"
         if p.startswith("http"): return p
-        # your dump already stores absolute /static paths; keep them
         if p.startswith("/static/"): return p
         if p.startswith("../static/"): return p.replace("../static", "/static")
         if p.startswith("./static/"): return p.replace("./static", "/static")
-        # fallback: assume it lives under /static/ads/
         return "/static/ads/" + p.lstrip("/")
 
     return jsonify({
@@ -1704,14 +2043,13 @@ def api_random_ad():
     })
     
 # (MW) ---------- SubscriberAnalytics ----------
-
 @app.route("/subscriber/analytics")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_analytics():
     return render_template("subscriberAnalytics.html")
 
 @app.route("/subscriber/api/analytics/my-articles")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_analytics_my_articles():
     author_name = session.get("user", "")
 
@@ -1725,7 +2063,9 @@ def subscriber_analytics_my_articles():
             a.published_at,
             COALESCE(a.views, 0)          AS views,
             COALESCE(bm.bookmarks, 0)     AS bookmarks,
-            COALESCE(cc.comment_count, 0) AS comment_count
+            COALESCE(cc.comment_count, 0) AS comment_count,
+            COALESCE(a.likes, 0)          AS likes,
+            COALESCE(a.dislikes, 0)       AS dislikes
         FROM articles a
         LEFT JOIN (
             SELECT articleid, COUNT(*) AS bookmarks
@@ -1749,22 +2089,12 @@ def subscriber_analytics_my_articles():
     for r in rows:
         dt = r.get("published_at")
         if hasattr(dt, "strftime"):
-            r["published_at"] = (
-                                    f'{dt.strftime("%a")}, '              
-                                    f'{dt.strftime("%d-%m-%Y %I:%M")} '   
-                                    f'{dt.strftime("%p").lower()}'        
-                                )
+            r["published_at"] = f'{dt.strftime("%a")}, {dt.strftime("%d-%m-%Y %I:%M")} {dt.strftime("%p").lower()}'
         elif isinstance(dt, str) and dt:
-            for fmt in ("%Y-%m-%d %H:%M:%S",
-                        "%Y-%m-%dT%H:%M:%S",
-                        "%a, %d %b %Y %H:%M:%S %Z"):
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S", "%a, %d %b %Y %H:%M:%S %Z"):
                 try:
                     d = datetime.strptime(dt, fmt)
-                    r["published_at"] = (
-                                            f'{dt.strftime("%a")}, '              
-                                            f'{dt.strftime("%d-%m-%Y %I:%M")} '   
-                                            f'{dt.strftime("%p").lower()}'        
-                                        )
+                    r["published_at"] = f'{d.strftime("%a")}, {d.strftime("%d-%m-%Y %I:%M")} {d.strftime("%p").lower()}'
                     break
                 except ValueError:
                     pass
@@ -1772,7 +2102,6 @@ def subscriber_analytics_my_articles():
 
     cur.close()
     conn.close()
-
     return jsonify(rows)
 
 def _row_donation(idx, row):
@@ -1781,7 +2110,6 @@ def _row_donation(idx, row):
     payment_method  = row["payment_method"] or ""
     ts              = row["paymentdatetime"]  
 
-    # Display formatting
     if isinstance(ts, (datetime, )):
         payment_date = ts.strftime("%d-%m-%Y")
         payment_time = ts.strftime("%I:%M %p").lower() 
@@ -1803,7 +2131,7 @@ def _row_donation(idx, row):
     }
 
 @app.get("/subscriber/api/analytics/my-donations")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_analytics_my_donations():
     uid = session.get("userid")
     if not uid:
@@ -1823,7 +2151,7 @@ def subscriber_analytics_my_donations():
             LEFT JOIN donation_info AS di
               ON di.donation_id = d.donation_id
             WHERE d.userid = %s
-            ORDER BY d.paymentdatetime DESC, d.donation_id DESC
+            ORDER BY d.paymentDateTime DESC, d.donation_id DESC
         """, (uid,))
         recs = cur.fetchall() or []
     finally:
@@ -1857,7 +2185,7 @@ def subscriber_analytics_my_donations():
     return jsonify([_shape(r) for r in recs])
 
 @app.get("/subscriber/api/analytics/overview")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def subscriber_analytics_overview():
     user_id     = session.get("userid")
     author_name = session.get("user", "")
@@ -1865,7 +2193,6 @@ def subscriber_analytics_overview():
     conn = get_db_connection()
     cur  = get_cursor(conn)
     try:
-        # total views for my published & visible articles
         cur.execute("""
             SELECT COALESCE(SUM(views), 0)
             FROM articles
@@ -1873,11 +2200,9 @@ def subscriber_analytics_overview():
         """, (author_name,))
         total_views = int((cur.fetchone() or [0])[0] or 0)
 
-        # bookmarks by me
         cur.execute("SELECT COUNT(*) FROM subscriber_pins WHERE userid = %s", (user_id,))
         total_bookmarks = int((cur.fetchone() or [0])[0] or 0)
 
-        # comment reactions by me
         try:
             cur.execute("""
                 SELECT
@@ -1891,7 +2216,17 @@ def subscriber_analytics_overview():
         except Exception:
             likes_by_me, dislikes_by_me = 0, 0
 
-        # contributed amount from donations
+        cur.execute("""
+            SELECT
+              COALESCE(SUM(likes), 0)    AS my_article_likes,
+              COALESCE(SUM(dislikes), 0) AS my_article_dislikes
+            FROM articles
+            WHERE author = %s AND draft = 0 AND visible = 1
+        """, (author_name,))
+        r = cur.fetchone() or [0, 0]
+        my_article_likes    = int(r[0] or 0)
+        my_article_dislikes = int(r[1] or 0)
+
         cur.execute("SELECT COALESCE(SUM(donation_amount),0) FROM donations WHERE userid=%s", (user_id,))
         contributed_amount = float((cur.fetchone() or [0])[0] or 0.0)
 
@@ -1901,26 +2236,24 @@ def subscriber_analytics_overview():
 
     return jsonify({
         "total_views": total_views,
-        "total_shares": 0,  # not tracked yet
         "total_bookmarks": total_bookmarks,
         "comment_likes": likes_by_me,
         "comment_dislikes": dislikes_by_me,
         "contributed_amount": contributed_amount,
+        "my_article_likes": my_article_likes,
+        "my_article_dislikes": my_article_dislikes,
     })
 
 
 # (MW)
-# ----------Subscriber Donations-----------
-
-# --- Donations (Subscriber) ---
+# ---------- Donations-----------
 @app.get("/donate")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def donate_form():
     return render_template("subscriberDonation.html")
 
-# --- DONATIONS ---
 @app.post("/donate")
-@login_required("Subscriber")
+@login_required("Author", "Subscriber")
 def donate_submit():
     """
     1) Validate form
@@ -1931,12 +2264,10 @@ def donate_submit():
     method = (request.form.get("payment_method") or "").strip().lower()
     amount_raw = (request.form.get("donation_amount") or "").strip()
 
-    # Optional fields by method
     card_brand = (request.form.get("card_brand") or "").strip() or None
     cardnumber = (request.form.get("cardnumber") or "").strip() or None
     paynowref  = (request.form.get("paynowref")  or "").strip() or None
 
-    # ---- Basic validation
     try:
         amt = decimal.Decimal(amount_raw)
     except Exception:
@@ -1951,12 +2282,10 @@ def donate_submit():
         flash("Please select a valid payment method.", "danger")
         return redirect(url_for("donate_form"))
 
-    # Method-specific quick checks (the front-end already validated, this is just belt & braces)
     if method == "card":
         if not cardnumber or len(cardnumber) != 16 or not cardnumber.isdigit():
             flash("Invalid card number.", "danger")
             return redirect(url_for("donate_form"))
-        # card_brand is optional, but if missing we can infer "Unknown"
         if not card_brand:
             card_brand = "Unknown"
 
@@ -1970,11 +2299,9 @@ def donate_submit():
         flash("You are not logged in.", "danger")
         return redirect(url_for("login"))
 
-    # ---- DB insert
     conn = get_db_connection()
     cur  = get_cursor(conn)
     try:
-        # 1) donations (master)
         cur.execute(
             """
             INSERT INTO donations
@@ -1989,7 +2316,6 @@ def donate_submit():
         cur.execute("SELECT LAST_INSERT_ID()")
         donation_id = cur.fetchone()[0]
 
-        # 2) donation_info (detail) — exactly your columns
         if method == "card":
             cur.execute(
                 """
@@ -2013,15 +2339,11 @@ def donate_submit():
 
         conn.commit()
 
-        # Success → thank you
         return redirect(url_for("donate_form", thanks=1, next=url_for("subscriberHomepage")))
 
     except Exception as e:
-        # This will reveal foreign-key errors, etc.
         app.logger.exception("DONATION_INSERT_FAILED: %s", e)
 
-        # Helpful hint for FK failures
-        # MySQL error 1452 is "Cannot add or update a child row: a foreign key constraint fails"
         msg = str(e)
         if "foreign key constraint fails" in msg.lower():
             flash("Insert failed: your user account (userid) must exist in 'users' table.", "danger")
@@ -2035,7 +2357,6 @@ def donate_submit():
             conn.close()
         except Exception:
             pass
-
 
 # (YY)
 # ---------- Auth ----------
@@ -2086,7 +2407,7 @@ def login():
                     "Admin": "adminHomepage",
                     "Moderator": "modHomepage",
                     "Subscriber": "subscriberHomepage",
-                    "Author": "authorHomepage"
+                    "Author": "subscriberHomepage"
                 }
 
                 redirect_route = role_redirects.get(user["usertype"])
@@ -2180,7 +2501,6 @@ def add_no_cache_headers(response):
     response.headers["Expires"] = "-1"
     return response
 
-
 # ---------- Moderator: manage users ----------
 @app.route("/manageUsers")
 @login_required("Moderator")
@@ -2264,7 +2584,6 @@ def toggle_suspend():
 
     return redirect(url_for("manage_users"))
 
-
 # ---------- Forgot password ----------
 @app.route("/forgot-password", methods=["GET", "POST"])
 def forgot_password():
@@ -2298,6 +2617,46 @@ def forgot_password():
             conn.close()
             return redirect(url_for("forgot_password"))
     return render_template("forgot_password.html")
+
+# ---------- Change Password ----------
+@app.post("/api/profile/change-password")
+@login_required("Author", "Subscriber", "Moderator", "Admin")
+def api_change_password():
+    uid = session.get("userid")
+    if not uid:
+        return jsonify(ok=False, message="Not signed in."), 401
+
+    data = request.get_json(silent=True) or {}
+    old = (data.get("old") or "").strip()
+    new = (data.get("new") or "").strip()
+    confirm = (data.get("confirm") or "").strip()
+
+    # client-side should validate too, but keep server-side guardrails
+    if not old or not new or not confirm:
+        return jsonify(ok=False, message="All fields are required."), 400
+    if new != confirm:
+        return jsonify(ok=False, message="New passwords do not match."), 400
+    if new == old:
+        return jsonify(ok=False, message="New password must be different."), 400
+    if len(new) < 4:
+        return jsonify(ok=False, message="Password must be at least 4 characters."), 400
+
+    conn = get_db_connection()
+    cur  = conn.cursor()
+    # Atomic check+update. This only succeeds when the old password matches THIS user.
+    cur.execute(
+        "UPDATE users SET password=%s WHERE userid=%s AND password=%s",
+        (new, uid, old)
+    )
+    conn.commit()
+    changed = cur.rowcount
+    cur.close(); conn.close()
+
+    if changed != 1:
+        # No rows updated → old password was wrong
+        return jsonify(ok=False, message="Current password is incorrect."), 400
+
+    return jsonify(ok=True, message="Password updated.")
 
 # ---------- Admin views ----------
 @app.route("/viewAllUsers")
@@ -2408,7 +2767,6 @@ def update_user():
     conn.close()
 
     return render_template("updateUser.html")
-
 
 @app.route("/manageUserStatus", methods=["GET", "POST"])
 @login_required("Admin")
@@ -2599,11 +2957,13 @@ def flagged_articles():
     return render_template("flaggedArticles.html", articles=articles)
 
 @app.route("/reviewArticle", methods=["POST"])
+@login_required("Moderator")
 def review_article():
     report_id = request.form.get("report_id")
+    article_id = request.form.get("articleid")
     action = request.form.get("action")
 
-    if not report_id or action not in ("approve", "reject"):
+    if action not in ("approve", "reject"):
         flash("Invalid request.", "error")
         return redirect("/flaggedArticles")
 
@@ -2611,51 +2971,50 @@ def review_article():
     cursor = get_cursor(conn)
 
     try:
-        # Fetch the article ID for this report
-        cursor.execute("SELECT article_id FROM article_reports WHERE report_id = %s", (report_id,))
-        report = cursor.fetchone()
-        if not report:
-            flash("Report not found.", "error")
-            return redirect("/flaggedArticles")
-        
-        article_id = report["article_id"]
-
-        if action == "approve": # meaning moderator confirmed issues
-            # mark reports reviewed
-            cursor.execute(
-                "UPDATE article_reports SET status = 'reviewed' WHERE article_id = %s",
-                (article_id,)
-            )
+        # === CASE 1: From flaggedArticles (has report_id) ===
+        if report_id:
+            cursor.execute("SELECT article_id FROM article_reports WHERE report_id = %s", (report_id,))
+            report = cursor.fetchone()
+            if not report:
+                flash("Report not found.", "error")
+                return redirect("/flaggedArticles")
             
-            # hide article from public and mark as pending revision
-            cursor.execute(
-                "UPDATE articles SET visible = 0, status = 'pending_revision' WHERE articleid = %s",
-                (article_id,)
-            )
-        elif action == "reject": # moderator thinks it's okay
-            # Mark report dismissed
-            cursor.execute(
-                "UPDATE article_reports SET status = 'dismissed' WHERE report_id = %s",
-                (report_id,)
-            )
-            # article stays visible and approved
-            cursor.execute(
-                "UPDATE articles SET visible = 1, status = 'published' WHERE articleid = %s",
-                (article_id,)
-            )
+            article_id = report["article_id"]
+
+            if action == "approve":  # moderator agrees with report
+                cursor.execute("UPDATE article_reports SET status = 'reviewed' WHERE article_id = %s", (article_id,))
+                cursor.execute("UPDATE articles SET visible = 0, status = 'pending_revision' WHERE articleid = %s", (article_id,))
+            else:  # moderator rejects the report
+                cursor.execute("UPDATE article_reports SET status = 'dismissed' WHERE report_id = %s", (report_id,))
+                cursor.execute("UPDATE articles SET visible = 1, status = 'published' WHERE articleid = %s", (article_id,))
+
+            redirect_target = "/flaggedArticles"
+
+        # === CASE 2: From pendingArticles (no report_id) ===
+        elif article_id:
+            if action == "approve":
+                cursor.execute("UPDATE articles SET status = 'published', visible = 1 WHERE articleid = %s", (article_id,))
+            elif action == "reject":
+                cursor.execute("UPDATE articles SET status = 'pending_revision', visible = 0 WHERE articleid = %s", (article_id,))
+
+            redirect_target = "/pendingArticles"
+
+        else:
+            flash("Invalid data provided.", "error")
+            return redirect("/flaggedArticles")
 
         conn.commit()
-        flash("Article has been hidden successfully.", "success")
+        flash(f"Article {action}d successfully.", "success")
 
     except mysql.connector.Error as err:
         print("Database error:", err)
-        flash("An error occurred.", "error")
+        flash("An error occurred while processing the request.", "error")
 
     finally:
         cursor.close()
         conn.close()
 
-    return redirect("/flaggedArticles")
+    return redirect(redirect_target)
 
 @app.route("/getArticle/<int:article_id>")
 def get_article(article_id):
@@ -2674,7 +3033,6 @@ def get_article(article_id):
         return jsonify({"error": "Article not found"}), 404
 
     return jsonify(article)
-
 
 # (YY)
 @app.route("/flaggedComments")
@@ -2794,25 +3152,23 @@ def pending_articles():
     conn = get_db_connection()
     cursor = get_cursor(conn)
 
-    try:
-        # Fetch articles that are pending approval
-        cursor.execute("""
-            SELECT a.articleid, a.title, a.author, a.published_at, a.updated_at, a.visible, a.image,
-                   COUNT(r.report_id) AS num_reports
-            FROM articles a
-            LEFT JOIN article_reports r ON a.articleid = r.article_id AND r.status = 'pending'
-            WHERE a.status = 'pending_review'
-            GROUP BY a.articleid
-            ORDER BY a.updated_at DESC
-        """)
-        articles = cursor.fetchall()
-    finally:
-        cursor.close()
-        conn.close()
+    cursor.execute("""
+        SELECT 
+            articleid,
+            title,
+            author,
+            updated_at
+        FROM articles
+        WHERE status = 'pending_approval'
+        ORDER BY updated_at DESC
+    """)
+    articles = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
 
     return render_template("pendingArticles.html", articles=articles)
 
-# (YY)
 @app.route("/manageCategories", methods=["GET"])
 @login_required("Moderator")
 def manage_categories():
@@ -2823,6 +3179,7 @@ def manage_categories():
     cursor.close()
     conn.close()
     return render_template("manageCategories.html", categories=categories)
+	
 # (YY)
 @app.route("/manageCategories/create", methods=["GET", "POST"])
 @login_required("Moderator")
@@ -2937,8 +3294,6 @@ def summarize_to_points(text, sentences_count=5):
     summary = summarizer(parser.document, sentences_count)
     return [str(s) for s in summary]
 
-
-
 # endpoint: to receive article text and return bullet-point summary
 @app.route("/summarize", methods=["POST"])
 def summarize():
@@ -3019,7 +3374,6 @@ def chat():
     response = getChatbotResponse(user_input)
     return jsonify({"response": response})
 
-
 # ---------- Dev helper ----------
 def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
@@ -3027,4 +3381,4 @@ def open_browser():
 if __name__ == "__main__":
     threading.Timer(1.0, open_browser).start()
     app.run(debug=True)
-
+	

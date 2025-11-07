@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <title>EchoPress - Homepage</title>
     <link rel="stylesheet" href="../static/css/style.css" />
-    <link rel="icon" href="../static/img/favicon.png" type="image/png" />
+    <link rel="icon" href="../static/img/EchoPressLogo.png" type="image/png" />
   </head>
 
   <body>
@@ -191,5 +191,36 @@
       });
     });
     </script>
+
+      <!-- Ads Box Functions -->
+  <script>
+  (function(){
+    const adsBox   = document.getElementById('adsBox');
+    const ADS_API  = "{{ url_for('api_random_ad') }}";
+    const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+    function renderAd(ad){
+      if(!adsBox) return;
+      adsBox.innerHTML = `
+        <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+          <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+        </a>
+      `;
+    }
+
+    async function loadAd(){
+      try{
+        const res = await fetch(ADS_API, {cache:'no-store'});
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data?.ok && data.ad) renderAd(data.ad);
+      }catch(_){}
+    }
+
+    loadAd();
+    setInterval(loadAd, 10_000); // your 10s rotation
+  })();
+  </script>
+
   </body>
 </html>

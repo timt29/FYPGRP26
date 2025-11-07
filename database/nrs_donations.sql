@@ -24,18 +24,18 @@ DROP TABLE IF EXISTS `donations`;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `donations` (
   `donation_id` int unsigned NOT NULL AUTO_INCREMENT,
-  `userid` int NOT NULL,
+  `userid` int DEFAULT NULL,
   `donation_amount` decimal(10,2) NOT NULL,
   `payment_method` enum('card','paynow','cash','cheque') NOT NULL,
   `paymentdatetime` datetime NOT NULL,
-  `created_by` int NOT NULL,
+  `created_by` int DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`donation_id`),
   KEY `idx_user_method_date` (`userid`,`payment_method`,`paymentdatetime`),
   KEY `fk_donations_created_by` (`created_by`),
-  CONSTRAINT `fk_donations_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`userid`) ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT `fk_donations_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `fk_donations_created_by` FOREIGN KEY (`created_by`) REFERENCES `users` (`userid`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_donations_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -44,6 +44,7 @@ CREATE TABLE `donations` (
 
 LOCK TABLES `donations` WRITE;
 /*!40000 ALTER TABLE `donations` DISABLE KEYS */;
+INSERT INTO `donations` VALUES (5,NULL,100.00,'card','2025-10-01 08:14:20',NULL,'2025-10-01 00:14:20'),(6,NULL,100.41,'paynow','2025-11-06 19:17:44',NULL,'2025-11-06 11:17:44');
 /*!40000 ALTER TABLE `donations` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -56,4 +57,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-01  8:53:41
+-- Dump completed on 2025-11-06 19:21:24

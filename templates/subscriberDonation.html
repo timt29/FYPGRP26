@@ -17,7 +17,23 @@
       </button>
     </div>
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      {% set role =
+          (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
+      {% set is_author = (role == 'author') %}
+
+      <span class="welcome">
+        Welcome, {{ session.get('user','Subscriber') }}
+        {% if is_author %}
+          <img
+            class="badge-author"
+            src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+            alt="Author verified"
+            width="18" height="18"
+            decoding="async" loading="eager"
+            style="display:inline-block; vertical-align:middle;"
+          >
+        {% endif %}
+      </span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
@@ -490,8 +506,6 @@
       adsBox.innerHTML = `
         <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
           <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
-          ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
-          ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
         </a>
       `;
     }
@@ -574,13 +588,15 @@
           <h3>Support EchoPress</h3>
           <p>Your contribution keeps independent journalism alive.</p>
           <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
-
-          <!-- Moved here: centered social links under Donate -->
           <ul class="footer-social" aria-label="Social links">
-            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
-            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
-            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
-            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+            <li><a href="https://facebook.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/facebook.png') }}" alt="Facebook"></a></li>
+            <li><a href="https://x.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/x.png') }}" alt="X"></a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/instagram.png') }}" alt="Instagram"></a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/linkedin.png') }}" alt="LinkedIn"></a></li>
           </ul>
         </div>
       </div>

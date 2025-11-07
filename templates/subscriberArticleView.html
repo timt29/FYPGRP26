@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>{{ article.title }} — EchoPress</title>
+  <title>{{ article.title }} - EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/EchoPressLogo.png') }}" type="image/png" />
 
@@ -13,28 +13,39 @@
 </head>
 <body>
 
-  <!-- Top Bar -->
+  <!-- Top Bar  -->
   <header class="topbar">
     <div class="left">
       <button type="button" class="brand" onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
-        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" />
+        <img src="{{ url_for('static', filename='img/echopresslogo.png') }}" alt="EchoPress" height="28">
       </button>
-
-      <!-- In-page subscriber search -->
-      <form id="subSearchForm" class="search" action="#" method="get" role="search">
-        <input id="subSearchQ" type="text" name="q" placeholder="Search article keywords" aria-label="Search" />
-        <button type="submit" aria-label="Search">Search</button>
-      </form>
     </div>
-
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      {% set role =
+          (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
+      {% set is_author = (role == 'author') %}
+
+      <span class="welcome">
+        Welcome, {{ session.get('user','Subscriber') }}
+        {% if is_author %}
+          <img
+            class="badge-author"
+            src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+            alt="Author verified"
+            width="18" height="18"
+            decoding="async" loading="eager"
+            style="display:inline-block; vertical-align:middle;"
+          >
+        {% endif %}
+      </span>
+
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
         <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
         <a class="menu-item" href="{{ url_for('subscriber_analytics') }}">View Analytics</a>
         <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
+        <a class="menu-item" href="{{ url_for('donate_form') }}">Donate to EchoPress</a>
         <a class="menu-item logout-link" href="{{ url_for('logout') }}">Log Out</a>
       </div>
     </div>
@@ -134,13 +145,59 @@
           {% endif %}
         </div>
 
-        <div class="meta">
-          <span><strong>{{ article.author or 'EchoPress' }}</strong></span>
-          {% if article.category %}<span>• {{ article.category }}</span>{% endif %}
-          {% if article.published_at %}<span>• Published {{ article.published_at }}</span>{% endif %}
-          {% if article.updated_at %}<span>• Updated {{ article.updated_at }}</span>{% endif %}
-        </div>
+        <div class="meta-row">
+          {% set profile_href = url_for('subscriber_profile_view', user_id=article.author_userid or 0) %}
 
+          <div class="author-left">
+            <a class="author-link" href="{{ profile_href }}" aria-label="{{ article.author }}'s profile">
+              {% if article.author_image %}
+                <img class="author-avatar" src="{{ article.author_image }}" alt="{{ article.author }} avatar">
+              {% else %}
+                {% set parts = (article.author or 'U').split() %}
+                <div class="author-avatar initials" aria-hidden="true">
+                  {{ (parts[0][0] ~ (parts[1][0] if parts|length>1 else ''))|upper }}
+                </div>
+              {% endif %}
+            </a>
+
+            <div class="author-text">
+              <div class="author-line">
+              <a class="author-link author-name" href="{{ profile_href }}">
+                <span class="author-name-text">{{ article.author or 'EchoPress' }}</span>
+              </a>
+
+              {# Show the badge only if this article’s author role is Author #}
+              {% set author_is_author = (article.author_usertype|default('')|lower == 'author') %}
+              {% if author_is_author %}
+                <img
+                  class="author-verified-badge"
+                  src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+                  alt="Author verified"
+                  width="16" height="16"
+                  decoding="async" loading="eager">
+              {% endif %}
+
+              {% if article.category %}
+                <span class="dot">•</span><span class="author-tag">{{ article.category }}</span>
+              {% endif %}
+            </div>
+
+              <div class="author-meta">
+                {% if article.published_at %}<span class="dot"> • Published On : {{ article.published_at | dmyhm }}</span>{% endif %}
+                {% if article.updated_at %}<span class="dot"> • Updated On : {{ article.updated_at | dmyhm }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+
+        <div class="reaction-bar">
+          <button id="articleLikeBtn" class="btn btn-ghost react" data-action="like" aria-pressed="false">
+            👍 <span id="artLikeCount">{{ article.likes or 0 }}</span>
+          </button>
+          <button id="articleDislikeBtn" class="btn btn-ghost react" data-action="dislike" aria-pressed="false">
+            👎 <span id="artDislikeCount">{{ article.dislikes or 0 }}</span>
+          </button>
+        </div>
+        
         <div class="action-buttons">
           <button id="articleReportBtn" class="btn btn-ghost" title="Report">
             <img src="{{ url_for('static', filename='img/report.jpg') }}" alt="Report" style="width:20px; vertical-align:middle;" />
@@ -177,6 +234,11 @@
       <button type="button" class="btn btn-primary" onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">
         Create Your Story
       </button>
+      <button type="button"
+              class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('donate_form') }}'">
+        Donate to EchoPress
+      </button>
       <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </main>
@@ -195,6 +257,9 @@
         <button type="button" class="btn btn-primary" id="logoutConfirm">Proceed</button>
       </div>
     </div>
+  </div>
+  <div id="logoutSuccess" class="toast" role="status" aria-live="polite" aria-atomic="true" style="display:none;">
+  <span>Logged out successfully.</span>
   </div>
 
   <!-- Footer -->
@@ -219,10 +284,14 @@
           <p>Your contribution keeps independent journalism alive.</p>
           <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
           <ul class="footer-social" aria-label="Social links">
-            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
-            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
-            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
-            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+            <li><a href="https://facebook.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/facebook.png') }}" alt="Facebook"></a></li>
+            <li><a href="https://x.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/x.png') }}" alt="X"></a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/instagram.png') }}" alt="Instagram"></a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/linkedin.png') }}" alt="LinkedIn"></a></li>
           </ul>
         </div>
       </div>
@@ -537,6 +606,96 @@
     })();
   </script>
 
+  <script>
+  (function(){
+    const articleRoot = document.getElementById('articleRoot');
+    const articleid   = parseInt(articleRoot?.dataset.articleId || '0', 10);
+    const likeBtn     = document.getElementById('articleLikeBtn');
+    const dislikeBtn  = document.getElementById('articleDislikeBtn');
+    const likeCountEl = document.getElementById('artLikeCount');
+    const disCountEl  = document.getElementById('artDislikeCount');
+    const endpoint    = "{{ url_for('subscriber_article_react') }}"; // /subscriber/api/article/react
+
+    async function react(action){
+      if (!articleid) return;
+      try{
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ articleid, action })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.message || ('HTTP '+res.status));
+
+        // Update counts
+        if (likeCountEl)   likeCountEl.textContent   = data.likes;
+        if (disCountEl)    disCountEl.textContent    = data.dislikes;
+
+        // Update pressed state (user can have at most one reaction)
+        const state = data.state; // 'like' | 'dislike' | 'none'
+        likeBtn?.setAttribute('aria-pressed', state === 'like' ? 'true' : 'false');
+        dislikeBtn?.setAttribute('aria-pressed', state === 'dislike' ? 'true' : 'false');
+      }catch(err){
+        console.error('React failed:', err);
+        alert((err && err.message) ? err.message : 'Failed to update reaction.');
+      }
+    }
+
+    likeBtn?.addEventListener('click', () => react('like'));
+    dislikeBtn?.addEventListener('click', () => react('dislike'));
+  })();
+  </script>
+
+  //Like or Dislike Button
+  <script>
+    (() => {
+      const articleRoot = document.getElementById('articleRoot');
+      if (!articleRoot) return;
+
+      const articleid = Number(articleRoot.dataset.articleId || 0);
+      const likeBtn = document.getElementById('likeBtn');
+      const dislikeBtn = document.getElementById('dislikeBtn');
+      const likeCountEl = document.getElementById('likeCount');
+      const dislikeCountEl = document.getElementById('dislikeCount');
+
+      const REACT_API = "/subscriber/api/article/react";  // path you exposed below
+
+      let busy = false;
+      async function sendReaction(action){
+        if (busy || !articleid) return;
+        busy = true;
+        [likeBtn, dislikeBtn].forEach(b=>b?.setAttribute('disabled','disabled'));
+        try{
+          const res = await fetch(REACT_API, {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ articleid, action })  // 'like' | 'dislike'
+          });
+          const data = await res.json().catch(()=>({}));
+          if (!res.ok || !data.ok){
+            console.error('React error:', data);
+            alert(data.message || 'Unable to record reaction.');
+            return;
+          }
+          // Update counts & pressed state
+          if (likeCountEl) likeCountEl.textContent = data.likes;
+          if (dislikeCountEl) dislikeCountEl.textContent = data.dislikes;
+          likeBtn?.setAttribute('aria-pressed', data.state === 'like' ? 'true':'false');
+          dislikeBtn?.setAttribute('aria-pressed', data.state === 'dislike' ? 'true':'false');
+        } catch (err){
+          console.error(err);
+          alert('Request failed.');
+        } finally {
+          busy = false;
+          [likeBtn, dislikeBtn].forEach(b=>b?.removeAttribute('disabled'));
+        }
+      }
+
+      likeBtn?.addEventListener('click', () => sendReaction('like'));
+      dislikeBtn?.addEventListener('click', () => sendReaction('dislike'));
+    })();
+    </script>
+
   <!-- Comments + Report logic -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
@@ -549,6 +708,7 @@
       // API endpoints
       const API_LIST   = "{{ url_for('subscriber_api_comments') }}";
       const API_CREATE = "{{ url_for('subscriber_api_comment_create') }}";
+      const PROFILE_URL_TPL = "{{ url_for('subscriber_profile_view', user_id=0) }}";
       const API_EDIT   = (id)=> `/subscriber/api/comments/${id}`;
       const API_REACT  = (id)=> `/subscriber/api/comments/${id}/react`;
       const API_R_ART  = "/subscriber/report_article";
@@ -594,8 +754,9 @@
         const dislikePressed = c.my_reaction === 'dislike' ? 'true' : 'false';
 
         // avatar + name → link to subscriberProfileView.html (to be built later)
-        const profileId = c.author_id || c.userid || "";
-        const profileHref = `/subscriberProfileView.html?id=${encodeURIComponent(profileId)}`;
+        const profileId  = c.author_id || c.userid || "";
+        const profileHref = PROFILE_URL_TPL.replace(/0$/, String(profileId || "0"));
+
 
         const avatarHtml = c.author_image
           ? `<a class="c-avatar" href="${profileHref}" aria-label="${esc(c.author)}"><img src="${esc(c.author_image)}" alt=""></a>`
@@ -635,7 +796,6 @@
               <div class="c-reply-box" style="display:none; margin-top:8px;">
                 <textarea class="c-reply-input" placeholder="Write a reply…"></textarea>
                 <div style="margin-top:6px; display:flex; gap:8px;">
-                  <button class="btn btn-light c-reply-cancel" type="button">Cancel</button>
                   <button class="btn btn-primary c-reply-send"  type="button">Reply</button>
                 </div>
               </div>
@@ -694,19 +854,38 @@
         });
       }
 
-      async function loadComments(){
-        LIST.innerHTML = '';
-        try{
-          const res  = await fetch(`${API_LIST}?article_id=${ARTICLE_ID}`);
-          const rows = res.ok ? await res.json() : [];
-          if(!rows.length){ LIST.innerHTML = '<p class="c-empty">Be the first to comment.</p>'; return; }
-          const tree = buildTree(rows);
-          LIST.innerHTML = renderTree(tree).join('');
-        }catch(err){
-          console.error(err);
-          LIST.innerHTML = '<p class="c-empty">Failed to load comments.</p>';
-        }
-      }
+async function loadComments(){
+  LIST.innerHTML = '';
+  try{
+    const res  = await fetch(`${API_LIST}?article_id=${ARTICLE_ID}`);
+    const raw  = res.ok ? await res.json() : [];
+
+const rows = raw.map(r => ({
+  commentid:    r.commentid ?? r.commentID,   // <-- ensure 'commentid' exists
+  commentID:    r.commentID ?? r.commentid,   // (optional, for safety)
+  text:         r.text ?? r.comment_text ?? "",
+  likes:        Number(r.likes ?? 0),
+  dislikes:     Number(r.dislikes ?? 0),
+  created_at:   r.created_at,
+  author:       r.author ?? "Anonymous",
+  author_image: r.author_image ?? null,
+  mine:         !!r.mine,
+  my_reaction:  r.my_reaction ?? null,
+  is_reply:     !!(r.is_reply ?? r.isReply),
+  parent_id:    r.parent_id ?? r.reply_to_comment_id ?? null,
+  author_id:    r.author_id ?? r.userID ?? r.userid ?? null
+}));
+
+    if(!rows.length){ LIST.innerHTML = '<p class="c-empty">Be the first to comment.</p>'; return; }
+
+    const tree = buildTree(rows); // buildTree/renderComment already use commentID/parent_id etc.
+    LIST.innerHTML = renderTree(tree).join('');
+  }catch(err){
+    console.error(err);
+    LIST.innerHTML = '<p class="c-empty">Failed to load comments.</p>';
+  }
+}
+
 
       // Create new top-level comment
       FORM?.addEventListener('submit', async (e)=>{
@@ -749,14 +928,23 @@
 
         // Reply toggle
         if (e.target.closest('.c-reply-btn')){
-          const box = card.querySelector('.c-reply-box'); if (!box) return;
-          box.style.display = box.style.display === 'none' ? 'block' : 'none';
-          const ta = box.querySelector('.c-reply-input');
-          if (ta){
-            const name = card.querySelector('.comment-name')?.textContent || '';
-            ta.value = `@${name} `;
-            ta.focus();
-            ta.selectionStart = ta.selectionEnd = ta.value.length;
+          const btn = e.target.closest('.c-reply-btn');
+          const box = card.querySelector('.c-reply-box'); 
+          if (!box) return;
+          const open = box.style.display !== 'none';
+          if (open){
+            box.style.display = 'none';
+            btn.textContent = 'Reply';
+          } else {
+            box.style.display = 'block';
+            btn.textContent = 'Cancel';
+            const ta = box.querySelector('.c-reply-input');
+            if (ta){
+              const name = card.querySelector('.comment-name')?.textContent || '';
+              ta.value = `@${name} `;
+              ta.focus();
+              ta.selectionStart = ta.selectionEnd = ta.value.length;
+            }
           }
           return;
         }
@@ -770,14 +958,25 @@
         // Send reply
         if (e.target.closest('.c-reply-send')){
           const box = card.querySelector('.c-reply-box'); if (!box) return;
-          const ta = box.querySelector('.c-reply-input'); const text = (ta.value||'').trim();
+          const ta  = box.querySelector('.c-reply-input');
+          const text = (ta.value || '').trim();
           if (!text) return;
+
           const fd = new FormData();
-          fd.set('articleid', ARTICLE_ID); fd.set('text', text); fd.set('parent_id', id);
+          fd.set('articleid', ARTICLE_ID);  
+          fd.set('text', text);
+          fd.set('parent_id', id);          
+
           try{
-            const res = await fetch(API_CREATE, { method:'POST', body: fd });
+            const res  = await fetch(API_CREATE, { method:'POST', body: fd });
             const data = res.ok ? await res.json() : null;
-            if (res.ok && data?.ok) await loadComments();
+            if (res.ok && data?.ok){
+              await loadComments();
+              const opener = card.querySelector('.c-reply-btn');
+              if (opener) opener.textContent = 'Reply';
+            } else {
+              console.error('Reply failed', data);
+            }
           }catch(err){ console.error(err); }
           return;
         }
@@ -955,6 +1154,7 @@
   <script>
     (function(){
       const adsBox   = document.getElementById('adsBox');
+      if (adsBox) adsBox.classList.add('fixed');
       const ADS_API  = "{{ url_for('api_random_ad') }}";
       const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
       function renderAd(ad){
@@ -962,8 +1162,6 @@
         adsBox.innerHTML = `
           <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
             <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
-            ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
-            ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
           </a>
         `;
       }
@@ -978,6 +1176,113 @@
       loadAd();
       setInterval(loadAd, 10_000);
     })();
+  </script>
+
+  <script>
+  (function(){
+    // --- Small helpers ---
+    const clampChars = (s, max=160) => {
+      s = (s||"").trim().replace(/\s+/g," ");
+      if (s.length <= max) return s;
+      const cut = s.slice(0, max);
+      const i = cut.lastIndexOf(" ");
+      return (i > 80 ? cut.slice(0, i) : cut).trim() + "…";
+    };
+
+    // Split article text into candidate sentences
+    function splitSentences(text){
+      const clean = String(text||"").replace(/\s+/g," ").trim();
+      if (!clean) return [];
+      return clean.split(/(?<=[.!?。！？])\s+/).map(s => s.trim()).filter(Boolean);
+    }
+
+    // Score sentences: prefer those with numbers/percentages/dates and named words
+    function scoreSentence(s){
+      let score = 0;
+      if (/\d/.test(s)) score += 3;                
+      if (/%/.test(s)) score += 2;
+      if (/\b(s$|ing\b|ed\b)/i.test(s)) score += 1;  
+      if (/\b(launch|policy|trial|deal|merger|funding|ban|fine|record|growth|drop|rise|court|minister|parliament|update|deadline)\b/i.test(s)) score += 2;
+      const caps = (s.match(/\b[A-Z][a-z]{2,}\b/g)||[]).length;
+      score += Math.min(caps, 3);
+      const len = s.length; if (len >= 50 && len <= 240) score += 1;
+      return score;
+    }
+
+    // Generate bullets from article text (3–5 points)
+    function generateKeyPointsFrom(text, maxPoints=5){
+      const sents = splitSentences(text);
+      if (!sents.length) return [];
+      const ranked = sents.map(s => ({ s, score: scoreSentence(s) }))
+                          .sort((a,b)=>b.score-a.score);
+      const seen = new Set(), picks = [];
+      for (const r of ranked){
+        const key = r.s.toLowerCase().replace(/[^a-z0-9 ]/g,"").split(" ").slice(0,6).join(" ");
+        if (seen.has(key)) continue;
+        seen.add(key);
+        picks.push(clampChars(r.s, 160));
+        if (picks.length >= maxPoints) break;
+      }
+      if (picks.length < 3){
+        for (const r of sents){
+          picks.push(clampChars(r, 160));
+          if (picks.length >= Math.min(3,maxPoints)) break;
+        }
+      }
+      return picks;
+    }
+
+    // Clamp an existing summary list down to maxPoints / maxChars
+    function clampExistingSummary(ul, maxPoints=5, maxChars=160){
+      if (!ul) return;
+      const items = Array.from(ul.querySelectorAll("li"));
+      if (!items.length) return;
+      items.forEach(li => li.textContent = clampChars(li.textContent, maxChars));
+      items.slice(maxPoints).forEach(li => li.remove());
+    }
+
+    // Ensure there is a short bullet summary
+    function ensureShortSummary(){
+      const ul = document.getElementById("summaryList");
+      const box = document.querySelector(".summary-box");
+
+      if (ul && ul.children.length){
+        clampExistingSummary(ul, 5, 160);
+        return;
+      }
+
+      // Build a new summary box if missing/empty
+      const articleText = (document.querySelector(".article-content")?.innerText || "").trim();
+      const points = generateKeyPointsFrom(articleText, 5);
+      if (!points.length) return;
+
+      const container = box || document.createElement("div");
+      container.className = "summary-box";
+      container.innerHTML = `<h3>Summary</h3><ul id="summaryList"></ul>`;
+      const list = container.querySelector("#summaryList");
+      points.forEach(p => {
+        const li = document.createElement("li");
+        li.textContent = p;
+        list.appendChild(li);
+      });
+
+      if (!box){
+        const header = document.querySelector(".article-header");
+        (header && header.parentNode) ? header.parentNode.insertBefore(container, header.nextSibling)
+                                      : document.querySelector(".article-view").prepend(container);
+      }
+    }
+
+    // Run once when page loads
+    window.addEventListener("DOMContentLoaded", ensureShortSummary);
+
+    // Expose a hook so your translator can re-clamp after updating text
+    window._clampSummaryNow = function(){
+      const ul = document.getElementById("summaryList");
+      if (ul && ul.children.length) clampExistingSummary(ul, 5, 160);
+      else ensureShortSummary();
+    };
+  })();
   </script>
 
   <!-- Translate helpers -->
@@ -997,7 +1302,9 @@
         const cEl = document.querySelector(".article-content"); if (cEl) cEl.innerText = originalContent;
         const items = document.querySelectorAll("#summaryList li");
         originalSummary.forEach((t, i) => { if (items[i]) items[i].innerText = t; });
-        window.currentTTSLang = 'en'; return;
+        window.currentTTSLang = 'en';
+        window._clampSummaryNow && window._clampSummaryNow();   // <<< add this
+        return;
       }
       try {
         const res = await fetch("/translate", {
@@ -1019,6 +1326,7 @@
         const items = document.querySelectorAll("#summaryList li");
         (data.summary || []).forEach((t, i) => { if (items[i]) items[i].innerText = t; });
         window.currentTTSLang = lang;
+        window._clampSummaryNow && window._clampSummaryNow();
       } catch (err) {
         console.error("Translation error:", err);
       }
@@ -1045,10 +1353,22 @@
         delete modal.dataset.href;
       }
       if (cancel)  cancel.addEventListener('click', closeModal);
-      if (confirm) confirm.addEventListener('click', () => {
+      if (confirm) confirm.addEventListener('click', async () => {
         const href = modal.dataset.href || "{{ url_for('logout') }}";
-        window.location.href = href;
+        const success = document.getElementById('logoutSuccess');
+        try {
+          await fetch(href, { method: 'GET', redirect: 'manual', credentials: 'include' });
+        } catch (_) { /* ignore */ }
+        closeModal();
+        if (success) {
+          success.style.display = 'flex';
+          success.classList.add('show');
+        }
+        setTimeout(() => {
+          window.location.href = "{{ url_for('index') }}";
+        }, 1000);  
       });
+
       modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();

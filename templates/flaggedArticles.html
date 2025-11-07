@@ -167,7 +167,7 @@
             {% for a in articles %}
             {
                 id: {{ a.articleid }},
-                reportID: {{ a.report_id }},
+                reportid: {{ a.report_id }},
                 rowIndex: {{ loop.index0 }}
             },
             {% endfor %}
@@ -217,7 +217,7 @@
         async function handleArticleReview(action) {
             const currentArticle = articles[currentIndex];
             const formData = new URLSearchParams({
-                report_id: currentArticle.reportID,
+                report_id: currentArticle.reportid,
                 action: action
             });
 

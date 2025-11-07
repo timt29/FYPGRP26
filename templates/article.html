@@ -112,9 +112,7 @@
           </p>
           <a href="/register" class="register">Register for Free</a>
         </div>
-        <div class="ads">
-          <h3>Ads</h3>
-        </div>
+        <div class="ads" id="adsBox" aria-live="polite"></div>
       </aside>
     </main>
 
@@ -201,6 +199,7 @@
     <script>
       (function () {
         // Try common keys: articleid or id
+        // Try common keys: articleID or id
         const ARTICLE_ID = {{ article.get('articleid') or article.get('id') or 0 }};
         if (!ARTICLE_ID) return;
 
@@ -211,6 +210,37 @@
         }).catch(() => {/* silent */});
       })();
     </script>
+
+      <!-- Ads Box Functions -->
+  <script>
+  (function(){
+    const adsBox   = document.getElementById('adsBox');
+    const ADS_API  = "{{ url_for('api_random_ad') }}";
+    const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+    function renderAd(ad){
+      if(!adsBox) return;
+      adsBox.innerHTML = `
+        <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+          <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+        </a>
+      `;
+    }
+
+    async function loadAd(){
+      try{
+        const res = await fetch(ADS_API, {cache:'no-store'});
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data?.ok && data.ad) renderAd(data.ad);
+      }catch(_){}
+    }
+
+    loadAd();
+    setInterval(loadAd, 10_000); // your 10s rotation
+  })();
+  </script>
+
     {% include 'partials/chatbot.html' %}
   </body>
 </html>

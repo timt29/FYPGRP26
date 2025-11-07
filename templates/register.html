@@ -43,6 +43,45 @@
       </div>
     </div>
 
+    <!-- Pre-Registration Modal -->
+    <div id="preRegisterModal" class="pre-modal">
+      <div class="pre-modal-content">
+        <h1>Welcome to EchoPress!</h1>
+        <p>Choose your role and see how each one shapes the community:</p>
+
+        <div class="role-cards">
+          <div class="role-card">
+            <h2>Reader</h2>
+            <ul>
+              <li>Browse and read articles</li>
+              <li>Follow your favorite authors</li>
+              <li>Join discussions</li>
+            </ul>
+          </div>
+
+          <div class="role-card highlight">
+            <h2>Subscriber</h2>
+            <ul>
+              <li>Enjoy ad-free experience</li>
+              <li>Access premium stories</li>
+              <li>Support content creators</li>
+            </ul>
+          </div>
+
+          <div class="role-card">
+            <h2>Author</h2>
+            <ul>
+              <li>Publish your own articles</li>
+              <li>Gain followers and insights</li>
+              <li>Participate in community reviews</li>
+            </ul>
+          </div>
+        </div>
+
+        <button onclick="closePreRegister()">Continue</button>
+      </div>
+    </div>
+
     <!-- Right Registration Form -->
     <div class="register-box">
       <h2>Register Now</h2>
@@ -66,7 +105,32 @@
         </div>
       </form>
     </div>
-        <!-- Modal -->
+
+    <!-- Privacy & User Agreement Modal -->
+    <div id="agreementModal" class="modal">
+      <div class="modal-content">
+        <h2>Before You Continue</h2>
+        <p>Please read and accept our policies to proceed:</p>
+
+        <div class="agreement-box">
+          <label>
+            <input type="checkbox" id="privacyCheck" />
+            I agree to the <a href="/privacy" target="_blank">Privacy Policy</a>
+          </label><br>
+          <label>
+            <input type="checkbox" id="termsCheck" />
+            I agree to the <a href="/terms" target="_blank">User Agreement</a>
+          </label>
+        </div>
+
+        <div class="agreement-actions">
+          <button onclick="confirmAgreement()">Confirm</button>
+          <button onclick="cancelAgreement()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal -->
     <div id="errorModal" class="modal">
       <div class="modal-content">
         <span class="close" onclick="closeModal()">&times;</span>
@@ -77,15 +141,47 @@
   </div>
 
   <script>
+  function closePreRegister() {
+    document.getElementById("preRegisterModal").style.display = "none";
+  }
+
   function closeModal() {
     document.getElementById("errorModal").style.display = "none";
   }
 
-  // Show modal only if error exists
+  // Show error modal only if error exists
   {% if error %}
     document.getElementById("errorModal").style.display = "block";
   {% endif %}
-  </script>
+
+  // Handle Register button click — show agreement modal before submitting
+  const registerForm = document.querySelector("form[action='/register']");
+  registerForm.addEventListener("submit", function(event) {
+    event.preventDefault(); // stop default submit for now
+    document.getElementById("agreementModal").style.display = "block";
+  });
+
+  // Confirm user agreement
+  function confirmAgreement() {
+    const privacy = document.getElementById("privacyCheck").checked;
+    const terms = document.getElementById("termsCheck").checked;
+
+    if (!privacy || !terms) {
+      alert("Please agree to both the Privacy Policy and User Agreement before continuing.");
+      return;
+    }
+
+    // Hide modal and submit form
+    document.getElementById("agreementModal").style.display = "none";
+    document.querySelector("form[action='/register']").submit();
+  }
+
+  // Cancel registration agreement
+  function cancelAgreement() {
+    document.getElementById("agreementModal").style.display = "none";
+  }
+</script>
+
 </body>
 </html>
 

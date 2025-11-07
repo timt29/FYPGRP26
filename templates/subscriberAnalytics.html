@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>EchoPress — Analytics</title>
+  <title>EchoPress - Analytics</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/EchoPressLogo.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -17,7 +17,23 @@
         </button>
       </div>
       <div class="right">
-        <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      {% set role =
+          (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
+      {% set is_author = (role == 'author') %}
+
+      <span class="welcome">
+        Welcome, {{ session.get('user','Subscriber') }}
+        {% if is_author %}
+          <img
+            class="badge-author"
+            src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+            alt="Author verified"
+            width="18" height="18"
+            decoding="async" loading="eager"
+            style="display:inline-block; vertical-align:middle;"
+          >
+        {% endif %}
+      </span>
         <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
         <div id="menuPanel" class="menu-panel">
           <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
@@ -31,16 +47,12 @@
     </header>
 
     <main class="page analytics">
+    <div class="analytics-container">
       <!-- Overview cards -->
       <section class="analytics-cards" id="overview">
         <div class="card kpi">
           <div class="kpi-label">Total Views</div>
           <div class="kpi-value" id="kViews">0</div>
-        </div>
-        <div class="card kpi">
-          <div class="kpi-label">Total Shares</div>
-          <div class="kpi-value" id="kShares">0</div>
-          <div class="kpi-note">(*not tracked yet)</div>
         </div>
         <div class="card kpi">
           <div class="kpi-label">My Bookmarks</div>
@@ -54,7 +66,14 @@
           <div class="kpi-label">My Comment Dislikes</div>
           <div class="kpi-value" id="kDislike">—</div>
         </div>
-
+        <div class="card kpi">
+          <div class="kpi-label">My Article Likes</div>
+          <div class="kpi-value" id="kArtLikes">-</div>
+        </div>
+        <div class="card kpi">
+          <div class="kpi-label">My Article Dislikes</div>
+          <div class="kpi-value" id="kArtDislikes">-</div>
+        </div>
         <div class="card kpi">
           <div class="kpi-label">Contributed amount</div>
           <div class="kpi-value money" id="kContrib">$0.00</div>
@@ -62,30 +81,31 @@
       </section>
 
       <!-- Per-article table -->
-      <section class="analytics-table card">
-        <div class="table-head">
-          <h2>My Articles Performance</h2>
-          <input id="filterQ" class="input" type="search" placeholder="Filter by title…" />
-        </div>
-        <div class="table-responsive">
-          <table class="table" id="tbl">
-            <thead>
-              <tr>
-                <th style="width:48%">Title</th>
-                <th>Views</th>
-                <th>Shares*</th>
-                <th>Bookmarks</th>
-                <th>Comments</th>
-                <th>Published</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="tbody"><tr><td colspan="7">Loading…</td></tr></tbody>
-          </table>
-        </div>
-        <div class="muted small" style="margin-top:6px;">*Shares not tracked yet — will update once SQL tables are added.</div>
-      </section>
-
+        <section class="analytics-table card">
+          <div class="table-head">
+            <h2>My Articles Performance</h2>
+            <input id="filterQ" class="input" type="search" placeholder="Filter by title…" />
+          </div>
+          <div class="table-responsive">
+            <table class="table" id="tbl">
+              <thead>
+                <tr>
+                  <th style="width:48%">Title</th>
+                  <th>Views</th>
+                  <th>Bookmarks</th>
+                  <th>Comments</th>
+                  <th>Likes</th>
+                  <th>Dislikes</th>
+                  <th>Published</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody"><tr><td colspan="6">Loading…</td></tr></tbody>
+            </table>
+          </div>
+          <div class="muted small" style="margin-top:6px;"></div>
+        </section>
+    
       <section class="analytics-table card">
         <div class="table-head">
           <h2>My Donations</h2>
@@ -106,6 +126,19 @@
           </table>
         </div>
       </section>
+      </div>
+
+      <aside class="sidebar">
+      <button type="button" class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">Create Your Story</button>
+      <button type="button"
+              class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('donate_form') }}'">
+        Donate to EchoPress
+      </button>
+      <div class="ads" id="adsBox" aria-live="polite"></div>
+    </aside>
+
     </main>
 
     <!-- Logout Confirmation Modal -->
@@ -136,52 +169,66 @@
     <!-- Analytics loader -->
     <script>
     (async function () {
-      const $ = sel => document.querySelector(sel);
-      const kViews = $("#kViews"), kShares = $("#kShares"),
-            kBookmarks = $("#kBookmarks"), kLike = $("#kLike"), kDislike = $("#kDislike"),
-            kContrib = $("#kContrib");
+      const $ = (sel) => document.querySelector(sel);
 
-      const tbody = $("#tbody"), filterQ = $("#filterQ");
-      const tbodyDon = $("#tbodyDon");
+      // KPI nodes
+      const kViews       = $("#kViews");
+      const kBookmarks   = $("#kBookmarks");
+      const kLike        = $("#kLike");
+      const kDislike     = $("#kDislike");
+      const kContrib     = $("#kContrib");
+      const kArtLikes    = $("#kArtLikes");
+      const kArtDislikes = $("#kArtDislikes");
 
+      // 🔧 MISSING BEFORE — define all URLs and DOM refs used below
       const URL_OVERVIEW = "{{ url_for('subscriber_analytics_overview') }}";
       const URL_MYART    = "{{ url_for('subscriber_analytics_my_articles') }}";
       const URL_MYDON    = "{{ url_for('subscriber_analytics_my_donations') }}";
       const VIEW_URL_TPL = "{{ url_for('subscriber_article_view', article_id=0) }}";
 
-      const fmtInt = n => (n||0).toLocaleString();
-      const fmtMoney = n => new Intl.NumberFormat('en-SG', { style:'currency', currency:'SGD' }).format(Number(n||0));
-      const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      const tbody    = $("#tbody");
+      const filterQ  = $("#filterQ");
+      const tbodyDon = $("#tbodyDon");
 
+      const esc      = (s) => (s || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const fmtInt   = (n) => (n || 0).toLocaleString();
+      const fmtMoney = (n) => new Intl.NumberFormat("en-SG", { style: "currency", currency: "SGD" }).format(Number(n || 0));
+
+      // ---- Overview cards ----
       async function loadOverview(){
         try {
           const r = await fetch(URL_OVERVIEW);
-          if(!r.ok) throw 0;
+          if (!r.ok) throw new Error("HTTP " + r.status);
           const j = await r.json();
-          kViews.textContent     = fmtInt(j.total_views);
-          kShares.textContent    = fmtInt(j.total_shares);
-          kBookmarks.textContent = fmtInt(j.total_bookmarks);
-          kLike.textContent      = fmtInt(j.comment_likes);
-          kDislike.textContent   = fmtInt(j.comment_dislikes);
-          if ('contributed_amount' in j) kContrib.textContent = fmtMoney(j.contributed_amount);
-        } catch {}
+
+          kViews.textContent       = fmtInt(j.total_views);
+          kBookmarks.textContent   = fmtInt(j.total_bookmarks);
+          kLike.textContent        = fmtInt(j.comment_likes);
+          kDislike.textContent     = fmtInt(j.comment_dislikes);
+          kContrib.textContent     = fmtMoney(j.contributed_amount);
+          kArtLikes.textContent    = fmtInt(j.my_article_likes);
+          kArtDislikes.textContent = fmtInt(j.my_article_dislikes);
+        } catch (e) {
+          console.error("overview load failed:", e);
+        }
       }
 
-      // --- Articles
+      // ---- My Articles table ----
       let rows = [];
-      function paintTable(filtered){
-        if (!filtered.length){
-          tbody.innerHTML = `<tr><td colspan="7">No data.</td></tr>`;
+      function paintTable(list){
+        if (!list.length){
+          tbody.innerHTML = `<tr><td colspan="8">No data.</td></tr>`;
           return;
         }
-        tbody.innerHTML = filtered.map(a => {
+        tbody.innerHTML = list.map(a => {
           const href = VIEW_URL_TPL.replace(/0$/, a.articleid);
           return `<tr>
             <td>${esc(a.title)}</td>
             <td>${fmtInt(a.views)}</td>
-            <td>${fmtInt(a.shares)}</td>
             <td>${fmtInt(a.bookmarks)}</td>
             <td>${fmtInt(a.comment_count)}</td>
+            <td>${fmtInt(a.likes)}</td>        <!-- NEW -->
+            <td>${fmtInt(a.dislikes)}</td>     <!-- NEW -->
             <td>${esc(a.published_at || '')}</td>
             <td><a class="btn btn-light" href="${href}">View</a></td>
           </tr>`;
@@ -191,32 +238,30 @@
       async function loadMyArticles(){
         try {
           const r = await fetch(URL_MYART);
-          if(!r.ok) throw 0;
+          if(!r.ok) throw new Error("HTTP " + r.status);
           rows = await r.json();
           paintTable(rows);
-        } catch {
-          tbody.innerHTML = `<tr><td colspan="7">Failed to load.</td></tr>`;
+        } catch (e) {
+          console.error("my-articles load failed:", e);
+          tbody.innerHTML = `<tr><td colspan="8">Failed to load.</td></tr>`;
         }
       }
 
       filterQ?.addEventListener("input", () => {
         const q = (filterQ.value || "").toLowerCase();
         if (!q) { paintTable(rows); return; }
-        paintTable(rows.filter(a => (a.title||"").toLowerCase().includes(q)));
+        paintTable(rows.filter(a => (a.title || "").toLowerCase().includes(q)));
       });
 
-      // --- Donations
+      // ---- My Donations table ----
       function paintDonations(items){
-        const fmtMoney = n => new Intl.NumberFormat('en-SG', { style:'currency', currency:'SGD' }).format(Number(n||0));
-        const esc = s => (s||"").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-
         if (!items.length){
           tbodyDon.innerHTML = `<tr><td colspan="5">No donations yet.</td></tr>`;
           return;
         }
         tbodyDon.innerHTML = items.map(d => `
           <tr>
-            <td>${d.donation_ID}</td>
+            <td>${d.donation_id}</td>
             <td>${esc(d.payment_method)}</td>
             <td class="money">${fmtMoney(d.donation_amount)}</td>
             <td>${esc(d.payment_date)}</td>
@@ -228,17 +273,48 @@
       async function loadMyDonations(){
         try{
           const r = await fetch(URL_MYDON);
-          if(!r.ok) throw 0;
+          if(!r.ok) throw new Error("HTTP " + r.status);
           const j = await r.json();
           paintDonations(j);
-        }catch{
-          tbodyDon.innerHTML = `<tr><td colspan="6">Failed to load.</td></tr>`;
+        }catch(e){
+          console.error("donations load failed:", e);
+          tbodyDon.innerHTML = `<tr><td colspan="5">Failed to load.</td></tr>`;
         }
       }
 
       await Promise.all([loadOverview(), loadMyArticles(), loadMyDonations()]);
     })();
     </script>
+
+  <!-- Ads Box Functions -->
+  <script>
+  (function(){
+    const adsBox   = document.getElementById('adsBox');
+    const ADS_API  = "{{ url_for('api_random_ad') }}";
+    const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+    function renderAd(ad){
+      if(!adsBox) return;
+      adsBox.innerHTML = `
+        <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+          <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+        </a>
+      `;
+    }
+
+    async function loadAd(){
+      try{
+        const res = await fetch(ADS_API, {cache:'no-store'});
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data?.ok && data.ad) renderAd(data.ad);
+      }catch(_){}
+    }
+
+    loadAd();
+    setInterval(loadAd, 10_000); // your 10s rotation
+  })();
+  </script>
 
   <!-- Logout modal wiring (AFTER modal element) -->
   <script>
@@ -305,16 +381,19 @@
           <h3>Support EchoPress</h3>
           <p>Your contribution keeps independent journalism alive.</p>
           <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
-
-          <!-- Moved here: centered social links under Donate -->
           <ul class="footer-social" aria-label="Social links">
-            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
-            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
-            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
-            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+            <li><a href="https://facebook.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/facebook.png') }}" alt="Facebook"></a></li>
+            <li><a href="https://x.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/x.png') }}" alt="X"></a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/instagram.png') }}" alt="Instagram"></a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/linkedin.png') }}" alt="LinkedIn"></a></li>
           </ul>
         </div>
       </div>
+
 
     <div class="footer-legal">
       <address class="footer-contact">

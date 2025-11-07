@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>{{ 'Edit Article' if article else 'Create Your Story' }} — EchoPress</title>
+  <title>EchoPress - {{ 'Edit Article' if article else 'Create Your Story' }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/EchoPressLogo.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
@@ -21,7 +21,23 @@
     </div>
 
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      {% set role =
+          (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
+      {% set is_author = (role == 'author') %}
+
+      <span class="welcome">
+        Welcome, {{ session.get('user','Subscriber') }}
+        {% if is_author %}
+          <img
+            class="badge-author"
+            src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+            alt="Author verified"
+            width="18" height="18"
+            decoding="async" loading="eager"
+            style="display:inline-block; vertical-align:middle;"
+          >
+        {% endif %}
+      </span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
@@ -179,6 +195,11 @@
               onclick="window.location.href='{{ url_for('subscriberHomepage') }}'">
         Back to Home
       </button>
+      <button type="button"
+              class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('donate_form') }}'">
+        Donate to EchoPress
+      </button>
       <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </main>
@@ -245,10 +266,14 @@
       try{
         const res = await fetch("{{ url_for('api_categories') }}", { headers:{'X-Requested-With':'XMLHttpRequest'} });
         if (!res.ok) throw new Error('HTTP '+res.status);
-        const rows = await res.json(); // [{categoryid,name}]
+        const rows = await res.json(); // [{categoryid, name}]
         editCategory.innerHTML = '<option value="" disabled selected>Select a category…</option>';
         rows.forEach(r=>{
-          const o=document.createElement('option'); o.value=r.categoryid; o.textContent=r.name; editCategory.appendChild(o);
+          const id = (r.categoryid != null) ? String(r.categoryid) : "";
+          const o = document.createElement('option');
+          o.value = id;
+          o.textContent = r.name || ('Category ' + id);
+          editCategory.appendChild(o);
         });
         importCategoriesLoaded = true;
       }catch(e){
@@ -413,7 +438,13 @@
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const rows = await res.json(); // [{categoryid, name}]
           [...select.querySelectorAll('option')].forEach((o,i)=>{ if(i>0) o.remove(); });
-          rows.forEach(r => { const opt=document.createElement('option'); opt.value=r.categoryid; opt.textContent=r.name; select.appendChild(opt); });
+          rows.forEach(r => {
+            const id = (r.categoryid != null) ? String(r.categoryid) : "";
+            const opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = r.name || ('Category ' + id);
+            select.appendChild(opt);
+          });
         } catch (e) {
           showToast('Failed to load categories');
         }
@@ -421,8 +452,15 @@
 
       async function submitArticle(action){
         if (!form) return;
-        document.getElementById('hidden-content').value = quill.root.innerHTML;
-        const fd = new FormData(form); fd.set('action', action);
+        const cat = (select?.value || "").trim();
+        if (!/^\d+$/.test(cat)) {
+          showToast('Please select a category.');
+          return;
+        }
+          document.getElementById('hidden-content').value = quill.root.innerHTML;
+          const fd = new FormData(form);
+          fd.set('action', action);
+          fd.set('category_id', cat);
         try{
           const res = await fetch("{{ url_for('api_articles') }}", { method:'POST', body:fd, headers:{'X-Requested-With':'XMLHttpRequest'} });
           const data = await res.json().catch(()=>({}));
@@ -451,8 +489,6 @@
       adsBox.innerHTML = `
         <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
           <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
-          ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
-          ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
         </a>
       `;
     }
@@ -560,13 +596,15 @@
           <h3>Support EchoPress</h3>
           <p>Your contribution keeps independent journalism alive.</p>
           <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
-
-          <!-- Moved here: centered social links under Donate -->
           <ul class="footer-social" aria-label="Social links">
-            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
-            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
-            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
-            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+            <li><a href="https://facebook.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/facebook.png') }}" alt="Facebook"></a></li>
+            <li><a href="https://x.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/x.png') }}" alt="X"></a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/instagram.png') }}" alt="Instagram"></a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/linkedin.png') }}" alt="LinkedIn"></a></li>
           </ul>
         </div>
       </div>

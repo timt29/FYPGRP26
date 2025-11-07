@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>My Articles — EchoPress</title>
+  <title>My Articles - EchoPress</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="{{ url_for('static', filename='img/EchoPressLogo.png') }}" type="image/png" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/subscriber.css') }}">
@@ -23,10 +23,26 @@
     </div>
 
     <div class="right">
-      <span class="welcome">Welcome, {{ session.get('user','Subscriber') }} !</span>
+      {% set role =
+          (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
+      {% set is_author = (role == 'author') %}
+
+      <span class="welcome">
+        Welcome, {{ session.get('user','Subscriber') }}
+        {% if is_author %}
+          <img
+            class="badge-author"
+            src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+            alt="Author verified"
+            width="18" height="18"
+            decoding="async" loading="eager"
+            style="display:inline-block; vertical-align:middle;"
+          >
+        {% endif %}
+      </span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
-      <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
+        <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
         <a class="menu-item" href="{{ url_for('subscriber_bookmarks') }}">View Bookmark</a>
         <a class="menu-item" href="{{ url_for('subscriber_analytics') }}">View Analytics</a>
         <a class="menu-item" href="{{ url_for('profile') }}">My Profile</a>
@@ -56,6 +72,11 @@
     <aside class="sidebar">
       <button type="button" class="btn btn-primary"
         onclick="window.location.href='{{ url_for('subscriberCreateArticle') }}'">Create Your Story</button>
+      <button type="button"
+              class="btn btn-primary"
+              onclick="window.location.href='{{ url_for('donate_form') }}'">
+        Donate to EchoPress
+      </button>
       <div class="ads" id="adsBox" aria-live="polite"></div>
     </aside>
   </main>
@@ -92,174 +113,217 @@
 
   <!-- My Articles logic -->
   <script>
-(function () {
-  // ====== DOM HOOKS ======
-  const LIST = document.getElementById("feed"); // <- your list container
-  const TAB_BTNS = document.querySelectorAll(".tabs .tab[data-status]");
-  const API_URL = "{{ url_for('subscriber_api_my_articles') }}";
-  const EDIT_TPL = "{{ url_for('subscriber_edit_article', article_id=0) }}";
-  const searchForm  = document.getElementById("searchForm");
-  const searchInput = document.getElementById("searchQ");
+  (function () {
+    // ====== DOM HOOKS ======
+    const LIST = document.getElementById("feed");
+    const TAB_BTNS = document.querySelectorAll(".tabs .tab[data-status]");
+    const API_URL = "{{ url_for('subscriber_api_my_articles') }}";
+    const EDIT_TPL = "{{ url_for('subscriber_edit_article', article_id=0) }}";
+    const EDIT_REPORTED_TPL = "{{ url_for('subscriber_edit_reported_article', article_id=0) }}";
+    const searchForm  = document.getElementById("searchForm");
+    const searchInput = document.getElementById("searchQ");
 
-  let currentStatus = "all"; // all | published | drafts | pending | reported
+    let currentStatus = "all"; // all | published | drafts | pending | reported
 
-  // ====== UTIL: SAFE SNIPPET (render <p><strong><em><u><s> etc.) ======
-  const ALLOWED_TAGS = new Set(["P","BR","STRONG","EM","U","S","UL","OL","LI"]);
-  function safeSnippet(html, maxChars = 220) {
-    const wrapper = document.createElement("div");
-    wrapper.innerHTML = html || "";
-
-    const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_ELEMENT);
-    const toRemove = [];
-    while (walker.nextNode()) {
-      const el = walker.currentNode;
-      if (!ALLOWED_TAGS.has(el.tagName)) {
-        const parent = el.parentNode;
-        while (el.firstChild) parent.insertBefore(el.firstChild, el);
-        toRemove.push(el);
-      } else {
-        [...el.attributes].forEach(a => el.removeAttribute(a.name));
-      }
+    function getId(a){
+      return a?.articleid ?? a?.id ?? a?.article_id ?? null;
     }
-    toRemove.forEach(n => n.remove());
 
-    let count = 0, tn;
-    const it = document.createNodeIterator(wrapper, NodeFilter.SHOW_TEXT);
-    while ((tn = it.nextNode()) && count < maxChars) {
-      const remain = maxChars - count;
-      if (tn.nodeValue.length > remain) tn.nodeValue = tn.nodeValue.slice(0, remain) + "…";
-      count += tn.nodeValue.length;
-    }
-    if (count >= maxChars && tn) {
-      let stop = tn;
-      while (stop && stop.parentNode !== wrapper) stop = stop.parentNode;
-      if (stop) {
-        let n = stop.nextSibling;
-        while (n) { const next = n.nextSibling; n.remove(); n = next; }
-      }
-    }
-    return wrapper.innerHTML;
-  }
+    // ====== UTIL: SAFE SNIPPET ======
+    const ALLOWED_TAGS = new Set(["P","BR","STRONG","EM","U","S","UL","OL","LI"]);
+    function safeSnippet(html, maxChars = 220) {
+      const wrapper = document.createElement("div");
+      wrapper.innerHTML = html || "";
 
-  // ====== RENDER HELPERS ======
-  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  function statusBadge(draft, status) {
-    const st = (status || (draft ? "draft" : "published"));
-    if (st === "pending_revision") return '<span class="badge badge-draft">Pending</span>';
-    return draft ? '<span class="badge badge-draft">Draft</span>'
-                 : '<span class="badge badge-published">Published</span>';
-  }
-  function card(a) {
-    const img  = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
-    const href = EDIT_TPL.replace(/0$/, a.articleid);
-    const snippet = safeSnippet(a.content, 220);
-    return `
-      <article class="article-card my-article article-with-delete" data-id="${a.articleid}">
-        <a class="card-link" href="${href}" aria-label="${esc(a.title)}">
-          <div class="text">
-            <div class="card-top">
-              ${statusBadge(!!a.draft, a.status)}
-              ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
-            </div>
-            <h3>${esc(a.title)}</h3>
-            <p class="desc">${snippet}</p>
-            <div class="meta-line">
-              ${a.published_at ? `<span>${a.draft ? "Updated" : "Published"}: ${esc(a.published_at || a.updated_at || "")}</span>` : ""}
-            </div>
-          </div>
-          <div class="thumb-wrap"><img src="${img}" alt=""></div>
-        </a>
-        <button class="article-delete-btn danger" data-id="${a.articleid}" title="Delete this article">🗑 Delete</button>
-      </article>`;
-  }
-  function renderList(items) {
-    if (!LIST) return;
-    LIST.innerHTML = (items && items.length)
-      ? items.map(card).join("")
-      : `<div class="empty-state"><p>No ${esc(labelFor(currentStatus))} articles found.</p></div>`;
-    bindDeleteHandlers();
-  }
-  function labelFor(s){
-    return s==="published"?"Published":s==="drafts"?"Drafts":s==="pending"?"Pending":s==="reported"?"Reported":"All";
-  }
-
-  // ====== DATA LOAD ======
-  async function loadArticles(status, q) {
-    const url = new URL(API_URL, window.location.origin);
-    url.searchParams.set("status", status);
-    if (q) url.searchParams.set("q", q);
-    try {
-      setLoading(true);
-      const res = await fetch(url, { credentials: "same-origin" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      renderList(data);
-    } catch (e) {
-      console.error(e);
-      if (LIST) LIST.innerHTML = `<p style="color:#b00">Failed to load ${esc(labelFor(status))}.</p>`;
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // ====== UX ======
-  function setLoading(on){
-    document.querySelector(".topbar")?.classList.toggle("is-loading", !!on);
-  }
-  function setActiveTab(btn){
-    TAB_BTNS.forEach(b => b.classList.remove("active"));
-    btn?.classList.add("active");
-  }
-
-  // ====== DELETE ======
-  function bindDeleteHandlers(){
-    document.querySelectorAll(".article-delete-btn[data-id]").forEach(btn => {
-      btn.onclick = async (e) => {
-        e.preventDefault();
-        const id = btn.getAttribute("data-id");
-        if (!id || !confirm("Delete this article?")) return;
-        try {
-          const delUrl = "{{ url_for('subscriber_delete_article', article_id=0) }}".replace(/0$/, id);
-          const res = await fetch(delUrl, { method: "POST", credentials: "same-origin" });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          btn.closest(".article-card")?.remove();
-          if (!document.querySelector(".article-card")) loadArticles(currentStatus, (searchInput?.value||"").trim());
-        } catch (err) {
-          alert("Failed to delete. Please try again.");
-          console.error(err);
+      const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_ELEMENT);
+      const toRemove = [];
+      while (walker.nextNode()) {
+        const el = walker.currentNode;
+        if (!ALLOWED_TAGS.has(el.tagName)) {
+          const parent = el.parentNode;
+          while (el.firstChild) parent.insertBefore(el.firstChild, el);
+          toRemove.push(el);
+        } else {
+          [...el.attributes].forEach(a => el.removeAttribute(a.name));
         }
-      };
-    });
-  }
+      }
+      toRemove.forEach(n => n.remove());
 
-  // ====== TABS ======
-  TAB_BTNS.forEach(btn => {
-    btn.addEventListener("click", () => {
-      currentStatus = (btn.getAttribute("data-status") || "all").toLowerCase();
-      setActiveTab(btn);
-      loadArticles(currentStatus, (searchInput?.value || "").trim());
-    });
-  });
+      let count = 0, tn;
+      const it = document.createNodeIterator(wrapper, NodeFilter.SHOW_TEXT);
+      while ((tn = it.nextNode()) && count < maxChars) {
+        const remain = maxChars - count;
+        if (tn.nodeValue.length > remain) tn.nodeValue = tn.nodeValue.slice(0, remain) + "…";
+        count += tn.nodeValue.length;
+      }
+      if (count >= maxChars && tn) {
+        let stop = tn;
+        while (stop && stop.parentNode !== wrapper) stop = stop.parentNode;
+        if (stop) {
+          let n = stop.nextSibling;
+          while (n) { const next = n.nextSibling; n.remove(); n = next; }
+        }
+      }
+      return wrapper.innerHTML;
+    }
 
-  // ====== SEARCH ======
-  if (searchForm) {
-    searchForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      loadArticles(currentStatus, (searchInput.value || "").trim());
-    });
-  }
+    // ====== RENDER HELPERS ======
+    const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    function statusBadge(draft, status) {
+      const st = (status || (draft ? "draft" : "published"));
+      if (st === "pending_revision" || st === "pending_approval") {
+        return '<span class="badge badge-draft">Pending</span>';
+      }
+      if (st === "reported") {
+        return '<span class="badge badge-reported">Reported</span>';
+      }
+      return draft
+        ? '<span class="badge badge-draft">Draft</span>'
+        : '<span class="badge badge-published">Published</span>';
+    }
 
-  // ====== INIT ======
-  (function init(){
-    const active = document.querySelector(".tabs .tab.active[data-status]");
-    if (active) currentStatus = (active.getAttribute("data-status") || "all").toLowerCase();
-    setActiveTab(active);
-    loadArticles(currentStatus, "");
+    function card(a) {
+      const id      = getId(a);
+      const img     = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
+      const snippet = safeSnippet(a.content || "", 220);
+
+      const isReported = (a.status === 'reported' || (a.visible === 0 && (a.report_count ?? 0) > 0));
+      const isPending  = (a.status === 'pending_revision' || a.status === 'pending_approval');
+
+      const href = id
+        ? (isPending
+            ? EDIT_REPORTED_TPL.replace(/0$/, id)
+            : EDIT_TPL.replace(/0$/, id))
+        : "#";
+
+      const inner = `
+        <div class="text">
+          <div class="card-top">
+            ${statusBadge(!!a.draft, a.status)}
+            ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
+          </div>
+          <h3>${esc(a.title)}</h3>
+          <p class="desc">${snippet}</p>
+          <div class="meta-line">
+            ${a.published_at ? `<span>${a.draft ? "Updated" : "Published"}: ${esc(a.published_at || a.updated_at || "")}</span>` : ""}
+          </div>
+        </div>
+        <div class="thumb-wrap">
+          <img src="${img}" alt="" loading="lazy" decoding="async">
+        </div>
+      `;
+
+      // REPORTED → not clickable
+      const wrapperStart = isReported
+        ? `<div class="card-link disabled" aria-label="${esc(a.title)}" aria-disabled="true" tabindex="-1">`
+        : `<a class="card-link" href="${href}" aria-label="${esc(a.title)}">`;
+      const wrapperEnd = isReported ? `</div>` : `</a>`;
+
+      document.addEventListener('click', (e) => {
+        const disabled = e.target.closest('.card-link.disabled');
+        if (disabled) { e.preventDefault(); e.stopPropagation(); }
+      }, true);
+
+      return `
+        <article class="article-card my-article article-with-delete ${isReported ? 'is-reported' : ''}" data-id="${id}">
+          ${wrapperStart}${inner}${wrapperEnd}
+          <button class="article-delete-btn danger" data-id="${id}" title="Delete this article">🗑 Delete</button>
+        </article>
+      `;
+    }
+
+    function renderList(items) {
+      if (!LIST) return;
+      const html = (items && items.length)
+        ? items.map(card).filter(Boolean).join("")
+        : `<div class="empty-state"><p>No ${esc(labelFor(currentStatus))} articles found.</p></div>`;
+      LIST.innerHTML = html;
+      bindDeleteHandlers();
+    }
+    function labelFor(s){
+      return s==="published"?"Published":s==="drafts"?"Drafts":s==="pending"?"Pending":s==="reported"?"Reported":"All";
+    }
+
+    // ====== DATA LOAD ======
+    async function loadArticles(status, q) {
+      const url = new URL(API_URL, window.location.origin);
+      if (status && status !== "all") url.searchParams.set("status", status);
+      if (q) url.searchParams.set("q", q);
+      try {
+        setLoading(true);
+        const res = await fetch(url, { credentials: "same-origin" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        renderList(data);
+      } catch (e) {
+        console.error(e);
+        if (LIST) LIST.innerHTML = `<p style="color:#b00">Failed to load ${esc(labelFor(status))}.</p>`;
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // ====== UX ======
+    function setLoading(on){
+      document.querySelector(".topbar")?.classList.toggle("is-loading", !!on);
+    }
+    function setActiveTab(btn){
+      TAB_BTNS.forEach(b => b.classList.remove("active"));
+      btn?.classList.add("active");
+    }
+
+    // ====== DELETE ======
+    function bindDeleteHandlers(){
+      document.querySelectorAll(".article-delete-btn[data-id]").forEach(btn => {
+        btn.onclick = async (e) => {
+          e.preventDefault();
+          const id = btn.getAttribute("data-id");
+          if (!id || !confirm("Delete this article?")) return;
+          try {
+            const delUrl = "{{ url_for('subscriber_delete_article', article_id=0) }}"
+              .replace(/\/0(\/|$)/, `/${id}$1`);
+            const res = await fetch(delUrl, { method: "POST", credentials: "same-origin" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            btn.closest(".article-card")?.remove();
+            if (!document.querySelector(".article-card")) {
+              loadArticles(currentStatus, (searchInput?.value||"").trim());
+            }
+          } catch (err) {
+            alert("Failed to delete. Please try again.");
+            console.error(err);
+          }
+        };
+      });
+    }
+
+    // ====== TABS ======
+    TAB_BTNS.forEach(btn => {
+      btn.addEventListener("click", () => {
+        currentStatus = (btn.getAttribute("data-status") || "all").toLowerCase();
+        setActiveTab(btn);
+        loadArticles(currentStatus, (searchInput?.value || "").trim());
+      });
+    });
+
+    // ====== SEARCH ======
+    if (searchForm) {
+      searchForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        loadArticles(currentStatus, (searchInput.value || "").trim());
+      });
+    }
+
+    // ====== INIT ======
+    (function init(){
+      const active = document.querySelector(".tabs .tab.active[data-status]");
+      if (active) currentStatus = (active.getAttribute("data-status") || "all").toLowerCase();
+      setActiveTab(active);
+      loadArticles(currentStatus, "");
+    })();
   })();
-})();
-</script>
+  </script>
 
- <!-- Ads Box Functions -->
+  <!-- Ads Box Functions -->
   <script>
   (function(){
     const adsBox   = document.getElementById('adsBox');
@@ -271,8 +335,6 @@
       adsBox.innerHTML = `
         <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
           <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
-          ${ad.title ? `<h4 class="ad-title">${esc(ad.title)}</h4>` : ``}
-          ${ad.desc  ? `<p class="ad-desc">${esc(ad.desc)}</p>`   : ``}
         </a>
       `;
     }
@@ -293,97 +355,96 @@
 
   <!-- Logout modal wiring (AFTER modal element) -->
   <script>
-    (function () {
-      const modal   = document.getElementById('logoutModal');
-      const confirm = document.getElementById('logoutConfirm');
-      const cancel  = document.getElementById('logoutCancel');
+  (function () {
+    const modal   = document.getElementById('logoutModal');
+    const confirm = document.getElementById('logoutConfirm');
+    const cancel  = document.getElementById('logoutCancel');
 
-      document.querySelectorAll('.logout-link').forEach(a => {
-        a.addEventListener('click', (e) => {
-          e.preventDefault();
-          modal.dataset.href = a.getAttribute('href');
-          modal.classList.add('show');
-          modal.setAttribute('aria-hidden', 'false');
-        });
+    document.querySelectorAll('.logout-link').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        modal.dataset.href = a.getAttribute('href');
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
       });
-
-      function closeModal() {
-        modal.classList.remove('show');
-        modal.setAttribute('aria-hidden', 'true');
-        delete modal.dataset.href;
-      }
-
-      if (cancel)  cancel.addEventListener('click', closeModal);
-      if (confirm) confirm.addEventListener('click', () => {
-        const href = modal.dataset.href || "{{ url_for('logout') }}";
-        window.location.href = href;
-      });
-
-      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
-      });
-    })();
-
-    // Fix back/forward cache so the page refreshes correctly
-    window.addEventListener('pageshow', function(event) {
-      if (event.persisted) {
-        window.location.reload();
-      }
     });
+
+    function closeModal() {
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden', 'true');
+      delete modal.dataset.href;
+    }
+
+    if (cancel)  cancel.addEventListener('click', closeModal);
+    if (confirm) confirm.addEventListener('click', () => {
+      const href = modal.dataset.href || "{{ url_for('logout') }}";
+      window.location.href = href;
+    });
+
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+    });
+  })();
+
+  // Fix back/forward cache so the page refreshes correctly
+  window.addEventListener('pageshow', function(event) {
+    if (event.persisted) {
+      window.location.reload();
+    }
+  });
   </script>
+
   {% include 'partials/chatbot.html' %}
 
   <footer class="site-footer" role="contentinfo" aria-label="Site footer">
-  <div class="footer-container">
-
-    <div class="footer-top">
-      <a class="footer-brand" href="{{ url_for('subscriberHomepage') }}">EchoPress</a>
-
-      <nav class="footer-links" aria-label="Key links">
-        <ul>
-          <li><a href="{{ url_for('subscriber_my_articles') }}">My Articles</a></li>
-          <li><a href="{{ url_for('subscriber_bookmarks') }}">Bookmarks</a></li>
-          <li><a href="{{ url_for('profile') }}">My Profile</a></li>
-          <li><a href="{{ url_for('subscriberCreateArticle') }}">Create Story</a></li>
-          <li><a href="{{ url_for('donate_form') }}">Donate</a></li>
-        </ul>
-      </nav>
-    </div>
+    <div class="footer-container">
+      <div class="footer-top">
+        <a class="footer-brand" href="{{ url_for('subscriberHomepage') }}">EchoPress</a>
+        <nav class="footer-links" aria-label="Key links">
+          <ul>
+            <li><a href="{{ url_for('subscriber_my_articles') }}">My Articles</a></li>
+            <li><a href="{{ url_for('subscriber_bookmarks') }}">Bookmarks</a></li>
+            <li><a href="{{ url_for('profile') }}">My Profile</a></li>
+            <li><a href="{{ url_for('subscriberCreateArticle') }}">Create Story</a></li>
+            <li><a href="{{ url_for('donate_form') }}">Donate</a></li>
+          </ul>
+        </nav>
+      </div>
 
       <div class="footer-grid">
         <div class="footer-support">
           <h3>Support EchoPress</h3>
           <p>Your contribution keeps independent journalism alive.</p>
           <a class="btn btn-primary" href="{{ url_for('donate_form') }}">Donate</a>
-
-          <!-- Moved here: centered social links under Donate -->
           <ul class="footer-social" aria-label="Social links">
-            <li><a href="https://x.com/" target="_blank" rel="me noopener">X</a></li>
-            <li><a href="https://instagram.com/" target="_blank" rel="me noopener">Instagram</a></li>
-            <li><a href="https://www.youtube.com/" target="_blank" rel="me noopener">YouTube</a></li>
-            <li><a href="https://www.linkedin.com/" target="_blank" rel="me noopener">LinkedIn</a></li>
+            <li><a href="https://facebook.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/facebook.png') }}" alt="Facebook"></a></li>
+            <li><a href="https://x.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/x.png') }}" alt="X"></a></li>
+            <li><a href="https://instagram.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/instagram.png') }}" alt="Instagram"></a></li>
+            <li><a href="https://www.linkedin.com/" target="_blank" rel="noopener">
+              <img src="{{ url_for('static', filename='img/linkedin.png') }}" alt="LinkedIn"></a></li>
           </ul>
         </div>
       </div>
 
-    <div class="footer-legal">
-      <address class="footer-contact">
-        Newsroom: <a href="mailto:newsdesk@echopress.com">Email Us</a> ·
-        Ads: <a href="mailto:ads@echopress.com">Email Us</a> ·
-      </address>
-      <p class="footer-copy">© <span id="footer-year"></span> EchoPress. All rights reserved.</p>
+      <div class="footer-legal">
+        <address class="footer-contact">
+          Newsroom: <a href="mailto:newsdesk@echopress.com">Email Us</a> ·
+          Ads: <a href="mailto:ads@echopress.com">Email Us</a> ·
+        </address>
+        <p class="footer-copy">© <span id="footer-year"></span> EchoPress. All rights reserved.</p>
+      </div>
     </div>
+  </footer>
 
-  </div><!-- /footer-container -->
-</footer>
-
-<script>
-  (function(){
-    var y = document.getElementById('footer-year');
-    if (y) y.textContent = new Date().getFullYear();
-  })();
-</script>
-
+  <script>
+    (function(){
+      var y = document.getElementById('footer-year');
+      if (y) y.textContent = new Date().getFullYear();
+    })();
+  </script>
 </body>
 </html>
