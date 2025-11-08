@@ -1611,8 +1611,9 @@ def subscriber_api_comment_react(comment_id):
         conn.close()
         return jsonify(ok=False, message="Comment not found"), 404
 
-    # ✅ Convert to integers to prevent TypeError
-    likes, dislikes = int(cd[0] or 0), int(cd[1] or 0)
+    # Use column names instead of numeric indices
+    likes    = int(cd['likes'] or 0)
+    dislikes = int(cd['dislikes'] or 0)
 
     if action == "clear":
         if prev == "like":
@@ -2338,13 +2339,17 @@ def donate_form():
 @app.post("/donate")
 @login_required("Author", "Subscriber")
 def donate_submit():
+    # read form (be forgiving about name casing)
     method = (request.form.get("payment_method") or "").strip().lower()
-    amount_raw = (request.form.get("donation_amount") or "").strip()
+    amount_raw = (request.form.get("donation_amount") or request.form.get("donation_amount_final") or "").strip()
 
+    # card fields: accept either name "cardnumber" or "cardNumber"
     card_brand = (request.form.get("card_brand") or "").strip() or None
-    cardnumber = (request.form.get("cardnumber") or "").strip() or None
-    paynowref  = (request.form.get("paynowref")  or "").strip() or None
+    cardnumber = (request.form.get("cardnumber") or request.form.get("cardNumber") or "").strip() or None
+    # paynow ref: accept "paynowref" or "paynowRef"
+    paynowref  = (request.form.get("paynowref") or request.form.get("paynowRef") or "").strip() or None
 
+    # basic validation
     try:
         amt = decimal.Decimal(amount_raw)
     except Exception:
@@ -2370,6 +2375,7 @@ def donate_submit():
         flash("PayNow reference is required.", "danger")
         return redirect(url_for("donate_form"))
 
+    # userid from your session (your code uses 'userid')
     user_id = session.get("userid")
     if not user_id:
         flash("You are not logged in.", "danger")
@@ -2378,25 +2384,31 @@ def donate_submit():
     conn = get_db_connection()
     cur  = get_cursor(conn)
     try:
+        # insert master record and return id
         cur.execute("""
             INSERT INTO donations
-              (userid, donation_amount, payment_method, paymentdatetime, created_by)
+              (userid, donation_amount, payment_method, paymentdatetime, created_by, created_at)
             VALUES
-              (%s, %s, %s, NOW(), %s)
+              (%s, %s, %s, NOW(), %s, NOW())
             RETURNING donation_id
         """, (user_id, str(amt), method, user_id))
 
-        donation_id = cur.fetchone()[0]
+        # RealDictCursor -> dict
+        row = cur.fetchone()
+        if not row:
+            raise RuntimeError("Failed to obtain donation_id from INSERT")
+        donation_id = row.get("donation_id") if isinstance(row, dict) else row[0]
 
+        # insert detail record into donation_info
         if method == "card":
             cur.execute("""
-                INSERT INTO donation_info (donation_id, card_brand, cardnumber)
-                VALUES (%s, %s, %s)
+                INSERT INTO donation_info (donation_id, card_brand, cardnumber, created_at)
+                VALUES (%s, %s, %s, NOW())
             """, (donation_id, card_brand, cardnumber))
-        else:
+        else:  # paynow
             cur.execute("""
-                INSERT INTO donation_info (donation_id, paynowref)
-                VALUES (%s, %s)
+                INSERT INTO donation_info (donation_id, paynowref, created_at)
+                VALUES (%s, %s, NOW())
             """, (donation_id, paynowref))
 
         conn.commit()
@@ -2409,8 +2421,14 @@ def donate_submit():
         flash(f"Could not save donation: {e}", "danger")
         return redirect(url_for("donate_form"))
     finally:
-        cur.close()
-        conn.close()
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 # (YY)
