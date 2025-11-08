@@ -3459,6 +3459,6 @@ def open_browser():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-   """ threading.Timer(1.0, open_browser).start()
-    app.run(debug=True)"""
+   # threading.Timer(1.0, open_browser).start()
+    #app.run(debug=True)
 	
