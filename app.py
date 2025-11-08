@@ -1145,13 +1145,20 @@ def subscriber_api_my_articles():
     offset = int(request.args.get("offset", 0))
 
     base_query = sql.SQL("""
-        SELECT a.article_id, a.title, a.created_at, a.updated_at, a.status,
-               c.name AS category_name, u.username AS author_name
-        FROM articles a
-        JOIN categories c ON a.category_id = c.category_id
-        JOIN users u ON a.author_id = u.user_id
-        WHERE u.username = %s
-    """)
+    SELECT a.articleid AS article_id,
+           a.title,
+           a.published_at,
+           a.updated_at,
+           a.status,
+           c.name AS category_name,
+           u.name AS author_name
+    FROM articles a
+    JOIN categories c ON a.catid = c.categoryid
+    JOIN users u ON a.author = u.name
+    WHERE u.name = %s
+    ORDER BY a.created_at DESC
+    LIMIT %s OFFSET %s
+""")
 
     params = [username]
 
