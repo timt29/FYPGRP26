@@ -1129,14 +1129,10 @@ def _norm_image_path(p):
 @login_required("Subscriber")
 def subscriber_api_my_articles():
     import psycopg2
-    from psycopg2 import sql
+    from psycopg2 import sql, extras
 
-    # DEBUG
-    print("SESSION USER:", session.get("user"))
-
-    username = session.get("user")
-    if not username:
-        return jsonify({"success": False, "error": "User not logged in"}), 401
+    user = session.get("user")
+    username = user["username"] if isinstance(user, dict) else user
 
     category = request.args.get("category")
     status = request.args.get("status")
@@ -1144,56 +1140,57 @@ def subscriber_api_my_articles():
     limit = int(request.args.get("limit", 10))
     offset = int(request.args.get("offset", 0))
 
-    base_query = sql.SQL("""
-    SELECT a.articleid AS article_id,
-           a.title,
-           a.published_at,
-           a.updated_at,
-           a.status,
-           c.name AS category_name,
-           u.name AS author_name
-    FROM articles a
-    JOIN categories c ON a.catid = c.categoryid
-    JOIN users u ON a.author = u.name
-    WHERE u.name = %s
-    ORDER BY a.created_at DESC
-    LIMIT %s OFFSET %s
-""")
-
+    # --- BASE QUERY ---
+    query = """
+        SELECT a.articleid AS article_id,
+               a.title,
+               a.published_at,
+               a.updated_at,
+               a.status,
+               c.name AS category_name,
+               u.name AS author_name
+        FROM articles a
+        JOIN categories c ON a.catid = c.categoryid
+        JOIN users u ON a.author = u.name
+        WHERE u.name = %s
+    """
     params = [username]
 
+    # --- FILTERS ---
     if category:
-        base_query += sql.SQL(" AND c.name = %s")
+        query += " AND c.name = %s"
         params.append(category)
 
     if status:
-        base_query += sql.SQL(" AND a.status = %s")
+        query += " AND a.status = %s"
         params.append(status)
 
     if search:
-        base_query += sql.SQL(" AND a.title ILIKE %s")
+        query += " AND a.title ILIKE %s"
         params.append(f"%{search}%")
 
-    base_query += sql.SQL(" ORDER BY a.created_at DESC LIMIT %s OFFSET %s")
+    # --- ORDER + PAGINATION (add only once) ---
+    query += " ORDER BY a.published_at DESC LIMIT %s OFFSET %s"
     params.extend([limit, offset])
 
+    # --- EXECUTE ---
     conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    try:
-        print("SQL:", base_query.as_string(cur))
-        print("PARAMS:", params)
+    cur = get_cursor(conn)
 
-        cur.execute(base_query, tuple(params))
+
+    cur = conn.cursor(cursor_factory=extras.RealDictCursor)
+
+    try:
+        print("SQL:", query)
+        print("PARAMS:", params)
+        cur.execute(query, tuple(params))
         rows = cur.fetchall()
         cur.close()
-        conn.close()
-
         return jsonify({"success": True, "articles": rows})
     except Exception as e:
-        cur.close()
-        conn.close()
         import traceback
         print("ERROR:", traceback.format_exc())
+        cur.close()
         return jsonify({"success": False, "error": str(e)}), 500
 
 
