@@ -112,216 +112,201 @@
   </script>
 
   <!-- My Articles logic -->
-  <script>
-  (function () {
-    // ====== DOM HOOKS ======
-    const LIST = document.getElementById("feed");
-    const TAB_BTNS = document.querySelectorAll(".tabs .tab[data-status]");
-    const API_URL = "{{ url_for('subscriber_api_my_articles') }}";
-    const EDIT_TPL = "{{ url_for('subscriber_edit_article', article_id=0) }}";
-    const EDIT_REPORTED_TPL = "{{ url_for('subscriber_edit_reported_article', article_id=0) }}";
-    const searchForm  = document.getElementById("searchForm");
-    const searchInput = document.getElementById("searchQ");
+<script>
+(function () {
+  const LIST = document.getElementById("feed");
+  const TAB_BTNS = document.querySelectorAll(".tabs .tab[data-status]");
+  const API_URL = "{{ url_for('subscriber_api_my_articles') }}";
+  const EDIT_TPL = "{{ url_for('subscriber_edit_article', article_id=0) }}";
+  const EDIT_REPORTED_TPL = "{{ url_for('subscriber_edit_reported_article', article_id=0) }}";
+  const searchForm  = document.getElementById("searchForm");
+  const searchInput = document.getElementById("searchQ");
 
-    let currentStatus = "all"; // all | published | drafts | pending | reported
+  let currentStatus = "all";
 
-    function getId(a){
-      return a?.articleid ?? a?.id ?? a?.article_id ?? null;
+  function getId(a){
+    return a?.articleid ?? a?.id ?? a?.article_id ?? null;
+  }
+
+  const ALLOWED_TAGS = new Set(["P","BR","STRONG","EM","U","S","UL","OL","LI"]);
+  function safeSnippet(html, maxChars = 220) {
+    const wrapper = document.createElement("div");
+    wrapper.innerHTML = html || "";
+    const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_ELEMENT);
+    const toRemove = [];
+    while (walker.nextNode()) {
+      const el = walker.currentNode;
+      if (!ALLOWED_TAGS.has(el.tagName)) {
+        const parent = el.parentNode;
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        toRemove.push(el);
+      } else {
+        [...el.attributes].forEach(a => el.removeAttribute(a.name));
+      }
     }
-
-    // ====== UTIL: SAFE SNIPPET ======
-    const ALLOWED_TAGS = new Set(["P","BR","STRONG","EM","U","S","UL","OL","LI"]);
-    function safeSnippet(html, maxChars = 220) {
-      const wrapper = document.createElement("div");
-      wrapper.innerHTML = html || "";
-
-      const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_ELEMENT);
-      const toRemove = [];
-      while (walker.nextNode()) {
-        const el = walker.currentNode;
-        if (!ALLOWED_TAGS.has(el.tagName)) {
-          const parent = el.parentNode;
-          while (el.firstChild) parent.insertBefore(el.firstChild, el);
-          toRemove.push(el);
-        } else {
-          [...el.attributes].forEach(a => el.removeAttribute(a.name));
-        }
-      }
-      toRemove.forEach(n => n.remove());
-
-      let count = 0, tn;
-      const it = document.createNodeIterator(wrapper, NodeFilter.SHOW_TEXT);
-      while ((tn = it.nextNode()) && count < maxChars) {
-        const remain = maxChars - count;
-        if (tn.nodeValue.length > remain) tn.nodeValue = tn.nodeValue.slice(0, remain) + "…";
-        count += tn.nodeValue.length;
-      }
-      if (count >= maxChars && tn) {
-        let stop = tn;
-        while (stop && stop.parentNode !== wrapper) stop = stop.parentNode;
-        if (stop) {
-          let n = stop.nextSibling;
-          while (n) { const next = n.nextSibling; n.remove(); n = next; }
-        }
-      }
-      return wrapper.innerHTML;
+    toRemove.forEach(n => n.remove());
+    let count = 0, tn;
+    const it = document.createNodeIterator(wrapper, NodeFilter.SHOW_TEXT);
+    while ((tn = it.nextNode()) && count < maxChars) {
+      const remain = maxChars - count;
+      if (tn.nodeValue.length > remain) tn.nodeValue = tn.nodeValue.slice(0, remain) + "…";
+      count += tn.nodeValue.length;
     }
+    return wrapper.innerHTML;
+  }
 
-    // ====== RENDER HELPERS ======
-    const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-    function statusBadge(draft, status) {
-      const st = (status || (draft ? "draft" : "published"));
-      if (st === "pending_revision" || st === "pending_approval") {
-        return '<span class="badge badge-draft">Pending</span>';
-      }
-      if (st === "reported") {
-        return '<span class="badge badge-reported">Reported</span>';
-      }
-      return draft
-        ? '<span class="badge badge-draft">Draft</span>'
-        : '<span class="badge badge-published">Published</span>';
+  const esc = s => (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+  function statusBadge(draft, status) {
+    const st = (status || (draft ? "draft" : "published"));
+    if (st === "pending_revision" || st === "pending_approval") {
+      return '<span class="badge badge-draft">Pending</span>';
     }
+    if (st === "reported") {
+      return '<span class="badge badge-reported">Reported</span>';
+    }
+    return draft
+      ? '<span class="badge badge-draft">Draft</span>'
+      : '<span class="badge badge-published">Published</span>';
+  }
 
-    function card(a) {
-      const id      = getId(a);
-      const img     = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
-      const snippet = safeSnippet(a.content || "", 220);
+  function card(a) {
+    const id = getId(a);
+    const img = a.image || "{{ url_for('static', filename='img/placeholder.png') }}";
+    const snippet = safeSnippet(a.content || "", 220);
 
-      const isReported = (a.status === 'reported' || (a.visible === 0 && (a.report_count ?? 0) > 0));
-      const isPending  = (a.status === 'pending_revision' || a.status === 'pending_approval');
+    const isReported = (a.status === 'reported' || (a.visible === 0 && (a.report_count ?? 0) > 0));
+    const isPending  = (a.status === 'pending_revision' || a.status === 'pending_approval');
 
-      const href = id
-        ? (isPending
-            ? EDIT_REPORTED_TPL.replace(/0$/, id)
-            : EDIT_TPL.replace(/0$/, id))
-        : "#";
+    const href = id
+      ? (isPending
+          ? EDIT_REPORTED_TPL.replace(/0$/, id)
+          : EDIT_TPL.replace(/0$/, id))
+      : "#";
 
-      const inner = `
-        <div class="text">
-          <div class="card-top">
-            ${statusBadge(!!a.draft, a.status)}
-            ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
-          </div>
-          <h3>${esc(a.title)}</h3>
-          <p class="desc">${snippet}</p>
-          <div class="meta-line">
-            ${a.published_at ? `<span>${a.draft ? "Updated" : "Published"}: ${esc(a.published_at || a.updated_at || "")}</span>` : ""}
-          </div>
+    const inner = `
+      <div class="text">
+        <div class="card-top">
+          ${statusBadge(!!a.draft, a.status)}
+          ${a.category ? `<span class="badge badge-cat">${esc(a.category)}</span>` : ""}
         </div>
-        <div class="thumb-wrap">
-          <img src="${img}" alt="" loading="lazy" decoding="async">
+        <h3>${esc(a.title)}</h3>
+        <p class="desc">${snippet}</p>
+        <div class="meta-line">
+          ${a.published_at ? `<span>${a.draft ? "Updated" : "Published"}: ${esc(a.published_at || a.updated_at || "")}</span>` : ""}
         </div>
-      `;
+      </div>
+      <div class="thumb-wrap">
+        <img src="${img}" alt="" loading="lazy" decoding="async">
+      </div>
+    `;
 
-      // REPORTED → not clickable
-      const wrapperStart = isReported
-        ? `<div class="card-link disabled" aria-label="${esc(a.title)}" aria-disabled="true" tabindex="-1">`
-        : `<a class="card-link" href="${href}" aria-label="${esc(a.title)}">`;
-      const wrapperEnd = isReported ? `</div>` : `</a>`;
+    const wrapperStart = isReported
+      ? `<div class="card-link disabled" aria-label="${esc(a.title)}" aria-disabled="true" tabindex="-1">`
+      : `<a class="card-link" href="${href}" aria-label="${esc(a.title)}">`;
+    const wrapperEnd = isReported ? `</div>` : `</a>`;
 
-      document.addEventListener('click', (e) => {
-        const disabled = e.target.closest('.card-link.disabled');
-        if (disabled) { e.preventDefault(); e.stopPropagation(); }
-      }, true);
+    document.addEventListener('click', (e) => {
+      const disabled = e.target.closest('.card-link.disabled');
+      if (disabled) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
 
-      return `
-        <article class="article-card my-article article-with-delete ${isReported ? 'is-reported' : ''}" data-id="${id}">
-          ${wrapperStart}${inner}${wrapperEnd}
-          <button class="article-delete-btn danger" data-id="${id}" title="Delete this article">🗑 Delete</button>
-        </article>
-      `;
+    return `
+      <article class="article-card my-article article-with-delete ${isReported ? 'is-reported' : ''}" data-id="${id}">
+        ${wrapperStart}${inner}${wrapperEnd}
+        <button class="article-delete-btn danger" data-id="${id}" title="Delete this article">🗑 Delete</button>
+      </article>
+    `;
+  }
+
+  function renderList(items) {
+    if (!LIST) return;
+    const html = (items && items.length)
+      ? items.map(card).filter(Boolean).join("")
+      : `<div class="empty-state"><p>No ${esc(labelFor(currentStatus))} articles found.</p></div>`;
+    LIST.innerHTML = html;
+    bindDeleteHandlers();
+  }
+
+  function labelFor(s){
+    return s==="published"?"Published":s==="drafts"?"Drafts":s==="pending"?"Pending":s==="reported"?"Reported":"All";
+  }
+
+  // ====== FIXED: DATA LOAD ======
+  async function loadArticles(status, q) {
+    const url = new URL(API_URL, window.location.origin);
+    if (status && status !== "all") url.searchParams.set("status", status);
+    if (q) url.searchParams.set("q", q);
+    try {
+      setLoading(true);
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      console.log("API response:", data);
+      // ✅ Use data.articles instead of data
+      renderList(data.articles || []);
+    } catch (e) {
+      console.error(e);
+      if (LIST) LIST.innerHTML = `<p style="color:#b00">Failed to load ${esc(labelFor(status))}.</p>`;
+    } finally {
+      setLoading(false);
     }
+  }
 
-    function renderList(items) {
-      if (!LIST) return;
-      const html = (items && items.length)
-        ? items.map(card).filter(Boolean).join("")
-        : `<div class="empty-state"><p>No ${esc(labelFor(currentStatus))} articles found.</p></div>`;
-      LIST.innerHTML = html;
-      bindDeleteHandlers();
-    }
-    function labelFor(s){
-      return s==="published"?"Published":s==="drafts"?"Drafts":s==="pending"?"Pending":s==="reported"?"Reported":"All";
-    }
+  function setLoading(on){
+    document.querySelector(".topbar")?.classList.toggle("is-loading", !!on);
+  }
+  function setActiveTab(btn){
+    TAB_BTNS.forEach(b => b.classList.remove("active"));
+    btn?.classList.add("active");
+  }
 
-    // ====== DATA LOAD ======
-    async function loadArticles(status, q) {
-      const url = new URL(API_URL, window.location.origin);
-      if (status && status !== "all") url.searchParams.set("status", status);
-      if (q) url.searchParams.set("q", q);
-      try {
-        setLoading(true);
-        const res = await fetch(url, { credentials: "same-origin" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        renderList(data);
-      } catch (e) {
-        console.error(e);
-        if (LIST) LIST.innerHTML = `<p style="color:#b00">Failed to load ${esc(labelFor(status))}.</p>`;
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    // ====== UX ======
-    function setLoading(on){
-      document.querySelector(".topbar")?.classList.toggle("is-loading", !!on);
-    }
-    function setActiveTab(btn){
-      TAB_BTNS.forEach(b => b.classList.remove("active"));
-      btn?.classList.add("active");
-    }
-
-    // ====== DELETE ======
-    function bindDeleteHandlers(){
-      document.querySelectorAll(".article-delete-btn[data-id]").forEach(btn => {
-        btn.onclick = async (e) => {
-          e.preventDefault();
-          const id = btn.getAttribute("data-id");
-          if (!id || !confirm("Delete this article?")) return;
-          try {
-            const delUrl = "{{ url_for('subscriber_delete_article', article_id=0) }}"
-              .replace(/\/0(\/|$)/, `/${id}$1`);
-            const res = await fetch(delUrl, { method: "POST", credentials: "same-origin" });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            btn.closest(".article-card")?.remove();
-            if (!document.querySelector(".article-card")) {
-              loadArticles(currentStatus, (searchInput?.value||"").trim());
-            }
-          } catch (err) {
-            alert("Failed to delete. Please try again.");
-            console.error(err);
-          }
-        };
-      });
-    }
-
-    // ====== TABS ======
-    TAB_BTNS.forEach(btn => {
-      btn.addEventListener("click", () => {
-        currentStatus = (btn.getAttribute("data-status") || "all").toLowerCase();
-        setActiveTab(btn);
-        loadArticles(currentStatus, (searchInput?.value || "").trim());
-      });
-    });
-
-    // ====== SEARCH ======
-    if (searchForm) {
-      searchForm.addEventListener("submit", (e) => {
+  function bindDeleteHandlers(){
+    document.querySelectorAll(".article-delete-btn[data-id]").forEach(btn => {
+      btn.onclick = async (e) => {
         e.preventDefault();
-        loadArticles(currentStatus, (searchInput.value || "").trim());
-      });
-    }
+        const id = btn.getAttribute("data-id");
+        if (!id || !confirm("Delete this article?")) return;
+        try {
+          const delUrl = "{{ url_for('subscriber_delete_article', article_id=0) }}"
+            .replace(/\/0(\/|$)/, `/${id}$1`);
+          const res = await fetch(delUrl, { method: "POST", credentials: "same-origin" });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          btn.closest(".article-card")?.remove();
+          if (!document.querySelector(".article-card")) {
+            loadArticles(currentStatus, (searchInput?.value||"").trim());
+          }
+        } catch (err) {
+          alert("Failed to delete. Please try again.");
+          console.error(err);
+        }
+      };
+    });
+  }
 
-    // ====== INIT ======
-    (function init(){
-      const active = document.querySelector(".tabs .tab.active[data-status]");
-      if (active) currentStatus = (active.getAttribute("data-status") || "all").toLowerCase();
-      setActiveTab(active);
-      loadArticles(currentStatus, "");
-    })();
+  TAB_BTNS.forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentStatus = (btn.getAttribute("data-status") || "all").toLowerCase();
+      setActiveTab(btn);
+      loadArticles(currentStatus, (searchInput?.value || "").trim());
+    });
+  });
+
+  if (searchForm) {
+    searchForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      loadArticles(currentStatus, (searchInput.value || "").trim());
+    });
+  }
+
+  (function init(){
+    const active = document.querySelector(".tabs .tab.active[data-status]");
+    if (active) currentStatus = (active.getAttribute("data-status") || "all").toLowerCase();
+    setActiveTab(active);
+    loadArticles(currentStatus, "");
   })();
-  </script>
+})();
+</script>
 
   <!-- Ads Box Functions -->
   <script>
