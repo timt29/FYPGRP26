@@ -1129,55 +1129,81 @@ def _norm_image_path(p):
 @login_required("Subscriber")
 def subscriber_api_my_articles():
     import psycopg2
-    from psycopg2 import sql, extras
+    from psycopg2 import extras
 
+    # ---- Session / user ----
     user = session.get("user")
-    username = user["username"] if isinstance(user, dict) else user
+    if not user:
+        return jsonify({"success": False, "error": "Not logged in"}), 401
+    # session may be a dict or a plain username string
+    username = user.get("username") if isinstance(user, dict) else str(user)
 
+    # ---- Query params ----
     category = request.args.get("category")
-    status = request.args.get("status")
+    status = (request.args.get("status") or "all").lower()
     search = request.args.get("search")
-    limit = int(request.args.get("limit", 10))
-    offset = int(request.args.get("offset", 0))
+    try:
+        limit = int(request.args.get("limit", 10))
+        offset = int(request.args.get("offset", 0))
+    except ValueError:
+        return jsonify({"success": False, "error": "limit/offset must be integers"}), 400
 
-    # --- BASE QUERY ---
+    # ---- Base SQL (author stored as username) ----
     query = """
-        SELECT a.articleid AS article_id,
-               a.title,
-               a.published_at,
-               a.updated_at,
-               a.status,
-               c.name AS category_name,
-               u.name AS author_name
+        SELECT
+            a.articleid        AS article_id,
+            a.title,
+            a.published_at,
+            a.updated_at,
+            a.status,
+            c.name             AS category_name,
+            u.name             AS author_name
         FROM articles a
         JOIN categories c ON a.catid = c.categoryid
-        JOIN users u ON a.author = u.name
-        WHERE u.name = %s
+        JOIN users u       ON a.author = u.name
+        WHERE LOWER(u.name) = LOWER(%s)
     """
     params = [username]
 
-    # --- FILTERS ---
+    # ---- Status handling ----
+    if status == "published":
+        query += " AND a.status = %s"
+        params.append("published")
+    elif status == "drafts":
+        # adjust if your draft status name differs
+        query += " AND a.status = %s"
+        params.append("draft")
+    elif status == "pending":
+        # use ANY(array) to avoid building multiple %s placeholders
+        pending_statuses = ["pending_revision", "pending_approval"]
+        if pending_statuses:
+            query += " AND a.status = ANY(%s)"
+            params.append(pending_statuses)
+        else:
+            query += " AND FALSE"   # no pending statuses → return nothing
+    elif status == "reported":
+        query += " AND a.status = %s"
+        params.append("reported")
+    elif status != "all":
+        # unknown status value
+        return jsonify({"success": False, "error": "Unknown status filter"}), 400
+
+    # ---- Optional filters ----
     if category:
         query += " AND c.name = %s"
         params.append(category)
-
-    if status:
-        query += " AND a.status = %s"
-        params.append(status)
 
     if search:
         query += " AND a.title ILIKE %s"
         params.append(f"%{search}%")
 
-    # --- ORDER + PAGINATION (add only once) ---
+    # ---- Order + Pagination (added exactly once) ----
     query += " ORDER BY a.published_at DESC LIMIT %s OFFSET %s"
     params.extend([limit, offset])
 
-    # --- EXECUTE ---
+    # ---- Execute using your helpers ----
     conn = get_db_connection()
-    cur = get_cursor(conn)
-
-
+    # prefer RealDictCursor so result rows are dict-like (JSON ready)
     cur = conn.cursor(cursor_factory=extras.RealDictCursor)
 
     try:
@@ -1186,12 +1212,22 @@ def subscriber_api_my_articles():
         cur.execute(query, tuple(params))
         rows = cur.fetchall()
         cur.close()
+        conn.close()
         return jsonify({"success": True, "articles": rows})
     except Exception as e:
+        # keep helpful logs and return safe JSON
         import traceback
         print("ERROR:", traceback.format_exc())
-        cur.close()
+        try:
+            cur.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 
 
