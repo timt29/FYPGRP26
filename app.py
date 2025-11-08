@@ -1016,7 +1016,6 @@ def subscriber_article_react():
         else:
             uid = int(uid)
 
-        conn.start_transaction()
 
         cur.execute("""
             SELECT reaction
@@ -1895,14 +1894,17 @@ def api_downgrade_author():
                SET previous_usertype = usertype,
                    usertype = 'Subscriber'
              WHERE userid = %s
-             LIMIT 1
         """, (uid,))
+        if cur.rowcount == 0:
+            conn.rollback()
+            return jsonify(ok=False, message="User not found"), 404
         conn.commit()
     except Exception as e:
         conn.rollback()
         return jsonify(ok=False, message=str(e)), 500
     finally:
-        cur.close(); conn.close()
+        cur.close()
+        conn.close()
 
     session["usertype"] = "Subscriber"
     session["role"] = "Subscriber"
@@ -1911,7 +1913,7 @@ def api_downgrade_author():
                    message="Role downgraded to Subscriber.",
                    redirect=url_for("subscriberHomepage"))
 
-# only Subscribers can cancel sunscription
+
 @app.post("/api/profile/cancel-subscription")
 @login_required("Subscriber")  
 def api_cancel_subscription():
@@ -1924,16 +1926,19 @@ def api_cancel_subscription():
     conn = get_db_connection()
     try:
         cur = conn.cursor()
-        cur.execute("DELETE FROM users WHERE userid=%s LIMIT 1", (uid,))
+        cur.execute("DELETE FROM users WHERE userid=%s", (uid,))
+        if cur.rowcount == 0:
+            conn.rollback()
+            return jsonify(ok=False, message="User not found"), 404
         conn.commit()
     except Exception as e:
         conn.rollback()
         return jsonify(ok=False, message=str(e)), 500
     finally:
-        cur.close(); conn.close()
+        cur.close()
+        conn.close()
 
     session.clear()
-
     return jsonify(ok=True,
                    message="Subscription cancelled.",
                    redirect=url_for("index"))
@@ -2333,12 +2338,6 @@ def donate_form():
 @app.post("/donate")
 @login_required("Author", "Subscriber")
 def donate_submit():
-    """
-    1) Validate form
-    2) INSERT into donations (master)
-    3) INSERT into donation_info (detail)
-    """
-
     method = (request.form.get("payment_method") or "").strip().lower()
     amount_raw = (request.form.get("donation_amount") or "").strip()
 
@@ -2367,10 +2366,9 @@ def donate_submit():
         if not card_brand:
             card_brand = "Unknown"
 
-    if method == "paynow":
-        if not paynowref:
-            flash("PayNow reference is required.", "danger")
-            return redirect(url_for("donate_form"))
+    if method == "paynow" and not paynowref:
+        flash("PayNow reference is required.", "danger")
+        return redirect(url_for("donate_form"))
 
     user_id = session.get("userid")
     if not user_id:
@@ -2380,61 +2378,40 @@ def donate_submit():
     conn = get_db_connection()
     cur  = get_cursor(conn)
     try:
-        cur.execute(
-            """
+        cur.execute("""
             INSERT INTO donations
               (userid, donation_amount, payment_method, paymentdatetime, created_by)
             VALUES
               (%s, %s, %s, NOW(), %s)
-            """,
-            (user_id, str(amt), method, user_id)
-        )
-        conn.commit()
+            RETURNING donation_id
+        """, (user_id, str(amt), method, user_id))
 
-        cur.execute("SELECT LAST_INSERT_ID()")
         donation_id = cur.fetchone()[0]
 
         if method == "card":
-            cur.execute(
-                """
-                INSERT INTO donation_info
-                  (donation_id, card_brand, cardnumber)
-                VALUES
-                  (%s, %s, %s)
-                """,
-                (donation_id, card_brand, cardnumber)
-            )
-        elif method == "paynow":
-            cur.execute(
-                """
-                INSERT INTO donation_info
-                  (donation_id, paynowref)
-                VALUES
-                  (%s, %s)
-                """,
-                (donation_id, paynowref)
-            )
+            cur.execute("""
+                INSERT INTO donation_info (donation_id, card_brand, cardnumber)
+                VALUES (%s, %s, %s)
+            """, (donation_id, card_brand, cardnumber))
+        else:
+            cur.execute("""
+                INSERT INTO donation_info (donation_id, paynowref)
+                VALUES (%s, %s)
+            """, (donation_id, paynowref))
 
         conn.commit()
 
         return redirect(url_for("donate_form", thanks=1, next=url_for("subscriberHomepage")))
 
     except Exception as e:
-        app.logger.exception("DONATION_INSERT_FAILED: %s", e)
-
-        msg = str(e)
-        if "foreign key constraint fails" in msg.lower():
-            flash("Insert failed: your user account (userid) must exist in 'users' table.", "danger")
-        else:
-            flash(f"Could not save donation: {e}", "danger")
         conn.rollback()
+        app.logger.exception("DONATION_INSERT_FAILED: %s", e)
+        flash(f"Could not save donation: {e}", "danger")
         return redirect(url_for("donate_form"))
     finally:
-        try:
-            cur.close()
-            conn.close()
-        except Exception:
-            pass
+        cur.close()
+        conn.close()
+
 
 # (YY)
 # ---------- Auth ----------
