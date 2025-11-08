@@ -23,6 +23,7 @@ from utils.content_analyzer import analyze_content
 from typing import Optional
 from utils.chatbot import getChatbotResponse
 import psycopg2
+from psycopg2 import extras, OperationalError
 from psycopg2.extras import RealDictCursor
 import nltk
 import socket
@@ -49,57 +50,36 @@ def get_db_connection():
     )
 '''
 
-def get_db_connection():
-    database = os.getenv("database", "postgres")
-    user = os.getenv("user", "postgres.ioxwfemawqhuqwkmshoc")
-    password = os.getenv("password", "ZavXqAKfvdBvKRUKrjhQZoMYypyHLQes")
+def get_db_connection(retries=3, delay=3):
+    host = os.getenv("SUPABASE_HOST", "aws-1-ap-southeast-1.pooler.supabase.com")
+    port = int(os.getenv("SUPABASE_PORT", 6543))
+    database = os.getenv("SUPABASE_DB", "postgres")
+    user = os.getenv("SUPABASE_USER", "postgres.ioxwfemawqhuqwkmshoc")
+    password = os.getenv("SUPABASE_PASSWORD", "ZavXqAKfvdBvKRUKrjhQZoMYypyHLQes")
 
-    pooled_host = "aws-1-ap-southeast-1.pooler.supabase.com"
-    direct_host = "db.ioxwfemawqhuqwkmshoc.supabase.co"
-
-    try:
-        pooled_ipv4 = socket.gethostbyname(pooled_host)
-        print(f"Connecting to pooled IPv4: {pooled_ipv4}:6543")
-
-        conn = psycopg2.connect(
-            host=pooled_ipv4,
-            port=6543,
-            database=database,
-            user=user,
-            password=password,
-            sslmode="require"
-        )
-        print("✅ Connected to Supabase (pooled IPv4)")
-        return conn
-
-    except psycopg2.OperationalError as e:
-        print(f"❌ Pooled connection failed: {e}")
-
-        # fallback to direct
+    for attempt in range(1, retries + 1):
         try:
-            direct_ipv4 = socket.gethostbyname(direct_host)
-            print(f"Connecting to direct IPv4: {direct_ipv4}:5432")
-
             conn = psycopg2.connect(
-                host=direct_ipv4,
-                port=5432,
+                host=host,
+                port=port,
                 database=database,
                 user=user,
                 password=password,
                 sslmode="require"
             )
-            print("✅ Connected to Supabase (direct IPv4)")
+            print(f"✅ Connected to Supabase database (attempt {attempt})")
             return conn
-
-        except psycopg2.OperationalError as e2:
-            print(f"❌ Direct connection failed: {e2}")
-            raise ConnectionError("Could not connect to Supabase via pooled or direct IPv4")
-
-
-print("Connected to MySQL")
+        except OperationalError as e:
+            print(f"⚠️ Attempt {attempt} failed: {e}")
+            if attempt < retries:
+                time.sleep(delay)
+            else:
+                print("❌ All connection attempts failed.")
+                raise
 
 def get_cursor(conn):
-    return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    return conn.cursor(cursor_factory=extras.RealDictCursor)
+
 
 # ---------- Auth wrapper ---------- # (YY)
 from functools import wraps
@@ -3477,6 +3457,8 @@ def open_browser():
     webbrowser.open_new("http://127.0.0.1:5000/")
 
 if __name__ == "__main__":
-    threading.Timer(1.0, open_browser).start()
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+   """ threading.Timer(1.0, open_browser).start()
+    app.run(debug=True)"""
 	
