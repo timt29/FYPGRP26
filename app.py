@@ -1631,23 +1631,24 @@ def report_article():
                 SELECT COUNT(*) AS recent_reports
                 FROM article_reports
                 WHERE reporter_id = %s
-                AND created_at >= NOW() - INTERVAL '1 DAY'
+                AND created_at >= NOW() - INTERVAL 1 DAY
             """, (reporter_id,))
             count_row = cur.fetchone()
             recent_reports = count_row["recent_reports"] if count_row else 0
             print(f"Recent reports by user {reporter_id}: {recent_reports}")
 
-            if recent_reports >= 4:
+            if recent_reports >= 2:
                 cur.execute("""
                     INSERT INTO warnings (userid, message, created_at)
                     VALUES (%s, %s, NOW())
                 """, (
                     reporter_id,
-                    "You have been temporarily muted for excessive reporting. Please report responsibly."
+                    "You have been temporarily muted for excessive articles reporting. Please report responsibly."
                 ))
+                print("Rows inserted:", cur.rowcount)
                 conn.commit()
                 print("Warning inserted successfully")
-                return jsonify(ok=False, message="You have been muted for 24 hours due to excessive reporting."), 403
+                return jsonify(ok=False, message="You have been muted for 24 hours due to excessive articles reporting."), 403
 
         except Exception as e:
             print(f"Spam detection error: {e}")
@@ -1700,18 +1701,18 @@ def report_comment():
         cur.execute("""
             SELECT COUNT(*) AS recent_reports
             FROM comment_reports
-            WHERE reporter_id = %s AND created_at >= NOW() - INTERVAL '1 DAY'
+            WHERE reporter_id = %s AND created_at >= NOW() - INTERVAL 1 DAY
         """, (reporter_id,))
         count_row = cur.fetchone()
         recent_reports = count_row["recent_reports"] if count_row else 0
 
-        if recent_reports >= 6:
+        if recent_reports >= 2:
             # warning if not already warned today
             cur.execute("""
                 SELECT 1 FROM warnings 
                 WHERE userid = %s 
                 AND message LIKE %s 
-                AND created_at >= NOW() - INTERVAL '1 DAY'
+                AND created_at >= NOW() - INTERVAL 1 DAY
                 LIMIT 1
             """, (reporter_id, "%temporarily muted%"))
             if not cur.fetchone():
@@ -1721,7 +1722,7 @@ def report_comment():
                 """, (reporter_id, "You have been temporarily muted for excessive comment reporting."))
                 conn.commit()
 
-            return jsonify(ok=False, message="You have been muted for 24 hours due to excessive reporting."), 403
+            return jsonify(ok=False, message="You have been muted for 24 hours due to excessive comment reporting."), 403
 
         cur.execute(
             "SELECT 1 FROM comment_reports WHERE comment_id = %s AND reporter_id = %s LIMIT 1",
