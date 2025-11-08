@@ -1601,7 +1601,7 @@ def subscriber_api_comment_react(comment_id):
         (comment_id, uid)
     )
     row = cur.fetchone()
-    prev = row[0] if row else None
+    prev = row.get("reaction") if row else None
 
     # Fetch current likes/dislikes from the comment
     cur.execute("SELECT likes, dislikes FROM comments WHERE commentid=%s", (comment_id,))
