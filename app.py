@@ -1170,7 +1170,8 @@ def subscriber_api_my_articles():
     base_query += sql.SQL(" ORDER BY a.created_at DESC LIMIT %s OFFSET %s")
     params.extend([limit, offset])
 
-    cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         print("SQL:", base_query.as_string(cur))
         print("PARAMS:", params)
@@ -1178,10 +1179,12 @@ def subscriber_api_my_articles():
         cur.execute(base_query, tuple(params))
         rows = cur.fetchall()
         cur.close()
+        conn.close()
 
         return jsonify({"success": True, "articles": rows})
     except Exception as e:
         cur.close()
+        conn.close()
         import traceback
         print("ERROR:", traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
