@@ -1131,18 +1131,12 @@ def subscriber_api_my_articles():
     import psycopg2
     from psycopg2 import sql
 
-    user = session.get("user")
- # --- DEBUG: check what is stored in session ---
+    # DEBUG
     print("SESSION USER:", session.get("user"))
-    
-    # ✅ FIX: safely handle string or dict session user
-    if isinstance(user, dict):
-        user_id = user.get("id")
-    else:
-        try:
-            user_id = int(user)  # convert string "3" -> 3
-        except (TypeError, ValueError):
-            return jsonify({"success": False, "error": "Invalid user session"}), 400
+
+    username = session.get("user")
+    if not username:
+        return jsonify({"success": False, "error": "User not logged in"}), 401
 
     category = request.args.get("category")
     status = request.args.get("status")
@@ -1150,20 +1144,17 @@ def subscriber_api_my_articles():
     limit = int(request.args.get("limit", 10))
     offset = int(request.args.get("offset", 0))
 
-    # --- BASE QUERY ---
     base_query = sql.SQL("""
         SELECT a.article_id, a.title, a.created_at, a.updated_at, a.status,
                c.name AS category_name, u.username AS author_name
         FROM articles a
         JOIN categories c ON a.category_id = c.category_id
         JOIN users u ON a.author_id = u.user_id
-        WHERE a.author_id = %s
+        WHERE u.username = %s
     """)
 
-    # --- PARAMS LIST ---
-    params = [user_id]
+    params = [username]
 
-    # --- DYNAMIC FILTERS ---
     if category:
         base_query += sql.SQL(" AND c.name = %s")
         params.append(category)
@@ -1176,11 +1167,9 @@ def subscriber_api_my_articles():
         base_query += sql.SQL(" AND a.title ILIKE %s")
         params.append(f"%{search}%")
 
-    # --- ORDER + PAGINATION ---
     base_query += sql.SQL(" ORDER BY a.created_at DESC LIMIT %s OFFSET %s")
     params.extend([limit, offset])
 
-    # --- FINAL EXECUTION ---
     cur = g.db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
         print("SQL:", base_query.as_string(cur))
@@ -1196,7 +1185,6 @@ def subscriber_api_my_articles():
         import traceback
         print("ERROR:", traceback.format_exc())
         return jsonify({"success": False, "error": str(e)}), 500
-
 
 
 
