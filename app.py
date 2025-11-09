@@ -1847,8 +1847,6 @@ def profile_update():
 
     return redirect(url_for("profile", updated=1, next=next_url))
 
-from flask import jsonify
-
 # only Authors can downgrade to Subscriber
 @app.post("/api/profile/downgrade-author")
 @login_required("Author")  
@@ -2455,22 +2453,27 @@ def register():
         name = request.form["name"]
         email = request.form["email"]
         password = request.form["password"]
+        usertype = request.form.get("role", "Subscriber")  # default to Subscriber if not set
 
         conn = get_db_connection()
         cursor = conn.cursor()
         try:
             cursor.execute(
                 "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
-                (name, email, password, "Subscriber")
+                (name, email, password, usertype)
             )
             conn.commit()
             return redirect(url_for("login"))
         except mysql.connector.IntegrityError:
-            # Instead of returning text, render template with error
-            return render_template("register.html", error="This email is already registered. Please use a different email.")
+            # Render template with error message
+            return render_template(
+                "register.html",
+                error="This email is already registered. Please use a different email."
+            )
         finally:
             cursor.close()
             conn.close()
+
     return render_template("register.html")
 
 @app.route("/logout")
@@ -3338,6 +3341,50 @@ def delete_category(categoryid):
     flash("Category deleted successfully.", "success")
     return redirect(url_for("delete_category_page"))
 
+@app.route('/api/get_upgrade_qr')
+@login_required('Subscriber')
+def api_get_upgrade_qr():
+    # Generate or fetch QR code for payment
+    qr_url = url_for('static', filename='img/echopressPaynowQR.png') 
+    return jsonify(ok=True, qr_url=qr_url)
+
+# only Subscribers can upgrade to Author
+@app.post("/api/profile/upgrade-author")
+@login_required("Subscriber")
+def upgrade_author():
+    uid   = session["userid"]
+    role  = session.get("usertype") or session.get("role") or "Subscriber"
+
+    if role == "Author":
+        return jsonify(ok=False, message="Already an Author."), 403
+
+    conn = get_db_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE users
+               SET previous_usertype = usertype,
+                   usertype = 'Author'
+             WHERE userid = %s
+             LIMIT 1
+        """, (uid,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify(ok=False, message=str(e)), 500
+    finally:
+        cur.close()
+        conn.close()
+
+    # Update session
+    session["usertype"] = "Author"
+    session["role"] = "Author"
+
+    return jsonify(
+        ok=True,
+        message="Role upgraded to Author.",
+        redirect=url_for("subscriberHomepage")  # or any Author homepage
+    )
 
 # ---------- AI Summarizer -------
 # to summarize text and convert to bullet points

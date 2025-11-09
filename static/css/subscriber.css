@@ -1139,6 +1139,12 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
   border-color: #ddd;
 }
 
+.btn-upgrade {
+  background: #f7f7f7;
+  color: #222;
+  border-color: #ddd;
+}
+
 .btn-danger {
   background: #b00020;
   color: #fff;

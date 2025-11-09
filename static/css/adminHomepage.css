@@ -382,6 +382,9 @@ body {
    background: #c0392b;
  }
 
+  .btn-upgrade {
+   background: #ccc;
+ }
  .main-content {
   padding: 20px;
 }

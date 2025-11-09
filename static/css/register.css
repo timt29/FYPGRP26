@@ -445,8 +445,8 @@ body {
 .role-card.premium-tier .join-btn {
   background: #ff9f1c;
   color: #fff;
-  cursor: not-allowed;
-  opacity: 0.9;
+  cursor: pointer; /* now clickable */
+  opacity: 0.95;
   animation: pulseButtonAuthor 2.5s infinite;
 }
 
@@ -498,6 +498,30 @@ body {
   box-shadow: 0 3px 6px rgba(0,0,0,0.2);
   z-index: 2;
   animation: pulseRibbon 3s infinite;
+}
+
+/* Author payment modal */
+#authorModal {
+  display: none; /* hidden by default */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+  z-index: 3000; /* higher than pre-register modal */
+  justify-content: center;
+  align-items: center;
+}
+
+#authorModal .modal-content {
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
 }
 
 /* Ribbon pulse animation */
