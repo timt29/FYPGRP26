@@ -235,160 +235,6 @@ body {
   color: #000;
 }
 
-/* Pre-registration full-screen modal */
-.pre-modal {
-  display: block;
-  position: fixed;
-  z-index: 2000;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(to bottom right, #6a11cb, #2575fc);
-  color: #fff;
-  display: flex;
-  align-items: flex-start; /* allow space for hover */
-  justify-content: center;
-  padding: 40px 20px;
-  text-align: center;
-  overflow-y: auto; /* prevent clipping */
-}
-
-/* Wider modal content for all 3 cards */
-.pre-modal-content {
-  background-color: rgba(0, 0, 0, 0.85);
-  border-radius: 16px;
-  padding: 60px 40px;
-  max-width: 1200px;
-  width: 95%;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
-  animation: fadeIn 0.5s ease-out;
-  margin-top: 20px; /* adds top buffer for hover */
-}
-
-.pre-modal-content h1 {
-  font-size: 2.2em;
-  margin-bottom: 20px;
-}
-
-.pre-modal-content p {
-  font-size: 1.2em;
-  margin-bottom: 30px;
-  color: #cce8ff;
-}
-
-/* --- Role Cards Layout (Side by Side) --- */
-.role-cards {
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  gap: 25px;
-  margin: 40px auto;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  padding-bottom: 10px;
-}
-
-.role-card {
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 2px solid #00ffea;
-  border-radius: 14px;
-  width: 300px;
-  padding: 25px 20px;
-  text-align: left;
-  color: #fff;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  flex: 0 0 300px;
-  position: relative;
-}
-
-.role-card h2 {
-  text-align: center;
-  font-size: 1.5em;
-  margin-bottom: 15px;
-  color: #00ffea;
-}
-
-.role-card ul {
-  list-style: none;
-  padding-left: 0;
-  margin: 0;
-}
-
-.role-card ul li {
-  margin: 8px 0;
-  position: relative;
-  padding-left: 20px;
-}
-
-.role-card ul li::before {
-  content: "✔";
-  position: absolute;
-  left: 0;
-  color: #00ffea;
-  font-size: 0.9em;
-}
-
-.role-card:hover {
-  background-color: rgba(0, 255, 234, 0.15);
-  transform: translateY(-8px);
-  border-color: #00ffea;
-  z-index: 5; /* ensure hover card stays above others */
-}
-
-/* Highlighted “Recommended” card */
-.role-card.highlight {
-  border-color: #ffea00;
-  box-shadow: 0 0 20px rgba(255, 234, 0, 0.4);
-}
-
-.role-card.highlight h2 {
-  color: #ffea00;
-}
-
-.role-card.highlight:hover {
-  background-color: rgba(255, 234, 0, 0.15);
-  box-shadow: 0 0 25px rgba(255, 234, 0, 0.6);
-  transform: translateY(-8px);
-}
-
-/* Button */
-.pre-modal-content button {
-  margin-top: 30px;
-  background-color: #00ffea;
-  border: none;
-  color: #000;
-  font-size: 1em;
-  padding: 14px 30px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.2s ease, background-color 0.2s ease;
-}
-
-.pre-modal-content button:hover {
-  transform: scale(1.05);
-  background-color: #00e0d1;
-}
-
-/* Responsive: stack cards vertically on smaller screens */
-@media (max-width: 950px) {
-  .pre-modal-content {
-    max-width: 95%;
-    padding: 30px 20px;
-  }
-
-  .role-cards {
-    flex-wrap: wrap;
-  }
-
-  .role-card {
-    flex: 1 1 100%;
-    max-width: 90%;
-  }
-}
-
 
 .agreement-box {
   margin: 15px 0;
@@ -418,4 +264,313 @@ body {
 
 .agreement-actions button:hover {
   background-color: #0056b3;
+}
+
+/* ----------------------
+   Pre-Registration Modal
+----------------------- */
+.pre-modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 2000;
+  opacity: 0;
+  animation: fadeIn 0.4s forwards;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+
+.pre-modal-content {
+  background: #fff;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 1000px;
+  padding: 30px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  text-align: center;
+  overflow-y: auto;
+  max-height: 90vh;
+  transform: translateY(-20px);
+  animation: slideDown 0.4s forwards;
+}
+
+@keyframes slideDown {
+  to { transform: translateY(0); }
+}
+
+/* Role cards container */
+.role-cards {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 25px;
+}
+
+/* Individual role cards */
+.role-card {
+  background: #f9f9f9;
+  border-radius: 12px;
+  flex: 1 1 250px;
+  max-width: 300px;
+  padding: 20px;
+  text-align: left;
+  border: 2px solid transparent;
+  transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: popIn 0.5s forwards;
+}
+
+/* Staggered animation delays */
+.role-card.free-tier { animation-delay: 0.1s; }
+.role-card.highlight { animation-delay: 0.3s; }
+.role-card.premium-tier { animation-delay: 0.5s; }
+
+@keyframes popIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Card hover effect */
+.role-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+/* Card headings */
+.role-card h2 {
+  font-size: 22px;
+  margin-bottom: 12px;
+  color: #222;
+}
+
+.feature-heading {
+  font-weight: 600;
+  margin-top: 15px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+/* Feature list with ticks */
+.role-card ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 10px 0; /* ensures spacing before button */
+}
+
+.role-card ul li {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #555;
+}
+
+/* Ticks per tier */
+.role-card.free-tier ul li::before {
+  content: "✔";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #2575fc;
+  font-weight: bold;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.role-card.highlight ul li::before {
+  content: "✔";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #0056d1;
+  font-weight: bold;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.role-card.premium-tier ul li::before {
+  content: "✔";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #ff9f1c;
+  font-weight: bold;
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* Buttons */
+.join-btn {
+  display: inline-block;
+  width: 100%;
+  padding: 10px 0;
+  margin-top: 15px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+/* Free button */
+.role-card.free-tier .join-btn {
+  background: #d3d3d3;
+  color: #555;
+  cursor: not-allowed;
+}
+
+/* Subscriber button */
+.role-card.highlight .join-btn {
+  background: #2575fc;
+  color: #fff;
+  animation: pulseButton 2s infinite;
+}
+
+.role-card.highlight .join-btn:hover {
+  background: #0056d1;
+  animation: none;
+}
+
+/* Author button */
+.role-card.premium-tier .join-btn {
+  background: #ff9f1c;
+  color: #fff;
+  cursor: pointer; /* now clickable */
+  opacity: 0.95;
+  animation: pulseButtonAuthor 2.5s infinite;
+}
+
+.role-card.premium-tier .join-btn:hover {
+  animation: none;
+}
+
+/* Premium/Author card styling */
+.role-card.premium-tier {
+  border: 2px solid #ff9f1c;
+  background: #fff7e6;
+  box-shadow: 0 8px 25px rgba(255,159,28,0.3);
+  position: relative;
+  transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+}
+
+/* Glow/pulse effect for Author card */
+.role-card.premium-tier::after {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  right: -5px;
+  bottom: -5px;
+  border-radius: 12px;
+  box-shadow: 0 0 20px rgba(255,159,28,0.6);
+  opacity: 0;
+  animation: pulseGlow 2s infinite;
+  pointer-events: none;
+}
+
+@keyframes pulseGlow {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Author ribbon */
+.role-card.premium-tier .ribbon {
+  position: absolute;
+  top: 12px;
+  right: -10px;
+  background: #ff6b00;
+  color: #fff;
+  padding: 6px 20px;
+  font-size: 12px;
+  font-weight: bold;
+  transform: rotate(45deg);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+  z-index: 2;
+  animation: pulseRibbon 3s infinite;
+}
+
+/* Author payment modal */
+#authorModal {
+  display: none; /* hidden by default */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.7);
+  z-index: 3000; /* higher than pre-register modal */
+  justify-content: center;
+  align-items: center;
+}
+
+#authorModal .modal-content {
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+
+/* Ribbon pulse animation */
+@keyframes pulseRibbon {
+  0% { transform: rotate(45deg) scale(1); }
+  50% { transform: rotate(45deg) scale(1.08); }
+  100% { transform: rotate(45deg) scale(1); }
+}
+
+/* Hover effects */
+.role-card.premium-tier:hover {
+  transform: translateY(-5px) scale(1.05);
+  box-shadow: 0 12px 35px rgba(255,159,28,0.4);
+}
+
+.role-card.premium-tier:hover .ribbon {
+  transform: rotate(45deg) scale(1.05);
+  box-shadow: 0 6px 10px rgba(0,0,0,0.3);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+/* Pulse animations for buttons */
+@keyframes pulseButton {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(0,0,0,0); }
+  50% { transform: scale(1.05); box-shadow: 0 0 15px rgba(37,117,252,0.4); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(0,0,0,0); }
+}
+
+@keyframes pulseButtonAuthor {
+  0% { transform: scale(1); box-shadow: 0 0 0 rgba(255,159,28,0); }
+  50% { transform: scale(1.05); box-shadow: 0 0 15px rgba(255,159,28,0.4); }
+  100% { transform: scale(1); box-shadow: 0 0 0 rgba(255,159,28,0); }
+}
+
+/* Subscriber card highlight */
+.role-card.highlight {
+  border: 2px solid #2575fc;
+  box-shadow: 0 8px 30px rgba(37,117,252,0.3);
+  background: #f0f8ff;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+  .role-cards {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.role-card h2 {
+  text-align: center;
 }

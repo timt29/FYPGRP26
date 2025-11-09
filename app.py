@@ -305,6 +305,7 @@ def adminHomepage():
         new_users_today=new_users_today,
         suspended_users=suspended_users,
         active_users=active_users,
+        name=session.get("user", "Admin")
     )
 
 # (YY)
@@ -343,7 +344,8 @@ def modHomepage():
         "modHomepage.html",
         flagged_articles=flagged_articles,
         flagged_comments=flagged_comments,
-        pending_articles=pending_articles
+        pending_articles=pending_articles,
+        name=session.get("user", "Moderator")
     )
 
 # (YY)
@@ -1889,7 +1891,7 @@ def api_downgrade_author():
 
     conn = get_db_connection()
     try:
-        cur = conn.cursor()
+        cur = get_cursor(conn)
         cur.execute("""
             UPDATE users
                SET previous_usertype = usertype,
@@ -1914,6 +1916,50 @@ def api_downgrade_author():
                    message="Role downgraded to Subscriber.",
                    redirect=url_for("subscriberHomepage"))
 
+@app.route('/api/get_upgrade_qr')
+@login_required('Subscriber')
+def api_get_upgrade_qr():
+    # Generate or fetch QR code for payment
+    qr_url = url_for('static', filename='img/echopressPaynowQR.png') 
+    return jsonify(ok=True, qr_url=qr_url)
+
+#only Subscribers can upgrade to Author
+@app.post("/api/profile/upgrade-author")
+@login_required("Subscriber")
+def upgrade_author():
+    uid   = session["userid"]
+    role  = session.get("usertype") or session.get("role") or "Subscriber"
+
+    if role == "Author":
+        return jsonify(ok=False, message="Already an Author."), 403
+
+    conn = get_db_connection()
+    try:
+        cur = get_cursor(conn)
+        cur.execute("""
+            UPDATE users
+               SET previous_usertype = usertype,
+                   usertype = 'Author'
+             WHERE userid = %s
+             LIMIT 1
+        """, (uid,))
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        return jsonify(ok=False, message=str(e)), 500
+    finally:
+        cur.close()
+        conn.close()
+
+    # Update session
+    session["usertype"] = "Author"
+    session["role"] = "Author"
+
+    return jsonify(
+        ok=True,
+        message="Role upgraded to Author.",
+        redirect=url_for("subscriberHomepage")  # or any Author homepage
+    )
 
 @app.post("/api/profile/cancel-subscription")
 @login_required("Subscriber")  
@@ -1926,7 +1972,7 @@ def api_cancel_subscription():
 
     conn = get_db_connection()
     try:
-        cur = conn.cursor()
+        cur = get_cursor(conn)
         cur.execute("DELETE FROM users WHERE userid=%s", (uid,))
         if cur.rowcount == 0:
             conn.rollback()
@@ -2512,23 +2558,29 @@ def register():
         name = request.form["name"]
         email = request.form["email"]
         password = request.form["password"]
+        usertype = request.form.get("role", "Subscriber")  # default to Subscriber if not set
 
         conn = get_db_connection()
         cursor = get_cursor(conn)
         try:
             cursor.execute(
                 "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
-                (name, email, password, "Subscriber")
+                (name, email, password, usertype)
             )
             conn.commit()
             return redirect(url_for("login"))
         except mysql.connector.IntegrityError:
-            # Instead of returning text, render template with error
-            return render_template("register.html", error="This email is already registered. Please use a different email.")
+            # Render template with error message
+            return render_template(
+                "register.html",
+                error="This email is already registered. Please use a different email."
+            )
         finally:
             cursor.close()
             conn.close()
+
     return render_template("register.html")
+
 
 @app.route("/logout")
 def logout():
@@ -2593,7 +2645,7 @@ def manage_users():
     cursor.close()
     conn.close()
 
-    return render_template("manageUsers.html", users=users)
+    return render_template("manageUsers.html", users=users, name=session.get("user", "Moderator"))
 
 @app.route("/warnUser", methods=["POST"])
 @login_required("Moderator")
@@ -2746,7 +2798,7 @@ def view_all_users():
     cursor.close()
     conn.close()
 
-    return render_template("viewAllUsers.html", users=users)
+    return render_template("viewAllUsers.html", users=users, name=session.get("user", "Admin"))
 
 @app.route("/searchAccount", methods=["GET", "POST"])
 @login_required("Admin")
@@ -2771,7 +2823,7 @@ def search_account():
         cursor.close()
         conn.close()
 
-    return render_template("searchAccount.html", users=users, search_term=search_term)
+    return render_template("searchAccount.html", users=users, search_term=search_term, name=session.get("user", "Admin"))
 
 @app.route("/createUser", methods=["GET", "POST"])
 @login_required("Admin")
@@ -2804,7 +2856,7 @@ def create_user():
         flash("User created successfully!")
         return redirect(url_for("create_user"))
 
-    return render_template("createUser.html")
+    return render_template("createUser.html", name=session.get("user", "Admin"))
 
 @app.route("/updateUser", methods=["GET", "POST"])
 @login_required("Admin")
@@ -2839,7 +2891,7 @@ def update_user():
     cursor.close()
     conn.close()
 
-    return render_template("updateUser.html")
+    return render_template("updateUser.html", name=session.get("user", "Admin"))
 
 @app.route("/manageUserStatus", methods=["GET", "POST"])
 @login_required("Admin")
@@ -2897,7 +2949,7 @@ def manage_user_status():
     cursor.close()
     conn.close()
 
-    return render_template("manageUserStatus.html", users=users)
+    return render_template("manageUserStatus.html", users=users, name=session.get("user", "Admin"))
 
 @app.route("/newUsers")
 @login_required("Admin")
@@ -2921,7 +2973,7 @@ def report_new_users():
     cursor.close()
     conn.close()
 
-    return render_template("newUsers.html", users=new_users)
+    return render_template("newUsers.html", users=new_users, name=session.get("user", "Admin"))
 
 @app.route("/articleSubmission")
 @login_required("Admin")
@@ -2957,7 +3009,7 @@ def article_submission():
     cursor.close()
     conn.close()
 
-    return render_template("articleSubmissions.html", articles=articles)
+    return render_template("articleSubmissions.html", articles=articles, name=session.get("user", "Admin"))
 
 @app.route("/loginActivity")
 @login_required("Admin")
@@ -3000,7 +3052,7 @@ def login_activity():
     cursor.close()
     conn.close()
 
-    return render_template("loginActivity.html", users=users)
+    return render_template("loginActivity.html", users=users,  name=session.get("user", "Admin"))
 
 @app.route("/flaggedArticles")
 @login_required("Moderator")
@@ -3014,7 +3066,7 @@ def flagged_articles():
             ar.article_id AS articleid,
             a.title,
             a.author,
-            a.published_at AS article_created,
+            a.published_at,
             ar.reason AS flagged_reason,
             ar.details AS flagged_details,
             ar.created_at AS flagged_at
@@ -3027,7 +3079,8 @@ def flagged_articles():
     cursor.close()
     conn.close()
 
-    return render_template("flaggedArticles.html", articles=articles)
+    return render_template("flaggedArticles.html", articles=articles, name=session.get("user", "Moderator"))
+
 
 @app.route("/reviewArticle", methods=["POST"])
 @login_required("Moderator")
@@ -3093,17 +3146,34 @@ def review_article():
 def get_article(article_id):
     conn = get_db_connection()
     cursor = get_cursor(conn)
+    # 1️⃣ Fetch the article
     cursor.execute("""
-        SELECT title, content, author, published_at, image
-        FROM articles
-        WHERE articleid = %s
+        SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image
+        FROM articles a
+        WHERE a.articleid = %s
     """, (article_id,))
     article = cursor.fetchone()
+
+    if not article:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Article not found"}), 404
+
+    # 2️⃣ Fetch all reports for this article
+    cursor.execute("""
+        SELECT r.report_id, r.reason, r.details, u.name AS reporter, r.created_at AS reported_at
+        FROM article_reports r
+        JOIN users u ON r.reporter_id = u.userid
+        WHERE r.article_id = %s
+        ORDER BY r.created_at DESC
+    """, (article_id,))
+    reports = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
-    if not article:
-        return jsonify({"error": "Article not found"}), 404
+    # 3️⃣ Add the reports to the article object
+    article['reports'] = reports
 
     return jsonify(article)
 
@@ -3140,7 +3210,7 @@ def flagged_comments():
         cursor.close()
         conn.close()
 
-    return render_template("flaggedComments.html", comments=comments)
+    return render_template("flaggedComments.html", comments=comments, name=session.get("user", "Moderator"))
 
 @app.route("/reviewComment", methods=["POST"])
 @login_required("Moderator")
@@ -3203,6 +3273,7 @@ def reviewComment():
 def get_comment(comment_id):
     conn = get_db_connection()
     cursor = get_cursor(conn)
+      # 1️⃣ Fetch the comment
     cursor.execute("""
         SELECT c.commentid, c.comment_text, c.created_at, u.name AS user
         FROM comments c
@@ -3210,11 +3281,27 @@ def get_comment(comment_id):
         WHERE c.commentid = %s
     """, (comment_id,))
     comment = cursor.fetchone()
+
+    if not comment:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Comment not found"}), 404
+
+    # 2️⃣ Fetch all reports for this comment
+    cursor.execute("""
+        SELECT r.report_id, r.reason, r.details, u.name AS reporter, r.created_at AS reported_at
+        FROM comment_reports r
+        JOIN users u ON r.reporter_id = u.userid
+        WHERE r.comment_id = %s
+        ORDER BY r.created_at DESC
+    """, (comment_id,))
+    reports = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
-    if not comment:
-        return jsonify({"error": "Comment not found"}), 404
+    # 3️⃣ Add the reports to the comment object
+    comment['reports'] = reports
 
     return jsonify(comment)
 
@@ -3240,7 +3327,7 @@ def pending_articles():
     cursor.close()
     conn.close()
 
-    return render_template("pendingArticles.html", articles=articles)
+    return render_template("pendingArticles.html", articles=articles, name=session.get("user", "Moderator"))
 
 @app.route("/manageCategories", methods=["GET"])
 @login_required("Moderator")
@@ -3251,7 +3338,7 @@ def manage_categories():
     categories = cursor.fetchall()
     cursor.close()
     conn.close()
-    return render_template("manageCategories.html", categories=categories)
+    return render_template("manageCategories.html", categories=categories, name=session.get("user", "Moderator"))
 	
 # (YY)
 @app.route("/manageCategories/create", methods=["GET", "POST"])
@@ -3290,7 +3377,7 @@ def add_category():
         return redirect(url_for("manage_categories"))
 
     # GET request
-    return render_template("createCategory.html")
+    return render_template("createCategory.html", name=session.get("user", "Moderator"))
 # (YY)
 @app.route("/manageCategories/update", methods=["GET", "POST"])
 @login_required("Moderator")
@@ -3321,7 +3408,7 @@ def update_category():
     cursor.close()
     conn.close()
 
-    return render_template("updateCategory.html", categories=categories)
+    return render_template("updateCategory.html", categories=categories, name=session.get("user", "Moderator"))
 
 # (YY)
 @app.route("/manageCategories/delete", methods=["GET"])
@@ -3340,7 +3427,7 @@ def delete_category_page():
     cursor.close()
     conn.close()
 
-    return render_template("deleteCategory.html", categories=categories)
+    return render_template("deleteCategory.html", categories=categories, name=session.get("user", "Moderator"))
 
 # Handle actual deletion (YY)
 @app.route("/manageCategories/delete/<int:categoryid>", methods=["POST"])
