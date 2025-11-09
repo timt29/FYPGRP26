@@ -526,3 +526,12 @@ th {
   background: #94a3b8;
 }
 
+#article-reports h3 {
+  margin-bottom: 8px;
+  font-size: 1.1em;
+}
+
+.report-item {
+  background: #fafafa;
+  border-left: 4px solid #ff5c5c;
+}

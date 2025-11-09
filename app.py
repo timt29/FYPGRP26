@@ -2957,7 +2957,7 @@ def flagged_articles():
             ar.article_id AS articleid,
             a.title,
             a.author,
-            a.published_at AS article_created,
+            a.published_at,
             ar.reason AS flagged_reason,
             ar.details AS flagged_details,
             ar.created_at AS flagged_at
@@ -3033,22 +3033,42 @@ def review_article():
     return redirect(redirect_target)
 
 @app.route("/getArticle/<int:article_id>")
+@login_required("Moderator")
 def get_article(article_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
+
+    # 1️⃣ Fetch the article
     cursor.execute("""
-        SELECT title, content, author, published_at, image
-        FROM articles
-        WHERE articleid = %s
+        SELECT a.articleid, a.title, a.content, a.author, a.published_at, a.image
+        FROM articles a
+        WHERE a.articleid = %s
     """, (article_id,))
     article = cursor.fetchone()
+
+    if not article:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Article not found"}), 404
+
+    # 2️⃣ Fetch all reports for this article
+    cursor.execute("""
+        SELECT r.report_id, r.reason, r.details, u.name AS reporter, r.created_at AS reported_at
+        FROM article_reports r
+        JOIN users u ON r.reporter_id = u.userid
+        WHERE r.article_id = %s
+        ORDER BY r.created_at DESC
+    """, (article_id,))
+    reports = cursor.fetchall()
+
     cursor.close()
     conn.close()
 
-    if not article:
-        return jsonify({"error": "Article not found"}), 404
+    # 3️⃣ Add the reports to the article object
+    article['reports'] = reports
 
     return jsonify(article)
+
 
 # (YY)
 @app.route("/flaggedComments")
