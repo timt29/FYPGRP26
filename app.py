@@ -483,6 +483,7 @@ def moderate_article(cur, title, content):
 @login_required("Author", "Subscriber")
 def api_articles_create():
     action  = (request.form.get("action") or "publish").lower()
+    wants_publish = (action == "publish")
     title   = (request.form.get("title") or "").strip()
     content = (request.form.get("content") or "").strip()
     cat_id  = request.form.get("category_id")
@@ -532,29 +533,38 @@ def api_articles_create():
         return jsonify(profanity_check), 400
     
     # --- AI Moderation --- #
-    publish, visible, flash_msg = moderate_article(cur, title, content)
+    if wants_publish:
+        mod_publish, visible, flash_msg = moderate_article(cur, title, content)
+        publish = bool(mod_publish)  # publish only if moderation allows
+        if not publish:
+            flash_msg = flash_msg or "📝 Saved as draft (requires review)."
+
+    else:
+        publish = False
+        visible = 0
+        flash_msg = "📝 Draft saved."
 
     if publish:
         cur.execute("""
-        INSERT INTO articles 
-          (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
-        VALUES 
-          (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, 1, 'published')
-    """, (title, content, author, image_rel, cat_id))
+            INSERT INTO articles
+              (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
+            VALUES
+              (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, 1, 'published')
+        """, (title, content, author, image_rel, cat_id))
     else:
         cur.execute("""
-        INSERT INTO articles 
-        (title, content, author, published_at, updated_at, image, catid, draft, visible)
-        VALUES (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
+            INSERT INTO articles
+              (title, content, author, published_at, updated_at, image, catid, draft, visible)
+            VALUES
+              (%s, %s, %s, NULL, NOW(), %s, %s, TRUE, %s)
         """, (title, content, author, image_rel, cat_id, visible))
 
     conn.commit()
-    cur.close()
-    conn.close()
+    cur.close(); conn.close()
 
     return jsonify({
         "ok": True,
-        "message": "📝 Draft saved." if not publish else flash_msg,
+        "message": flash_msg,
         "redirect": url_for("subscriberHomepage")
     })
 
@@ -1177,7 +1187,7 @@ def subscriber_edit_article(article_id):
     cur  = conn.cursor(dictionary=True)
     cur.execute("""
         SELECT a.articleid, a.title, a.content, a.catid, a.image, a.draft,
-               a.published_at, a.updated_at
+               a.published_at, a.updated_at, a.status, a.visible
         FROM articles a
         WHERE a.articleid = %s AND a.author = %s
         LIMIT 1

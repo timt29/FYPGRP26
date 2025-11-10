@@ -219,40 +219,110 @@
   <!-- Quill JS -->
   <script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
 
-  <script>
-    // Initialize the Quill editor
-    const quill = new Quill('#editor', {
-      theme: 'snow',
-      placeholder: 'Write or edit your story...',
-      modules: {
-        toolbar: [
-          ['bold', 'italic', 'underline', 'strike'],
-          [{ 'header': [1, 2, 3, false] }],
-          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-          ['blockquote', 'link', 'image'],
-          ['clean']
-        ]
+``<script>
+  // 1) Initialize Quill
+  const quill = new Quill('#editor', {
+    theme: 'snow',
+    placeholder: 'Write or edit your story...',
+    modules: {
+      toolbar: [
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'header': [1, 2, 3, false] }],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['blockquote', 'link', 'image'],
+        ['clean']
+      ]
+    }
+  });``
+
+      // Load existing article HTML
+      const existingContent = {{ article.content|tojson }};
+      quill.root.innerHTML = existingContent;
+
+      // 2) Elements
+      const form      = document.getElementById('editorForm');
+      const select    = document.getElementById('category');
+      const toast     = document.getElementById('toast');
+      const msgEl     = document.getElementById('toastMsg');
+      const articleId = document.getElementById('article_id').value;
+      const showToast = (m)=>{ msgEl.textContent=m||'Done.'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1400); };
+
+      const CURRENT_CAT_ID = {{ article.catid if article.catid is not none else 'null' }};
+
+      // 3) Helpers
+      function setHiddenContent() {
+        // always push latest Quill HTML into hidden input before building FormData
+        document.getElementById('hidden-content').value = quill.root.innerHTML.trim();
       }
-    });
 
-    // Load existing content from Flask (HTML-safe)
-    const existingContent = {{ article.content|tojson }};
-    quill.root.innerHTML = existingContent;
+      function getSelectedCategoryId() {
+        return (select && select.value) ? String(select.value).trim() : "";
+      }
 
-    // Before submit — save HTML to hidden field
-    const form = document.getElementById('editorForm');
-    form.addEventListener('submit', function() {
-      document.getElementById('hidden-content').value = quill.root.innerHTML;
-    });
+      async function loadCategories() {
+        try {
+          const res = await fetch("{{ url_for('api_categories') }}", { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+          const rows = await res.json();
+          select.innerHTML = '<option value="" disabled>Choose one…</option>';
+          rows.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r.categoryid;
+            opt.textContent = r.name;
+            if (CURRENT_CAT_ID && Number(CURRENT_CAT_ID) === Number(r.categoryid)) opt.selected = true;
+            select.appendChild(opt);
+          });
+        } catch {
+          showToast('Failed to load categories');
+          // leave whatever is currently there; user can still submit if already selected previously
+        }
+      }
 
-    // Also handle Save Draft / Publish buttons
-    document.getElementById('btnSaveDraft').addEventListener('click', () => {
-      document.getElementById('hidden-content').value = quill.root.innerHTML;
-    });
-    document.getElementById('btnSavePublish').addEventListener('click', () => {
-      document.getElementById('hidden-content').value = quill.root.innerHTML;
-    });
-  </script>
+      async function save(action){
+        // Ensure content + basic client validation before we build FormData
+        setHiddenContent();
+
+        // Guard: category must be present
+        const catId = getSelectedCategoryId();
+        if (!catId) {
+          showToast('Please choose a category.');
+          return;
+        }
+
+        const fd = new FormData(form);
+        fd.set('action', action);                       // draft | publish | review
+        // double-ensure content is present even if hidden input was missing;
+        // keeps things robust if markup changes later
+        fd.set('content', quill.root.innerHTML.trim());
+
+        try {
+          const url = "{{ url_for('subscriber_update_article', article_id=0) }}".replace(/0$/, articleId);
+          const res = await fetch(url, { method:'POST', body: fd, headers:{'X-Requested-With':'XMLHttpRequest'} });
+          const data = await res.json().catch(()=>({}));
+          if (!res.ok || !data.ok) throw new Error(data.message || 'Failed');
+          showToast(data.message || 'Saved.');
+          setTimeout(()=> { if (data.redirect) window.location.href = data.redirect; }, 900);
+        } catch(err){
+          showToast(err.message || 'Error');
+        }
+      }
+
+      // 4) Wire up buttons (handles BOTH normal and review modes safely)
+      const btnSaveDraft   = document.getElementById('btnSaveDraft');
+      const btnSavePublish = document.getElementById('btnSavePublish');
+      const btnSaveSubmit  = document.getElementById('btnSaveSubmit'); // review mode
+
+      if (btnSaveDraft)   btnSaveDraft.addEventListener('click',   () => save('draft'));
+      if (btnSavePublish) btnSavePublish.addEventListener('click', () => save('publish'));
+      if (btnSaveSubmit)  btnSaveSubmit.addEventListener('click',  () => save('review'));
+
+      // If someone triggers a native submit (Enter key), still sync content
+      form.addEventListener('submit', function(e) {
+        setHiddenContent();
+      });
+
+      // 5) Kick off categories
+      loadCategories();
+    </script>
 
   <!-- Ads (right column) -->
   <script>
