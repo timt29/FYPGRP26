@@ -175,7 +175,17 @@
   const authorCancel = document.getElementById("authorCancel");
   const authorConfirm = document.getElementById("authorConfirm");
 
-  // Utility to create/update hidden role input
+  const agreementModal = document.getElementById("agreementModal");
+  const errorModal = document.getElementById("errorModal");
+
+  //Ensure preRegisterModal always shows first on page load
+  window.addEventListener("DOMContentLoaded", () => {
+    preRegisterModal.style.display = "flex"; // show role selection first
+    authorModal.style.display = "none";
+    agreementModal.style.display = "none";
+  });
+
+  // Utility to create/update hidden input for role
   function setRole(role) {
     let input = form.querySelector("input[name='role']");
     if (!input) {
@@ -187,60 +197,56 @@
     input.value = role;
   }
 
-  // Subscriber button
+  //SUBSCRIBER: click "Join for FREE"
   subscriberBtn?.addEventListener("click", () => {
     setRole("Subscriber");
-    preRegisterModal.style.display = "none";
+    preRegisterModal.style.display = "none"; // hide modal, go to form
   });
 
-  // Author button: open payment modal
+  //AUTHOR: click "Upgrade"
   authorBtn?.addEventListener("click", () => {
-    preRegisterModal.style.display = "none"; 
+    preRegisterModal.style.display = "none";
     authorModal.style.display = "flex";
     authorModal.setAttribute("aria-hidden", "false");
   });
 
-  // Cancel payment modal
+  //Cancel author payment
   authorCancel?.addEventListener("click", () => {
     authorModal.style.display = "none";
     authorModal.setAttribute("aria-hidden", "true");
-    preRegisterModal.style.display = "flex"; 
+    preRegisterModal.style.display = "flex"; // return to pre-register modal
   });
 
-  // Confirm payment: set role and go to registration form
+  //Confirm author payment
   authorConfirm?.addEventListener("click", () => {
     setRole("Author");
     authorModal.style.display = "none";
-    preRegisterModal.style.display = "none"; 
-    // do NOT submit form, user can fill details
+    // Now go to registration form with Author preselected
   });
 
-  // Close modal by clicking outside
+  // Click outside author modal → close
   authorModal?.addEventListener("click", e => {
     if (e.target === authorModal) {
       authorModal.style.display = "none";
-      authorModal.setAttribute("aria-hidden", "true");
       preRegisterModal.style.display = "flex";
     }
   });
 
-  // ESC key closes author modal
+  // ESC key → close author modal
   document.addEventListener("keydown", e => {
     if (e.key === "Escape" && authorModal.style.display === "flex") {
       authorModal.style.display = "none";
-      authorModal.setAttribute("aria-hidden", "true");
       preRegisterModal.style.display = "flex";
     }
   });
 
-  // Register form submission: show agreement modal
-  const agreementModal = document.getElementById("agreementModal");
+  //When user clicks "Register" → open Privacy Agreement modal
   form.addEventListener("submit", function(event) {
-    event.preventDefault();
-    agreementModal.style.display = "block";
+    event.preventDefault(); // stop form submission temporarily
+    agreementModal.style.display = "flex"; // show user agreement
   });
 
-  // Confirm user agreement
+  //Confirm user agreement → now submit the form
   window.confirmAgreement = function() {
     const privacy = document.getElementById("privacyCheck").checked;
     const terms = document.getElementById("termsCheck").checked;
@@ -251,22 +257,20 @@
     }
 
     agreementModal.style.display = "none";
-    form.submit();
+    form.submit(); // finally submit
   };
 
-  // Cancel agreement modal
+  //Cancel user agreement → close modal
   window.cancelAgreement = function() {
     agreementModal.style.display = "none";
   };
 
-  // Error modal
-  const errorModal = document.getElementById("errorModal");
+  //Show error modal if email already exists
   {% if error %}
     errorModal.style.display = "block";
   {% endif %}
 })();
 </script>
-
 </body>
 </html>
 
