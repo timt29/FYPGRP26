@@ -981,8 +981,8 @@ const rows = raw.map(r => ({
               const opener = card.querySelector('.c-reply-btn');
               if (opener) opener.textContent = 'Reply';
             } else {
-              const msg = data?.error || 'Failed to post reply.';
-              showPopup("Reply Blocked", msg);
+              const msg = data?.error || 'Failed to post reply\n Reply contains profanity.';
+              showPopup("Reply Rejected", msg);
             }
           }catch(err){ console.error(err); }
           return;
