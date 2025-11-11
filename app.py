@@ -1282,28 +1282,14 @@ def subscriber_update_article(article_id):
                 ok=False,
                 message=profanity_check.get("message", "Failed profanity check."),
             ), 400
-    # --- Define fields (replace undefined variables) --- #
-        author = session.get("name")  # or "username", depending on your session key
-        image_rel = image_name if image_name else None  # use uploaded image or None
-        cat_id = request.form.get("category") or 1  # default to 1 if no category selected
-
-        # --- Insert into database --- #
-        cur.execute("""
-                    INSERT INTO articles 
-                    (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
-                    VALUES 
-                    (%s, %s, %s, NOW(), NOW(), %s, %s, %s, 1, 'published')
-                """, (title, content, author, image_rel, cat_id, 0))
-
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        return jsonify({
-            "ok": True,
-            "message": "Article published successfully.",
-            "redirect": url_for("subscriberHomepage")
-        })
+        # update the existing draft to 'published'
+        fields += [
+            "status='published'",
+            "draft=0",
+            "visible=1",
+            "published_at=NOW()"
+        ]
+        flash_msg = "Article published successfully."
 
     # Image if present
     if image_name:
@@ -1315,7 +1301,11 @@ def subscriber_update_article(article_id):
     cur.execute(f"UPDATE articles SET {', '.join(fields)} WHERE articleid=%s", params)
     conn.commit()
     cur.close(); conn.close()
-    return jsonify(ok=True, message=flash_msg, redirect=url_for("subscriber_my_articles"))
+    return jsonify({
+            "ok": True,
+            "message": flash_msg,
+            "redirect": url_for("subscriber_my_articles")
+        })
 
 # Edit Reported Articles Page
 @app.route("/subscriber/edit-reported-article/<int:article_id>")
