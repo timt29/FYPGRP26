@@ -190,6 +190,9 @@
 
       // 2) Send update (draft or publish)
       async function save(action){
+        // sync Quill content first
+        document.getElementById('hidden-content').value = quill.root.innerHTML;
+        
         const fd = new FormData(form);
         fd.set('action', action); // 'draft'|'publish'
         try{
