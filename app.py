@@ -1283,17 +1283,17 @@ def subscriber_update_article(article_id):
                 message=profanity_check.get("message", "Failed profanity check."),
             ), 400
     # --- Define fields (replace undefined variables) --- #
-        author = session.get("userid")  # or "username", depending on your session key
+        author = session.get("name")  # or "username", depending on your session key
         image_rel = image_name if image_name else None  # use uploaded image or None
         cat_id = request.form.get("category") or 1  # default to 1 if no category selected
 
         # --- Insert into database --- #
         cur.execute("""
-            INSERT INTO articles 
-            (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
-            VALUES 
-            (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, 1, 'published')
-        """, (title, content, author, image_rel, cat_id))
+                    INSERT INTO articles 
+                    (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
+                    VALUES 
+                    (%s, %s, %s, NOW(), NOW(), %s, %s, %s, 1, 'published')
+                """, (title, content, author, image_rel, cat_id, 0))
 
         conn.commit()
         cur.close()
@@ -1301,7 +1301,7 @@ def subscriber_update_article(article_id):
 
         return jsonify({
             "ok": True,
-            "message": "✅ Article published successfully.",
+            "message": "Article published successfully.",
             "redirect": url_for("subscriberHomepage")
         })
 

@@ -898,7 +898,13 @@ const rows = raw.map(r => ({
         try{
           const res = await fetch(API_CREATE, { method:'POST', body: fd });
           const data = res.ok ? await res.json() : null;
-          if (res.ok && data?.ok){ INPUT.value=''; await loadComments(); }
+          if (res.ok && data?.ok) {
+            INPUT.value = '';
+            await loadComments();
+          } else {
+            const msg = data?.error || 'Failed to post. \n Comment contains profanity.';
+            showPopup("Comment Rejected", msg);
+          }
         }catch(err){ console.error(err); }
       });
 
@@ -975,7 +981,8 @@ const rows = raw.map(r => ({
               const opener = card.querySelector('.c-reply-btn');
               if (opener) opener.textContent = 'Reply';
             } else {
-              console.error('Reply failed', data);
+              const msg = data?.error || 'Failed to post reply.';
+              showPopup("Reply Blocked", msg);
             }
           }catch(err){ console.error(err); }
           return;
@@ -1378,11 +1385,67 @@ const rows = raw.map(r => ({
       // bfcache
       window.addEventListener('pageshow', function(event) { if (event.persisted) window.location.reload(); });
     })();
+
+    // Simple reusable popup function
+    function showPopup(title, message) {
+      const modal  = document.getElementById('popupModal');
+      const msgEl  = document.getElementById('popupMessage');
+      const titleEl = document.getElementById('popupTitle');
+      const closeBtn = document.getElementById('popupClose');
+
+      titleEl.textContent = title || 'Notice';
+      msgEl.innerHTML = (message || '').replace(/\n/g, '<br>');  // <-- changed line
+      modal.style.display = 'flex';
+
+      const hide = ()=> modal.style.display = 'none';
+      closeBtn.onclick = hide;
+      modal.onclick = (e)=> { if(e.target===modal) hide(); };
+    }
   </script>
 
   <!-- Accessibility widget + Chatbot include -->
   <script src="{{ url_for('static', filename='js/accessibility_toolbar.js') }}"></script>
   {% include 'partials/chatbot.html' %}
 
+<!-- Reusable popup modal -->
+<div id="popupModal" class="popup-modal" style="display:none;">
+  <div class="popup-content">
+    <h3 id="popupTitle">Notice</h3>
+    <p id="popupMessage"></p>
+    <button id="popupClose" class="btn btn-primary">OK</button>
+  </div>
+</div>
+
+<style>
+  .popup-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+  .popup-content {
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px 32px;
+    max-width: 360px;
+    text-align: center;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    animation: fadeInUp 0.3s ease;
+  }
+  .popup-content h3 {
+    margin-top: 0;
+    color: #d00;
+  }
+  .popup-content p {
+    margin: 12px 0 20px;
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
 </body>
 </html>
