@@ -437,13 +437,18 @@ def api_categories():
     return jsonify(rows)
 
 # --- Profanity filter --- # (NICOLE)
-def check_profanity(title, content):
+def check_profanity(title=None, content=""):
     try:
-        if contains_profanity(title) or contains_profanity(content):
-            return {
-                "ok": False,
-                "message": "Your article contains blocked words. Please revise and try again."
-            }
+        results = []
+        if title:
+            results.append(analyze_content(title))
+        if content:
+            results.append(analyze_content(content))
+
+        for result in results:
+            if result["status"] in ["BLOCKED", "FLAGGED"]:
+                return {"ok": False, "message": "Your text contains blocked words. Please revise and try again."}
+    
     except Exception as e:
         print("⚠️ Profanity filter error:", e)
         # Don’t block upload if profanity detection fails
@@ -451,41 +456,6 @@ def check_profanity(title, content):
 
     return {"ok": True, "message": None}
 
-# --- AI moderation --- # (NICOLE)
-def moderate_article(cur, title, content):
-    publish = True
-    visible = 1
-    flash_msg = "Article uploaded successfully."
-
-    try:
-        combined_text = f"{title}\n{content}"
-        moderation_result = analyze_content(combined_text)
-
-        if moderation_result['status'] in ("BLOCKED", "FLAGGED"):
-            publish = False
-            visible = 0
-            flash_msg = "Article sent for moderator review due to content issues."
-
-            # --- AI auto-report if flagged or blocked ---
-            try:
-                article_id = cur.lastrowid
-                cur.execute("""
-                    INSERT INTO article_reports (article_id, reporter_id, reason, details, status, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, 'pending', NOW(), NOW())
-                """, (
-                    article_id,
-                    session.get("userid") or 0,
-                    "AI moderation",
-                    moderation_result.get("reason", "")
-                ))
-                print(f"✅ AI auto-report created for article {article_id}")
-            except Exception as e:
-                print("⚠️ AI report insert failed:", e)
-
-    except Exception as e:
-        print("AI moderation error:", e)
-
-    return publish, visible, flash_msg
 
 import os, time, json, traceback, shutil
 from datetime import datetime
@@ -523,7 +493,15 @@ def api_articles_create():
 
         if not title or not category_id.isdigit():
             return jsonify({"ok": False, "message": "Title and category required"}), 400
-
+        
+        # handle profanity filter check
+        profanity_check = check_profanity(title, content)
+        if not profanity_check.get("ok", False):
+            return jsonify(
+                ok = False,
+                message = profanity_check.get("message", "Content contains profanity, please revise before submit."),
+            ), 400
+        
         # handle uploaded image
         image_rel = None
         img_dir = os.path.join(app.root_path, "static", "img")
@@ -1210,8 +1188,6 @@ def subscriber_api_my_articles():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
-
-
 # View: load edit page 
 @app.route("/subscriber/edit-article/<int:article_id>")
 @login_required("Author", "Subscriber")
@@ -1300,20 +1276,34 @@ def subscriber_update_article(article_id):
         # -> Profanity check
         profanity_check = check_profanity(title, content)
         if not profanity_check.get("ok", False):
-            cur.close(); conn.close()
-            return jsonify(ok=False, message=profanity_check.get("message","Failed profanity check.")), 400
+            cur.close()
+            conn.close()
+            return jsonify(
+                ok=False,
+                message=profanity_check.get("message", "Failed profanity check."),
+            ), 400
+    # --- Define fields (replace undefined variables) --- #
+        author = session.get("userid")  # or "username", depending on your session key
+        image_rel = image_name if image_name else None  # use uploaded image or None
+        cat_id = request.form.get("category") or 1  # default to 1 if no category selected
 
-        # -> AI moderation decides final visibility & message
-        publish, visible, mod_msg = moderate_article(cur, title, content)
-        # publish True means pass moderation; write publish timestamp
-        if publish:
-            fields += ["draft=0", "status='published'", "visible=%s", "published_at=NOW()"]
-            params.append(int(bool(visible)))
-        else:
-            # If moderation says not publishable now, keep it as draft but reflect visibility
-            fields += ["draft=1", "status='draft'", "visible=%s"]
-            params.append(0)
-        flash_msg = mod_msg or ("Published." if publish else "Saved (not published).")
+        # --- Insert into database --- #
+        cur.execute("""
+            INSERT INTO articles 
+            (title, content, author, published_at, updated_at, image, catid, draft, visible, status)
+            VALUES 
+            (%s, %s, %s, NOW(), NOW(), %s, %s, FALSE, 1, 'published')
+        """, (title, content, author, image_rel, cat_id))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            "ok": True,
+            "message": "✅ Article published successfully.",
+            "redirect": url_for("subscriberHomepage")
+        })
 
     # Image if present
     if image_name:
@@ -1498,6 +1488,7 @@ def subscriber_api_comments():
 @login_required("Author", "Subscriber")
 def subscriber_api_comment_create():
     from app import get_db_connection
+    from utils.content_analyzer import check_profanity_for_comment
 
     uid = session.get("userid")
     article_id = request.form.get("articleid")
@@ -1506,7 +1497,17 @@ def subscriber_api_comment_create():
 
     if not text:
         return jsonify({"ok": False, "error": "Empty comment."}), 400
+    # profanity comment (ZTnew)
+    
+    result = check_profanity_for_comment(text)
 
+    # Handle both BLOCKED and FLAGGED results
+    if not result["ok"]:
+        return jsonify({
+            "ok": False,
+            "error": result.get("message", "Your comment contains blocked or sensitive words. Please revise and try again.")
+        }), 400
+    
     conn = get_db_connection()
     cur = get_cursor(conn)
 

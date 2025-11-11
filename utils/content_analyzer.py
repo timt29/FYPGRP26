@@ -46,3 +46,21 @@ def analyze_content(article_text):
         return {"status": "FLAGGED", "reason": "Negative tone; requires moderator review."}
     else:
         return {"status": "SAFE", "reason": "No issues detected."}
+
+def check_profanity_for_comment(text):
+    try:
+        result = analyze_content(text)
+
+        # Handle BLOCKED and FLAGGED here
+        if result["status"] in ["BLOCKED", "FLAGGED"]:
+            return {
+                "ok": False,
+                "message": result.get("reason", "Your comment contains blocked or sensitive words. Please revise and try again.")
+            }
+
+        # SAFE or neutral content
+        return {"ok": True}
+
+    except Exception as e:
+        print("⚠️ Profanity filter error:", e)
+        return {"ok": True}  # fail-safe: allow comment if filter fails
