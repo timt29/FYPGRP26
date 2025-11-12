@@ -2395,11 +2395,16 @@ def api_notifications():
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
+    items_cr = []
+    items_cp    = []
+    items_reply = []
+    items_ar = []
+
     # 1) Reactions on MY COMMENTS
     cur.execute("""
     SELECT
         cr.reactionid                AS id,
-        cr.created_at                AS ts,
+        cr.created_at                AS ts, 
         'comment_reaction'           AS kind,
         cr.reaction                  AS action,
         a.articleid                  AS article_id,
@@ -2445,7 +2450,7 @@ def api_notifications():
     cur.execute("""
         SELECT
           ar.reactionid      AS id,
-          ar.updated_at      AS ts,
+          COALESCE(ar.updated_at, ar.created_at) AS ts,
           'article_reaction' AS kind,
           ar.reaction        AS action,          -- 'like'/'dislike'
           a.articleid        AS article_id,

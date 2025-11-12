@@ -2656,3 +2656,23 @@ main.page { flex: 1 0 auto; }
 .notif-list a{ color:#1f4bd8; text-decoration:none; }
 .notif-empty{ padding: 14px; text-align:center; color:#777; }
 .btn.sm{ padding: 4px 8px; font-size: .85rem; }
+
+.notif-panel{
+  position:absolute; right:16px; top:48px;
+  width: 360px; max-height: 60vh; overflow:auto;
+  background:#fff; border:1px solid #ddd; border-radius:10px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15); padding:8px 0; z-index:1500;
+  display:none;
+}
+.notif-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:8px 12px; border-bottom:1px solid #eee;
+}
+.notif-list{ list-style:none; margin:0; padding:0; }
+.notif-list li{
+  padding:10px 12px; line-height:1.3; border-bottom:1px solid #f2f2f2;
+}
+.notif-list li:last-child{ border-bottom:0; }
+.notif-list a{ text-decoration:underline; }
+.notif-empty{ padding:12px; color:#666; }
+.badge.hidden{ display:none; }
