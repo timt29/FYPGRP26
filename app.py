@@ -2390,6 +2390,7 @@ def api_notifications():
     if not uid:
         return jsonify({"ok": False, "message": "Not logged in"}), 401
     uid = int(uid)
+    author_name = session.get("user")
 
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
@@ -2416,30 +2417,7 @@ def api_notifications():
     """, (uid,))
     items_cr = cur.fetchall()
 
-    # 2) Reports on MY COMMENTS
-    cur.execute("""
-    SELECT
-        cp.report_id                 AS id,
-        cp.created_at                AS ts,
-        'comment_report'             AS kind,
-        cp.status                    AS action,
-        a.articleid                  AS article_id,
-        a.title                      AS article_title,
-        c.commentid                  AS comment_id,
-        u.userid                     AS actor_id,
-        u.name                       AS actor_name,
-        cp.reason                    AS reason
-    FROM comment_reports cp
-    JOIN comments c  ON c.commentid  = cp.comment_id
-    JOIN articles a  ON a.articleid  = c.articleid
-    JOIN users    u  ON u.userid     = cp.reporter_id   -- who reported
-    WHERE c.userid = %s AND cp.notification = 1
-    ORDER BY cp.created_at DESC
-    LIMIT 100
-    """, (uid,))
-    items_cp = cur.fetchall()
-
-    # 3) Replies to MY COMMENTS
+    # 2) Replies to MY COMMENTS
     cur.execute("""
     SELECT
         c2.commentid                 AS id,
@@ -2462,7 +2440,32 @@ def api_notifications():
     """, (uid,))
     items_reply = cur.fetchall()
 
-    items = items_cr + items_cp + items_reply
+    # 3) Reactions on MY ARTICLES
+    author_name = session.get("user")
+    cur.execute("""
+        SELECT
+          ar.reactionid      AS id,
+          ar.updated_at      AS ts,
+          'article_reaction' AS kind,
+          ar.reaction        AS action,          -- 'like'/'dislike'
+          a.articleid        AS article_id,
+          a.title            AS article_title,
+          NULL               AS comment_id,
+          u.name             AS actor_name,      -- liker/disliker name
+          ar.userid          AS actor_id
+        FROM article_reactions ar
+        JOIN articles a   ON a.articleid = ar.articleid
+        LEFT JOIN users u ON u.userid    = ar.userid
+        WHERE a.author = %s              -- must be the string author
+          AND ar.notification = 1
+        ORDER BY ar.updated_at DESC
+        LIMIT 100
+    """, (author_name,))
+    items_ar = cur.fetchall()
+
+    cur.close(); conn.close()
+
+    items = items_cr + items_cp + items_reply + items_ar
     items.sort(key=lambda r: r["ts"], reverse=True)
     items = items[:50]
     return jsonify({"ok": True, "unread": len(items), "items": items})
@@ -2474,6 +2477,7 @@ def api_notifications_mark_read():
     if not uid:
         return jsonify({"ok": False, "message": "Not logged in"}), 401
     uid = int(uid)
+    author_name = session.get("user")
 
     conn = get_db_connection()
     cur  = conn.cursor()
@@ -2486,14 +2490,6 @@ def api_notifications_mark_read():
     WHERE c.userid = %s AND cr.notification = 1
     """, (uid,))
 
-    # reports on my comments
-    cur.execute("""
-    UPDATE comment_reports cp
-    JOIN comments c ON c.commentid = cp.comment_id
-    SET cp.notification = 0
-    WHERE c.userid = %s AND cp.notification = 1
-    """, (uid,))
-
     # replies to my comments
     cur.execute("""
     UPDATE comments c2
@@ -2502,6 +2498,14 @@ def api_notifications_mark_read():
     WHERE c1.userid = %s AND c2.notification = 1
     """, (uid,))
 
+    # article reactions to my articles
+    cur.execute("""
+        UPDATE article_reactions ar
+        JOIN articles a ON a.articleid = ar.articleid
+        SET ar.notification = 0
+        WHERE a.author = %s AND ar.notification = 1
+    """, (author_name,))
+
     conn.commit()
     cur.close(); conn.close()
     return jsonify({"ok": True})
@@ -2509,6 +2513,7 @@ def api_notifications_mark_read():
 @app.route("/api/notifications/mark_one", methods=["POST"])
 @login_required("Subscriber", "Author")
 def api_notifications_mark_one():
+    author_name = session.get("user")
     uid = session.get("userid")
     if not uid:
         return jsonify({"ok": False, "message": "Not logged in"}), 401
@@ -2550,6 +2555,16 @@ def api_notifications_mark_one():
         SET c2.notification = 0
         WHERE c2.commentid = %s AND c1.userid = %s
         """, (nid, uid))
+        updated = cur.rowcount
+
+    elif kind == "article_reaction":
+        cur.execute("""
+        UPDATE article_reactions ar
+        JOIN articles a ON a.articleid = ar.articleid
+        SET ar.notification = 0
+        WHERE ar.reactionid = %s
+            AND a.author = %s
+        """, (nid, author_name))
         updated = cur.rowcount
 
     else:
