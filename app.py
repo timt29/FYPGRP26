@@ -1257,9 +1257,9 @@ def subscriber_update_article(article_id):
         image_file.save(image_path)
 
     # Build UPDATE fields common to all actions
-    fields = ["title=%s","content=%s","catid=%s","updated_at=NOW()"]
+    fields = ["title=%s","content=%s","catid=%s"]
     params = [title, content, category_id]
-
+    
     flash_msg = "Saved."
 
     if is_review:
@@ -1282,13 +1282,16 @@ def subscriber_update_article(article_id):
                 ok=False,
                 message=profanity_check.get("message", "Failed profanity check."),
             ), 400
-        # update the existing draft to 'published'
-        fields += [
-            "status='published'",
-            "draft=0",
-            "visible=1",
-            "published_at=NOW()"
-        ]
+
+        # when first publish article, publish and update time should be the same
+        if row["draft"] == 1: # was from draft
+            fields += ["status=%s", "draft=%s", "visible=%s", "published_at=NOW() AT TIME ZONE 'Asia/Singapore'"]
+            params += ["published", 0, 1]
+        else: 
+            # edit article, publish time should remain unchange, only change the update time
+            fields += ["status=%s", "draft=%s", "visible=%s", "updated_at=NOW() AT TIME ZONE 'Asia/Singapore'"]
+            params += ["published", 0, 1]
+
         flash_msg = "Article published successfully."
 
     # Image if present
@@ -1518,8 +1521,8 @@ def subscriber_api_comment_create():
     cur.close()
     cur = get_cursor(conn)
     cur.execute("""
-    INSERT INTO comments (articleid, userid, comment_text, is_reply, reply_to_comment_id)
-    VALUES (%s, %s, %s, %s, %s)
+    INSERT INTO comments (articleid, userid, comment_text, is_reply, reply_to_comment_id, created_at)
+    VALUES (%s, %s, %s, %s, %s, NOW() AT TIME ZONE 'Asia/Singapore')
     """, (
         article_id,
         uid,
