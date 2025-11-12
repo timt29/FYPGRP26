@@ -29,6 +29,23 @@
           (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
       {% set is_author = (role == 'author') %}
 
+    <!-- Notification bell -->
+    <button id="notifBtn" class="bell" aria-label="Notifications">
+      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z"/>
+      </svg>
+      <span id="notifBadge" class="badge hidden" aria-hidden="true">0</span>
+    </button>
+
+    <div id="notifPanel" class="notif-panel" role="dialog" aria-label="Notifications" aria-hidden="true">
+      <div class="notif-head">
+        <strong>Notifications</strong>
+        <button id="notifMarkAll" class="btn btn-light sm" type="button">Mark all as read</button>
+      </div>
+      <ul id="notifList" class="notif-list" role="list"></ul>
+      <div class="notif-empty hidden">No new notifications</div>
+    </div>
+
       <span class="welcome">
         Welcome, {{ session.get('user','Subscriber') }}
         {% if is_author %}
@@ -536,5 +553,113 @@
     if (y) y.textContent = new Date().getFullYear();
   })();
 </script>
+
+<script>
+(function(){
+  const btn    = document.getElementById('notifBtn');
+  const badge  = document.getElementById('notifBadge');
+  const panel  = document.getElementById('notifPanel');
+  const listEl = document.getElementById('notifList');
+  const emptyEl= panel.querySelector('.notif-empty');
+  const markAll= document.getElementById('notifMarkAll');
+
+  if(!btn || !panel) return;
+
+  function fmtItem(it){
+    const who  = it.actor_name || `User #${it.actor_id}`;
+    const when = new Date(it.ts).toLocaleString();
+    const href = "{{ url_for('subscriber_article_view', article_id=0) }}".replace(/0$/, it.article_id);
+    const link = ` <a href="${href}" class="notif-link"
+                    data-kind="${it.kind}" data-id="${it.id}"
+                    data-article="${it.article_id}"
+                    data-comment="${it.comment_id}">${it.article_title}</a>`;
+    
+
+    if (it.kind === 'comment_reply') {
+      return `<li><b>${who}</b> replied to your comment on${link} <span style="color:#888">· ${when}</span></li>`;
+    }
+    if (it.kind === 'comment_reaction') {
+      return `<li><b>${who}</b> ${it.action}d your comment on${link} <span style="color:#888">· ${when}</span></li>`;
+    }
+    return `<li>New activity on${link} <span style="color:#888">· ${when}</span></li>`;
+  }
+
+  async function loadNotifs() {
+    try{
+      const r = await fetch('/api/notifications', {cache:'no-store'});
+      const data = await r.json();
+      if (!data.ok) throw 0;
+
+      // badge
+      if (data.unread > 0) {
+        badge.textContent = data.unread > 99 ? '99+' : String(data.unread);
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+
+      // list
+      listEl.innerHTML = (data.items || []).map(fmtItem).join('');
+      if (!data.items || data.items.length === 0) {
+        emptyEl.classList.remove('hidden');
+      } else {
+        emptyEl.classList.add('hidden');
+      }
+    }catch(_){}
+  }
+
+  // toggle panel
+  const toggle = () => { panel.style.display = (panel.style.display === 'block') ? 'none' : 'block'; };
+  const hide   = () => { panel.style.display = 'none'; };
+  btn.addEventListener('click', (e)=>{ e.stopPropagation(); toggle(); });
+  document.addEventListener('click', (e)=>{ if (!panel.contains(e.target) && e.target!==btn) hide(); });
+  document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') hide(); });
+
+  // mark all as read
+  markAll.addEventListener('click', async ()=>{
+    try{
+      await fetch('/api/notifications/mark_read', {method:'POST'});
+      hide();
+      // next poll will reset the count; we can also clear immediately:
+      badge.classList.add('hidden');
+      listEl.innerHTML = '';
+      emptyEl.classList.remove('hidden');
+    }catch(_){}
+  });
+
+  // initial + polling
+  loadNotifs();
+  setInterval(loadNotifs, 30000); // every 30s
+})
+
+();
+</script>
+
+  <script>
+  document.addEventListener("click", async (e) => {
+  const a = e.target.closest("a.notif-link");
+  if (!a) return;
+  e.preventDefault();
+  const kind = a.dataset.kind;
+  const id   = Number(a.dataset.id);
+  const href = a.getAttribute("href");
+  try {
+    await fetch("/api/notifications/mark_one", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({kind, id})
+    });
+  } catch(_){}
+  const cid = a.dataset.comment;
+  window.location.href = cid ? `${href}#c${cid}` : href;
+});
+  </script>
+
+  <script>
+    const NOTIF_VIEW_URL = "{{ url_for('subscriber_article_view', article_id=0) }}";
+    function articleHref(id) { return NOTIF_VIEW_URL.replace(/0$/, String(id)); }
+  </script>
+
+
 </body>
 </html>

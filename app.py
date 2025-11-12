@@ -1096,7 +1096,7 @@ def subscriber_article_react():
         except: pass
 
 # --- My Articles: page ---
-@app.route("/subscriber/my-articles")
+@app.route("/my-articles")
 @login_required("Author", "Subscriber")
 def subscriber_my_articles():
     return render_template("subscriberMyArticles.html")
@@ -1180,7 +1180,7 @@ def subscriber_api_my_articles():
     return jsonify(rows)
 
 # View: load edit page 
-@app.route("/subscriber/edit-article/<int:article_id>")
+@app.route("/edit-article/<int:article_id>")
 @login_required("Author", "Subscriber")
 def subscriber_edit_article(article_id):
     conn = get_db_connection()
@@ -1199,7 +1199,7 @@ def subscriber_edit_article(article_id):
     return render_template("subscriberEditArticles.html", article=article)
 
 # API: update article 
-@app.route("/subscriber/api/article/<int:article_id>", methods=["POST"])
+@app.route("/api/article/<int:article_id>", methods=["POST"])
 @login_required("Author", "Subscriber")
 def subscriber_update_article(article_id):
     action      = (request.form.get("action") or "").lower()   # 'draft' | 'publish' | 'review'
@@ -1240,7 +1240,6 @@ def subscriber_update_article(article_id):
         cur.close(); conn.close()
         return jsonify(ok=False, message="This article is under review. Only 'Save & Submit' is allowed."), 400
 
-    # Handle image upload (optional)
     image_name = None
     if image_file and image_file.filename:
         image_name = image_file.filename
@@ -1295,7 +1294,7 @@ def subscriber_update_article(article_id):
     return jsonify(ok=True, message=flash_msg, redirect=url_for("subscriber_my_articles"))
 
 # Edit Reported Articles Page
-@app.route("/subscriber/edit-reported-article/<int:article_id>")
+@app.route("/edit-reported-article/<int:article_id>")
 @login_required("Author", "Subscriber")
 def subscriber_edit_reported_article(article_id):
     conn = get_db_connection()
@@ -2381,6 +2380,185 @@ def donate_submit():
             conn.close()
         except Exception:
             pass
+
+# (MW)
+# ---------- Notifications Bell Function ----------
+@app.route("/api/notifications", methods=["GET"])
+@login_required("Subscriber", "Author")
+def api_notifications():
+    uid = session.get("userid")
+    if not uid:
+        return jsonify({"ok": False, "message": "Not logged in"}), 401
+    uid = int(uid)
+
+    conn = get_db_connection()
+    cur  = conn.cursor(dictionary=True)
+
+    # 1) Reactions on MY COMMENTS
+    cur.execute("""
+    SELECT
+        cr.reactionid                AS id,
+        cr.created_at                AS ts,
+        'comment_reaction'           AS kind,
+        cr.reaction                  AS action,
+        a.articleid                  AS article_id,
+        a.title                      AS article_title,
+        c.commentid                  AS comment_id,
+        u.userid                     AS actor_id,
+        u.name                       AS actor_name
+    FROM comment_reactions cr
+    JOIN comments c   ON c.commentid = cr.commentid
+    JOIN articles a   ON a.articleid = c.articleid
+    JOIN users    u   ON u.userid    = cr.userid        -- who reacted
+    WHERE c.userid = %s AND cr.notification = 1
+    ORDER BY cr.created_at DESC
+    LIMIT 100
+    """, (uid,))
+    items_cr = cur.fetchall()
+
+    # 2) Reports on MY COMMENTS
+    cur.execute("""
+    SELECT
+        cp.report_id                 AS id,
+        cp.created_at                AS ts,
+        'comment_report'             AS kind,
+        cp.status                    AS action,
+        a.articleid                  AS article_id,
+        a.title                      AS article_title,
+        c.commentid                  AS comment_id,
+        u.userid                     AS actor_id,
+        u.name                       AS actor_name,
+        cp.reason                    AS reason
+    FROM comment_reports cp
+    JOIN comments c  ON c.commentid  = cp.comment_id
+    JOIN articles a  ON a.articleid  = c.articleid
+    JOIN users    u  ON u.userid     = cp.reporter_id   -- who reported
+    WHERE c.userid = %s AND cp.notification = 1
+    ORDER BY cp.created_at DESC
+    LIMIT 100
+    """, (uid,))
+    items_cp = cur.fetchall()
+
+    # 3) Replies to MY COMMENTS
+    cur.execute("""
+    SELECT
+        c2.commentid                 AS id,
+        c2.created_at                AS ts,
+        'comment_reply'              AS kind,
+        'replied'                    AS action,
+        a.articleid                  AS article_id,
+        a.title                      AS article_title,
+        c2.commentid                 AS comment_id,
+        u.userid                     AS actor_id,
+        u.name                       AS actor_name
+    FROM comments c2                                   -- the reply
+    JOIN comments c1  ON c1.commentid = c2.reply_to_comment_id
+    JOIN articles a   ON a.articleid  = c2.articleid
+    JOIN users   u    ON u.userid     = c2.userid      -- who replied
+    WHERE c1.userid = %s            -- replies to MY comments
+        AND c2.notification = 1
+    ORDER BY c2.created_at DESC
+    LIMIT 100
+    """, (uid,))
+    items_reply = cur.fetchall()
+
+    items = items_cr + items_cp + items_reply
+    items.sort(key=lambda r: r["ts"], reverse=True)
+    items = items[:50]
+    return jsonify({"ok": True, "unread": len(items), "items": items})
+
+@app.route("/api/notifications/mark_read", methods=["POST"])
+@login_required("Subscriber", "Author")
+def api_notifications_mark_read():
+    uid = session.get("userid")
+    if not uid:
+        return jsonify({"ok": False, "message": "Not logged in"}), 401
+    uid = int(uid)
+
+    conn = get_db_connection()
+    cur  = conn.cursor()
+
+    # reactions on my comments
+    cur.execute("""
+    UPDATE comment_reactions cr
+    JOIN comments c ON c.commentid = cr.commentid
+    SET cr.notification = 0
+    WHERE c.userid = %s AND cr.notification = 1
+    """, (uid,))
+
+    # reports on my comments
+    cur.execute("""
+    UPDATE comment_reports cp
+    JOIN comments c ON c.commentid = cp.comment_id
+    SET cp.notification = 0
+    WHERE c.userid = %s AND cp.notification = 1
+    """, (uid,))
+
+    # replies to my comments
+    cur.execute("""
+    UPDATE comments c2
+    JOIN comments c1 ON c1.commentid = c2.reply_to_comment_id
+    SET c2.notification = 0
+    WHERE c1.userid = %s AND c2.notification = 1
+    """, (uid,))
+
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify({"ok": True})
+
+@app.route("/api/notifications/mark_one", methods=["POST"])
+@login_required("Subscriber", "Author")
+def api_notifications_mark_one():
+    uid = session.get("userid")
+    if not uid:
+        return jsonify({"ok": False, "message": "Not logged in"}), 401
+    uid = int(uid)
+
+    data = request.get_json(silent=True) or {}
+    kind = (data.get("kind") or "").strip()
+    nid  = data.get("id")
+    if not kind or not isinstance(nid, (int, str)):
+        return jsonify({"ok": False, "message": "Missing kind/id"}), 400
+    nid = int(nid)
+
+    conn = get_db_connection()
+    cur  = conn.cursor()
+    updated = 0
+
+    if kind == "comment_reaction":
+        cur.execute("""
+          UPDATE comment_reactions cr
+          JOIN comments c ON c.commentid = cr.commentid
+          SET cr.notification = 0
+          WHERE cr.reactionid = %s AND c.userid = %s
+        """, (nid, uid))
+        updated = cur.rowcount
+
+    elif kind == "comment_report":
+        cur.execute("""
+          UPDATE comment_reports cp
+          JOIN comments c ON c.commentid = cp.comment_id
+          SET cp.notification = 0
+          WHERE cp.report_id = %s AND c.userid = %s
+        """, (nid, uid))
+        updated = cur.rowcount
+
+    elif kind == "comment_reply":
+        cur.execute("""
+        UPDATE comments c2
+        JOIN comments c1 ON c1.commentid = c2.reply_to_comment_id
+        SET c2.notification = 0
+        WHERE c2.commentid = %s AND c1.userid = %s
+        """, (nid, uid))
+        updated = cur.rowcount
+
+    else:
+        cur.close(); conn.close()
+        return jsonify({"ok": False, "message": "Unknown kind"}), 400
+
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify({"ok": True, "updated": updated})
 
 # (YY)
 # ---------- Auth ----------

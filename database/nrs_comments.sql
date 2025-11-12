@@ -32,6 +32,7 @@ CREATE TABLE `comments` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `is_reply` tinyint(1) NOT NULL DEFAULT '0',
   `reply_to_comment_id` int DEFAULT NULL,
+  `notification` tinyint(1) NOT NULL DEFAULT '1',
   `visible` tinyint NOT NULL DEFAULT '1',
   PRIMARY KEY (`commentid`),
   KEY `idx_comments_articleID` (`articleid`),
@@ -40,7 +41,7 @@ CREATE TABLE `comments` (
   CONSTRAINT `fk_comments_article` FOREIGN KEY (`articleid`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_comments_parent` FOREIGN KEY (`reply_to_comment_id`) REFERENCES `comments` (`commentid`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_comments_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -49,7 +50,7 @@ CREATE TABLE `comments` (
 
 LOCK TABLES `comments` WRITE;
 /*!40000 ALTER TABLE `comments` DISABLE KEYS */;
-INSERT INTO `comments` VALUES (1,1,1,'Seed comment #1 on article 1 by user 1',0,1,'2025-10-03 02:28:14',0,NULL,1),(2,2,2,'Seed comment #2 on article 2 by user 2',1,0,'2025-10-03 02:28:14',0,NULL,1),(4,4,4,'Seed comment #4 on article 4 by user 4',0,1,'2025-10-03 02:28:14',0,NULL,1),(5,5,5,'Seed comment #5 on article 5 by user 5',2,0,'2025-10-03 02:28:14',0,NULL,1),(6,1,1,'[SEED100-T001] Seed comment 1 on article 1 by user 1',0,0,'2025-10-03 02:31:22',0,NULL,1),(7,2,2,'[SEED100-T002] Seed comment 2 on article 2 by user 2',0,0,'2025-10-03 02:31:22',0,NULL,1),(9,4,4,'[SEED100-T004] Seed comment 4 on article 4 by user 4',0,0,'2025-10-03 02:31:22',0,NULL,1),(10,5,10,'asda',0,0,'2025-10-05 11:22:00',0,NULL,1),(11,5,10,'testing',0,0,'2025-10-24 10:21:23',0,NULL,1),(12,5,10,'what the hell happened',0,0,'2025-10-24 10:21:38',0,NULL,1),(16,5,10,'@random replying to myself is a feature too',0,0,'2025-10-24 10:57:59',1,12,1),(22,5,12,'hiiii',0,0,'2025-11-04 02:28:06',0,NULL,1),(23,5,4,'Wow !! I am an author commenting on this article. This is a wonderful article.',1,0,'2025-11-05 06:19:32',0,NULL,1);
+INSERT INTO `comments` VALUES (1,1,1,'Seed comment #1 on article 1 by user 1',0,1,'2025-10-03 02:28:14',0,NULL,0,1),(2,2,2,'Seed comment #2 on article 2 by user 2',1,0,'2025-10-03 02:28:14',0,NULL,0,1),(4,4,4,'Seed comment #4 on article 4 by user 4',0,1,'2025-10-03 02:28:14',0,NULL,0,1),(5,5,5,'Seed comment #5 on article 5 by user 5',2,0,'2025-10-03 02:28:14',0,NULL,0,1),(6,1,1,'[SEED100-T001] Seed comment 1 on article 1 by user 1',0,0,'2025-10-03 02:31:22',0,NULL,0,1),(7,2,2,'[SEED100-T002] Seed comment 2 on article 2 by user 2',0,0,'2025-10-03 02:31:22',0,NULL,0,1),(9,4,4,'[SEED100-T004] Seed comment 4 on article 4 by user 4',0,0,'2025-10-03 02:31:22',0,NULL,0,1),(10,5,10,'asda',0,0,'2025-10-05 11:22:00',0,NULL,0,1),(11,5,10,'testing',0,0,'2025-10-24 10:21:23',0,NULL,0,1),(12,5,10,'what the hell happened',0,0,'2025-10-24 10:21:38',0,NULL,0,1),(16,5,10,'@random replying to myself is a feature too',0,0,'2025-10-24 10:57:59',1,12,1,1),(22,5,12,'hiiii',0,0,'2025-11-04 02:28:06',0,NULL,0,1),(23,5,4,'Wow !! I am an author commenting on this article. This is a wonderful article.',1,1,'2025-11-05 06:19:32',0,NULL,0,1),(24,5,3,'@Amy Hi Amy',0,0,'2025-11-12 03:35:48',1,23,1,1);
 /*!40000 ALTER TABLE `comments` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -62,4 +63,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-07 22:27:58
+-- Dump completed on 2025-11-12 12:15:32

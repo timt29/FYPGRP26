@@ -29,12 +29,13 @@ CREATE TABLE `article_reactions` (
   `reaction` enum('like','dislike') COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `notification` int NOT NULL DEFAULT '1',
   PRIMARY KEY (`reactionid`),
   UNIQUE KEY `ux_article_user` (`articleid`,`userid`),
   KEY `idx_userid` (`userid`),
   CONSTRAINT `fk_ar_article` FOREIGN KEY (`articleid`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT `fk_ar_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=24 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -43,7 +44,7 @@ CREATE TABLE `article_reactions` (
 
 LOCK TABLES `article_reactions` WRITE;
 /*!40000 ALTER TABLE `article_reactions` DISABLE KEYS */;
-INSERT INTO `article_reactions` VALUES (1,5,4,'like','2025-11-06 17:30:43','2025-11-06 17:31:03'),(4,27,4,'dislike','2025-11-06 17:33:22','2025-11-06 17:36:31'),(14,23,4,'like','2025-11-06 17:37:07','2025-11-06 17:37:07'),(15,15,4,'like','2025-11-06 17:37:12','2025-11-06 17:37:55');
+INSERT INTO `article_reactions` VALUES (14,23,4,'like','2025-11-06 17:37:07','2025-11-06 17:37:07',1),(15,15,4,'like','2025-11-06 17:37:12','2025-11-06 17:37:55',1),(19,5,4,'like','2025-11-06 17:44:35','2025-11-06 17:44:35',1),(20,20,4,'like','2025-11-06 18:58:52','2025-11-06 18:58:52',1),(22,27,4,'like','2025-11-10 08:40:46','2025-11-10 08:40:46',1),(23,28,4,'dislike','2025-11-12 10:14:18','2025-11-12 10:14:18',1);
 /*!40000 ALTER TABLE `article_reactions` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -56,4 +57,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-06 17:42:43
+-- Dump completed on 2025-11-12 12:15:32

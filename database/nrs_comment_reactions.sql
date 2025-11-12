@@ -1,8 +1,8 @@
 -- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
 --
--- Host: localhost    Database: nrs
+-- Host: 127.0.0.1    Database: nrs
 -- ------------------------------------------------------
--- Server version	8.0.42
+-- Server version	8.0.43
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -29,13 +29,14 @@ CREATE TABLE `comment_reactions` (
   `reaction` enum('like','dislike') NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `notification` int NOT NULL DEFAULT '1',
   PRIMARY KEY (`reactionid`),
   UNIQUE KEY `uniq_comment_user` (`commentid`,`userid`),
   KEY `idx_comment` (`commentid`),
   KEY `idx_user` (`userid`),
-  CONSTRAINT `fk_react_comment` FOREIGN KEY (`commentid`) REFERENCES `comments` (`commentid`) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT `fk_react_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userid`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `fk_react_comment` FOREIGN KEY (`commentid`) REFERENCES `comments` (`commentID`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_react_user` FOREIGN KEY (`userid`) REFERENCES `users` (`userID`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -44,7 +45,7 @@ CREATE TABLE `comment_reactions` (
 
 LOCK TABLES `comment_reactions` WRITE;
 /*!40000 ALTER TABLE `comment_reactions` DISABLE KEYS */;
-INSERT INTO `comment_reactions` VALUES (1,1,10,'dislike','2025-10-03 02:28:42','2025-10-03 02:28:42'),(2,2,5,'like','2025-10-03 02:28:42','2025-10-03 02:28:42'),(3,3,1,'like','2025-10-03 02:28:42','2025-10-03 02:28:42'),(4,4,3,'dislike','2025-10-03 02:28:42','2025-10-03 02:28:42'),(5,5,9,'like','2025-10-03 02:28:42','2025-10-03 02:28:42');
+INSERT INTO `comment_reactions` VALUES (1,1,10,'dislike','2025-10-03 02:28:42','2025-10-03 02:28:42',1),(2,2,5,'like','2025-10-03 02:28:42','2025-10-03 02:28:42',1),(5,5,9,'like','2025-10-03 02:28:42','2025-10-03 02:28:42',1),(16,23,4,'like','2025-11-05 06:19:37','2025-11-12 03:26:56',1),(19,23,3,'dislike','2025-11-12 03:25:15','2025-11-12 03:26:30',1);
 /*!40000 ALTER TABLE `comment_reactions` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -57,4 +58,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-01 21:58:48
+-- Dump completed on 2025-11-12 12:15:33

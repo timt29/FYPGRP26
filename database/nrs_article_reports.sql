@@ -1,8 +1,8 @@
 -- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
 --
--- Host: localhost    Database: nrs
+-- Host: 127.0.0.1    Database: nrs
 -- ------------------------------------------------------
--- Server version	8.0.42
+-- Server version	8.0.43
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -31,12 +31,13 @@ CREATE TABLE `article_reports` (
   `status` enum('pending','reviewed','dismissed') NOT NULL DEFAULT 'pending',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `notification` int NOT NULL DEFAULT '1',
   PRIMARY KEY (`report_id`),
   KEY `fk_report_article` (`article_id`),
   KEY `fk_report_user` (`reporter_id`),
-  CONSTRAINT `fk_report_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`articleid`) ON DELETE CASCADE,
-  CONSTRAINT `fk_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userid`) ON DELETE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  CONSTRAINT `fk_report_article` FOREIGN KEY (`article_id`) REFERENCES `articles` (`articleID`) ON DELETE CASCADE,
+  CONSTRAINT `fk_report_user` FOREIGN KEY (`reporter_id`) REFERENCES `users` (`userID`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -45,7 +46,7 @@ CREATE TABLE `article_reports` (
 
 LOCK TABLES `article_reports` WRITE;
 /*!40000 ALTER TABLE `article_reports` DISABLE KEYS */;
-INSERT INTO `article_reports` VALUES (1,5,10,'spam','fake news','reviewed','2025-10-09 12:02:58','2025-10-26 17:12:55'),(8,7,3,'other','i dont like this','pending','2025-10-26 17:09:58','2025-10-26 17:09:58');
+INSERT INTO `article_reports` VALUES (1,5,10,'spam','fake news','pending','2025-10-09 12:02:58','2025-11-01 01:50:22',1),(10,5,12,'harassment','','pending','2025-11-04 02:26:49','2025-11-04 02:26:49',1);
 /*!40000 ALTER TABLE `article_reports` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -58,4 +59,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-11-01 21:58:48
+-- Dump completed on 2025-11-12 12:15:33
