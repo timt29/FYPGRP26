@@ -1085,7 +1085,7 @@ def _norm_image_path(p):
 
 # --- My Articles: JSON API ---
 @app.route("/subscriber/api/my-articles", methods=["GET"])
-@login_required("Subscriber")
+@login_required("Author","Subscriber")
 def subscriber_api_my_articles():
     import psycopg2
     from psycopg2 import extras
@@ -2470,6 +2470,219 @@ def donate_submit():
         except Exception:
             pass
 
+# (MW)
+# ---------- Notifications Bell Function ----------
+@app.route("/api/notifications", methods=["GET"])
+@login_required("Subscriber", "Author")
+def api_notifications():
+    uid = session.get("userid")
+    if not uid:
+        return jsonify({"ok": False, "message": "Not logged in"}), 401
+    uid = int(uid)
+    author_name = session.get("user")
+
+    conn = get_db_connection()
+    cur  = get_cursor(conn)
+
+    items_cr = []
+    items_cp    = []
+    items_reply = []
+    items_ar = []
+
+    # 1) Reactions on MY COMMENTS
+    cur.execute("""
+    SELECT
+        cr.reactionid                AS id,
+        cr.created_at                AS ts, 
+        'comment_reaction'           AS kind,
+        cr.reaction                  AS action,
+        a.articleid                  AS article_id,
+        a.title                      AS article_title,
+        c.commentid                  AS comment_id,
+        u.userid                     AS actor_id,
+        u.name                       AS actor_name
+    FROM comment_reactions cr
+    JOIN comments c   ON c.commentid = cr.commentid
+    JOIN articles a   ON a.articleid = c.articleid
+    JOIN users    u   ON u.userid    = cr.userid        -- who reacted
+    WHERE c.userid = %s AND cr.notification = 1
+    ORDER BY cr.created_at DESC
+    LIMIT 100
+    """, (uid,))
+    items_cr = cur.fetchall()
+
+    # 2) Replies to MY COMMENTS
+    cur.execute("""
+    SELECT
+        c2.commentid                 AS id,
+        c2.created_at                AS ts,
+        'comment_reply'              AS kind,
+        'replied'                    AS action,
+        a.articleid                  AS article_id,
+        a.title                      AS article_title,
+        c2.commentid                 AS comment_id,
+        u.userid                     AS actor_id,
+        u.name                       AS actor_name
+    FROM comments c2                                   -- the reply
+    JOIN comments c1  ON c1.commentid = c2.reply_to_comment_id
+    JOIN articles a   ON a.articleid  = c2.articleid
+    JOIN users   u    ON u.userid     = c2.userid      -- who replied
+    WHERE c1.userid = %s            -- replies to MY comments
+        AND c2.notification = 1
+    ORDER BY c2.created_at DESC
+    LIMIT 100
+    """, (uid,))
+    items_reply = cur.fetchall()
+
+    # 3) Reactions on MY ARTICLES
+    author_name = session.get("user")
+    cur.execute("""
+        SELECT
+          ar.reactionid      AS id,
+          COALESCE(ar.updated_at, ar.created_at) AS ts,
+          'article_reaction' AS kind,
+          ar.reaction        AS action,          -- 'like'/'dislike'
+          a.articleid        AS article_id,
+          a.title            AS article_title,
+          NULL               AS comment_id,
+          u.name             AS actor_name,      -- liker/disliker name
+          ar.userid          AS actor_id
+        FROM article_reactions ar
+        JOIN articles a   ON a.articleid = ar.articleid
+        LEFT JOIN users u ON u.userid    = ar.userid
+        WHERE a.author = %s              -- must be the string author
+          AND ar.notification = 1
+        ORDER BY ar.updated_at DESC
+        LIMIT 100
+    """, (author_name,))
+    items_ar = cur.fetchall()
+
+    cur.close(); conn.close()
+
+    items = items_cr + items_cp + items_reply + items_ar
+    items.sort(key=lambda r: r["ts"], reverse=True)
+    items = items[:50]
+    return jsonify({"ok": True, "unread": len(items), "items": items})
+
+@app.route("/api/notifications/mark_read", methods=["POST"])
+@login_required("Subscriber", "Author")
+def api_notifications_mark_read():
+    uid = session.get("userid")
+    if not uid:
+        return jsonify({"ok": False, "message": "Not logged in"}), 401
+    uid = int(uid)
+    author_name = session.get("user")
+
+    conn = get_db_connection()
+    cur  = get_cursor(conn)
+
+        # reactions on my comments
+    cur.execute("""
+        UPDATE comment_reactions cr
+        SET notification = 0
+        FROM comments c
+        WHERE c.commentid = cr.commentid
+        AND c.userid = %s
+        AND cr.notification = 1
+    """, (uid,))
+
+    # replies to my comments
+    cur.execute("""
+        UPDATE comments c2
+        SET notification = 0
+        FROM comments c1
+        WHERE c1.commentid = c2.reply_to_comment_id
+        AND c1.userid = %s
+        AND c2.notification = 1
+    """, (uid,))
+
+    # article reactions to my articles
+    cur.execute("""
+        UPDATE article_reactions ar
+        SET notification = 0
+        FROM articles a
+        WHERE a.articleid = ar.articleid
+        AND a.author = %s
+        AND ar.notification = 1
+    """, (author_name,))
+
+
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify({"ok": True})
+
+@app.route("/api/notifications/mark_one", methods=["POST"])
+@login_required("Subscriber", "Author")
+def api_notifications_mark_one():
+    author_name = session.get("user")
+    uid = session.get("userid")
+    if not uid:
+        return jsonify({"ok": False, "message": "Not logged in"}), 401
+    uid = int(uid)
+
+    data = request.get_json(silent=True) or {}
+    kind = (data.get("kind") or "").strip()
+    nid  = data.get("id")
+    if not kind or not isinstance(nid, (int, str)):
+        return jsonify({"ok": False, "message": "Missing kind/id"}), 400
+    nid = int(nid)
+
+    conn = get_db_connection()
+    cur  = get_cursor(conn)
+    updated = 0
+
+    if kind == "comment_reaction":
+        cur.execute("""
+            UPDATE comment_reactions cr
+            SET notification = 0
+            FROM comments c
+            WHERE c.commentid = cr.commentid
+            AND cr.reactionid = %s
+            AND c.userid = %s
+        """, (nid, uid))
+        updated = cur.rowcount
+
+    elif kind == "comment_report":
+        cur.execute("""
+            UPDATE comment_reports cp
+            SET notification = 0
+            FROM comments c
+            WHERE c.comment_id = cp.comment_id
+            AND cp.report_id = %s
+            AND c.userid = %s
+        """, (nid, uid))
+        updated = cur.rowcount
+
+    elif kind == "comment_reply":
+        cur.execute("""
+            UPDATE comments c2
+            SET notification = 0
+            FROM comments c1
+            WHERE c1.commentid = c2.reply_to_comment_id
+            AND c2.commentid = %s
+            AND c1.userid = %s
+        """, (nid, uid))
+        updated = cur.rowcount
+
+    elif kind == "article_reaction":
+        cur.execute("""
+            UPDATE article_reactions ar
+            SET notification = 0
+            FROM articles a
+            WHERE a.articleid = ar.articleid
+            AND ar.reactionid = %s
+            AND a.author = %s
+        """, (nid, author_name))
+        updated = cur.rowcount
+
+    else:
+        cur.close(); conn.close()
+        return jsonify({"ok": False, "message": "Unknown kind"}), 400
+
+    conn.commit()
+    cur.close(); conn.close()
+    return jsonify({"ok": True, "updated": updated})
+
 
 # (YY)
 # ---------- Auth ----------
@@ -2761,7 +2974,7 @@ def api_change_password():
         return jsonify(ok=False, message="Password must be at least 4 characters."), 400
 
     conn = get_db_connection()
-    cur  = conn.cursor()
+    cur  = get_cursor(conn)
     # Atomic check+update. This only succeeds when the old password matches THIS user.
     cur.execute(
         "UPDATE users SET password=%s WHERE userid=%s AND password=%s",
