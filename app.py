@@ -67,7 +67,12 @@ def get_db_connection(retries=3, delay=3):
                 password=password,
                 sslmode="require"
             )
-            print(f"✅ Connected to Supabase database (attempt {attempt})")
+            # ✅ Set timezone for this session
+            with conn.cursor() as cur:
+                cur.execute("SET TIMEZONE TO 'Asia/Singapore';")
+            conn.commit()
+
+            print(f"✅ Connected to Supabase database (attempt {attempt}) with timezone GMT+8")
             return conn
         except OperationalError as e:
             print(f"⚠️ Attempt {attempt} failed: {e}")
@@ -76,6 +81,7 @@ def get_db_connection(retries=3, delay=3):
             else:
                 print("❌ All connection attempts failed.")
                 raise
+
 
 def get_cursor(conn):
     return conn.cursor(cursor_factory=extras.RealDictCursor)
@@ -1285,11 +1291,11 @@ def subscriber_update_article(article_id):
 
         # when first publish article, publish and update time should be the same
         if row["draft"] == 1: # was from draft
-            fields += ["status=%s", "draft=%s", "visible=%s", "published_at=NOW() AT TIME ZONE 'Asia/Singapore'"]
+            fields += ["status=%s", "draft=%s", "visible=%s", "published_at=NOW() "]
             params += ["published", 0, 1]
         else: 
             # edit article, publish time should remain unchange, only change the update time
-            fields += ["status=%s", "draft=%s", "visible=%s", "updated_at=NOW() AT TIME ZONE 'Asia/Singapore'"]
+            fields += ["status=%s", "draft=%s", "visible=%s", "updated_at=NOW() "]
             params += ["published", 0, 1]
 
         flash_msg = "Article published successfully."
@@ -1522,7 +1528,7 @@ def subscriber_api_comment_create():
     cur = get_cursor(conn)
     cur.execute("""
     INSERT INTO comments (articleid, userid, comment_text, is_reply, reply_to_comment_id, created_at)
-    VALUES (%s, %s, %s, %s, %s, NOW() AT TIME ZONE 'Asia/Singapore')
+    VALUES (%s, %s, %s, %s, %s, NOW() )
     """, (
         article_id,
         uid,
