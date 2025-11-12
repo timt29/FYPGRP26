@@ -2395,27 +2395,27 @@ def api_notifications():
     conn = get_db_connection()
     cur  = conn.cursor(dictionary=True)
 
-    items_cr = []
-    items_cp    = []
+    items_cr    = []
     items_reply = []
-    items_ar = []
+    items_ar    = []
+    items_warn  = []
 
     # 1) Reactions on MY COMMENTS
     cur.execute("""
     SELECT
-        cr.reactionid                AS id,
-        cr.created_at                AS ts, 
-        'comment_reaction'           AS kind,
-        cr.reaction                  AS action,
-        a.articleid                  AS article_id,
-        a.title                      AS article_title,
-        c.commentid                  AS comment_id,
-        u.userid                     AS actor_id,
-        u.name                       AS actor_name
+        cr.reactionid AS id,
+        cr.created_at AS ts, 
+        'comment_reaction' AS kind,
+        cr.reaction AS action,
+        a.articleid AS article_id,
+        a.title AS article_title,
+        c.commentid AS comment_id,
+        u.userid AS actor_id,
+        u.name AS actor_name
     FROM comment_reactions cr
-    JOIN comments c   ON c.commentid = cr.commentid
-    JOIN articles a   ON a.articleid = c.articleid
-    JOIN users    u   ON u.userid    = cr.userid        -- who reacted
+    JOIN comments c ON c.commentid = cr.commentid
+    JOIN articles a ON a.articleid = c.articleid
+    JOIN users u ON u.userid = cr.userid
     WHERE c.userid = %s AND cr.notification = 1
     ORDER BY cr.created_at DESC
     LIMIT 100
@@ -2425,55 +2425,71 @@ def api_notifications():
     # 2) Replies to MY COMMENTS
     cur.execute("""
     SELECT
-        c2.commentid                 AS id,
-        c2.created_at                AS ts,
-        'comment_reply'              AS kind,
-        'replied'                    AS action,
-        a.articleid                  AS article_id,
-        a.title                      AS article_title,
-        c2.commentid                 AS comment_id,
-        u.userid                     AS actor_id,
-        u.name                       AS actor_name
-    FROM comments c2                                   -- the reply
-    JOIN comments c1  ON c1.commentid = c2.reply_to_comment_id
-    JOIN articles a   ON a.articleid  = c2.articleid
-    JOIN users   u    ON u.userid     = c2.userid      -- who replied
-    WHERE c1.userid = %s            -- replies to MY comments
-        AND c2.notification = 1
+        c2.commentid AS id,
+        c2.created_at AS ts,
+        'comment_reply' AS kind,
+        'replied' AS action,
+        a.articleid AS article_id,
+        a.title AS article_title,
+        c2.commentid AS comment_id,
+        u.userid AS actor_id,
+        u.name AS actor_name
+    FROM comments c2
+    JOIN comments c1 ON c1.commentid = c2.reply_to_comment_id
+    JOIN articles a ON a.articleid = c2.articleid
+    JOIN users u ON u.userid = c2.userid
+    WHERE c1.userid = %s AND c2.notification = 1
     ORDER BY c2.created_at DESC
     LIMIT 100
     """, (uid,))
     items_reply = cur.fetchall()
 
     # 3) Reactions on MY ARTICLES
-    author_name = session.get("user")
     cur.execute("""
         SELECT
-          ar.reactionid      AS id,
+          ar.reactionid AS id,
           COALESCE(ar.updated_at, ar.created_at) AS ts,
           'article_reaction' AS kind,
-          ar.reaction        AS action,          -- 'like'/'dislike'
-          a.articleid        AS article_id,
-          a.title            AS article_title,
-          NULL               AS comment_id,
-          u.name             AS actor_name,      -- liker/disliker name
-          ar.userid          AS actor_id
+          ar.reaction AS action,
+          a.articleid AS article_id,
+          a.title AS article_title,
+          NULL AS comment_id,
+          u.name AS actor_name,
+          ar.userid AS actor_id
         FROM article_reactions ar
-        JOIN articles a   ON a.articleid = ar.articleid
-        LEFT JOIN users u ON u.userid    = ar.userid
-        WHERE a.author = %s              -- must be the string author
-          AND ar.notification = 1
+        JOIN articles a ON a.articleid = ar.articleid
+        LEFT JOIN users u ON u.userid = ar.userid
+        WHERE a.author = %s AND ar.notification = 1
         ORDER BY ar.updated_at DESC
         LIMIT 100
     """, (author_name,))
     items_ar = cur.fetchall()
 
-    cur.close(); conn.close()
+    # 4) Moderator warnings
+    cur.execute("""
+        SELECT
+            warningID AS id,
+            created_at AS ts,
+            'moderator_warning' AS kind,
+            message AS action,
+            NULL AS article_id,
+            NULL AS article_title,
+            NULL AS comment_id,
+            'Moderator' AS actor_name
+        FROM warnings
+        WHERE userID = %s AND notification = 1
+        ORDER BY created_at DESC
+    """, (uid,))
+    items_warn = cur.fetchall()
 
-    items = items_cr + items_cp + items_reply + items_ar
+    # Combine all notifications and sort by time
+    items = items_cr + items_reply + items_ar + items_warn
     items.sort(key=lambda r: r["ts"], reverse=True)
     items = items[:50]
+
+    cur.close(); conn.close()
     return jsonify({"ok": True, "unread": len(items), "items": items})
+
 
 @app.route("/api/notifications/mark_read", methods=["POST"])
 @login_required("Subscriber", "Author")
@@ -2510,6 +2526,9 @@ def api_notifications_mark_read():
         SET ar.notification = 0
         WHERE a.author = %s AND ar.notification = 1
     """, (author_name,))
+
+    # Mark all warnings as read
+    cur.execute("UPDATE warnings SET notification = 0 WHERE userID = %s AND notification = 1", (uid,))
 
     conn.commit()
     cur.close(); conn.close()
@@ -2570,6 +2589,10 @@ def api_notifications_mark_one():
         WHERE ar.reactionid = %s
             AND a.author = %s
         """, (nid, author_name))
+        updated = cur.rowcount
+
+    elif kind == "moderator_warning":
+        cur.execute("UPDATE warnings SET notification = 0 WHERE warningID = %s AND userID = %s", (nid, uid))
         updated = cur.rowcount
 
     else:
@@ -2757,21 +2780,30 @@ def warn_user():
         return redirect(url_for("login"))
 
     warned_user_id = request.form.get("userid")
+    if not warned_user_id:
+        flash("No user selected.")
+        return redirect(url_for("manage_users"))
 
     conn = get_db_connection()
     cursor = conn.cursor()
 
     warning_message = "You have received a warning from the moderator."
-    cursor.execute(
-        "INSERT INTO warnings (userid, message) VALUES (%s, %s)",
-        (warned_user_id, warning_message)
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
 
-    flash("Warning sent successfully!")
+    try:
+        cursor.execute(
+            "INSERT INTO warnings (userID, message, notification) VALUES (%s, %s, 1)",
+            (warned_user_id, warning_message)
+        )
+        conn.commit()
+        flash("Warning sent successfully!", "success")
+    except Exception as e:
+        flash(f"Failed to send warning: {e}", "error")
+    finally:
+        cursor.close()
+        conn.close()
+
     return redirect(url_for("manage_users"))
+
 
 @app.route("/toggleSuspend", methods=["POST"])
 @login_required("Moderator")

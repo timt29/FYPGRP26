@@ -607,6 +607,10 @@
     if (it.kind === 'comment_reaction') {
       return `<li><b>${who}</b> ${it.action}d your comment on${link} <span style="color:#888">· ${when}</span></li>`;
     }
+
+    if (it.kind === 'moderator_warning') {
+        return `<li><b>${who}</b>: ${esc(it.action)} <span style="color:#888">· ${when}</span></li>`;
+    }
     return `<li>New activity on${link} <span style="color:#888">· ${when}</span></li>`;
   }
 
