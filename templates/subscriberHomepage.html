@@ -29,34 +29,19 @@
           (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
       {% set is_author = (role == 'author') %}
 
-        <!-- Notification Bell + Welcome -->
-        <div class="user-area">
-          <button id="notifBtn" class="notif-btn" aria-label="Notifications">
-            <img src="{{ url_for('static', filename='img/bell.png') }}" alt="Notifications" width="22" height="22">
-            <span id="notifBadge" class="notif-badge hidden"></span>
-          </button>
-
-          <div id="notifDropdown" class="notif-dropdown hidden">
-            <div class="notif-header">Notifications</div>
-            <ul id="notifList" class="notif-list"></ul>
-            <div class="notif-footer"><button id="notifClear">Mark all as seen</button></div>
-          </div>
-
-          <span class="welcome">
-            Welcome, {{ session.get('user','Subscriber') }}
-            {% if is_author %}
-              <img
-                class="badge-author"
-                src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
-                alt="Author verified"
-                width="18" height="18"
-                decoding="async" loading="eager"
-                style="display:inline-block; vertical-align:middle;"
-              >
-            {% endif %}
-          </span>
-        </div>
-
+      <span class="welcome">
+        Welcome, {{ session.get('user','Subscriber') }}
+        {% if is_author %}
+          <img
+            class="badge-author"
+            src="{{ url_for('static', filename='img/AuthorVerifiedLogo.png') }}"
+            alt="Author verified"
+            width="18" height="18"
+            decoding="async" loading="eager"
+            style="display:inline-block; vertical-align:middle;"
+          >
+        {% endif %}
+      </span>
       <button id="menuBtn" class="burger" aria-label="Menu"><span></span><span></span><span></span></button>
       <div id="menuPanel" class="menu-panel">
         <a class="menu-item" href="{{ url_for('subscriber_my_articles') }}">View My Articles</a>
@@ -551,133 +536,5 @@
     if (y) y.textContent = new Date().getFullYear();
   })();
 </script>
-
-<script>
-(async function(){
-  const badge = document.getElementById("notifBadge");
-  if (!badge) return;
-
-  async function fetchNotifications(){
-    try {
-      const res = await fetch("/api/notifications/unread_count", {cache: "no-store"});
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (!data.ok) throw new Error();
-
-      const count = data.count || 0;
-      if (count > 0) {
-        badge.textContent = count > 9 ? "9+" : count;
-        badge.classList.remove("hidden");
-      } else {
-        badge.classList.add("hidden");
-      }
-    } catch {
-      badge.classList.add("hidden");
-    }
-  }
-
-  fetchNotifications();                // initial check
-  setInterval(fetchNotifications, 15000); // every 15 seconds
-})();
-
-(function(){
-  const badge = document.getElementById("notifBadge");
-  const dropdown = document.getElementById("notifDropdown");
-  const listEl = document.getElementById("notifList");
-  const btn = document.getElementById("notifBtn");
-  const clearBtn = document.getElementById("notifClear");
-
-  if (!badge || !btn || !dropdown) return;
-
-  let isOpen = false;
-  const POLL_MS = 15000;
-
-  async function fetchCount() {
-    try {
-      const res = await fetch("/api/notifications/unread_count", {cache: "no-store"});
-      if (!res.ok) return;
-      const data = await res.json();
-      const count = data?.count || 0;
-      if (count > 0) {
-        badge.textContent = count > 9 ? "9+" : count;
-        badge.classList.remove("hidden");
-      } else {
-        badge.classList.add("hidden");
-      }
-    } catch (e) {
-      // silent fail
-      badge.classList.add("hidden");
-    }
-  }
-
-  async function fetchList() {
-    try {
-      const res = await fetch("/api/notifications/list", {cache: "no-store"});
-      if (!res.ok) {
-        listEl.innerHTML = '<li>Error loading notifications</li>';
-        return;
-      }
-      const data = await res.json();
-      const items = data.items || [];
-      listEl.innerHTML = items.length
-        ? items.map(i =>
-            `<li><b>${escapeHtml(i.actor)}</b> ${escapeHtml(i.reaction)}d your ${escapeHtml(i.type)} <i>${escapeHtml(i.target_title || '')}</i></li>`
-          ).join("")
-        : '<li>No new notifications</li>';
-    } catch (err) {
-      listEl.innerHTML = '<li>Error loading notifications</li>';
-    }
-  }
-
-  async function markSeen() {
-    try {
-      await fetch("/api/notifications/mark_seen", { method: "POST", headers: {"Content-Type":"application/json"} });
-      badge.classList.add("hidden");
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  btn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    isOpen = !isOpen;
-    dropdown.classList.toggle("hidden", !isOpen);
-    if (isOpen) {
-      await fetchList();
-      // mark seen on open so server-side unread resets
-      await markSeen();
-    }
-  });
-
-  document.addEventListener("click", (e) => {
-    if (isOpen && !dropdown.contains(e.target) && e.target !== btn) {
-      dropdown.classList.add("hidden");
-      isOpen = false;
-    }
-  });
-
-  if (clearBtn) clearBtn.addEventListener("click", async (e) => {
-    e.preventDefault();
-    listEl.innerHTML = '<li>No new notifications</li>';
-    await markSeen();
-  });
-
-  // initial load + polling
-  fetchCount();
-  setInterval(fetchCount, POLL_MS);
-
-  // small helper to escape HTML in notifications
-  function escapeHtml(str) {
-    if (!str) return "";
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-})();
-</script>
-
 </body>
 </html>

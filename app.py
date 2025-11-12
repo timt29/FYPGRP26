@@ -1085,7 +1085,7 @@ def _norm_image_path(p):
 
 # --- My Articles: JSON API ---
 @app.route("/subscriber/api/my-articles", methods=["GET"])
-@login_required("Author","Subscriber")
+@login_required("Subscriber")
 def subscriber_api_my_articles():
     import psycopg2
     from psycopg2 import extras
@@ -2466,120 +2466,6 @@ def donate_submit():
             conn.close()
         except Exception:
             pass
-
-
-from flask import jsonify, session
-from datetime import datetime, timedelta
-
-@app.route("/api/notifications/unread_count")
-def api_unread_notifications():
-    userid = session.get("userid")
-    if not userid:
-        return jsonify({"ok": False, "count": 0, "message": "Not logged in"}), 401
-
-    conn = get_db_connection()
-    cur  = get_cursor(conn)
-
-    # fetch last check time from users table (nullable)
-    cur.execute("SELECT last_notif_check FROM users WHERE userid::text = %s", (str(userid),))
-    row = cur.fetchone()
-    last_check = row["last_notif_check"] if row and row["last_notif_check"] else datetime(1970,1,1,tzinfo=timezone.utc)
-
-    # If never checked, count everything (use epoch as a safe fallback)
-    if not last_check:
-        # use epoch so all existing reactions are counted the first time
-        last_check = datetime(1970, 1, 1, tzinfo=timezone.utc)
-
-
-    # Example: count likes/dislikes on user’s own articles/comments
-    sql = """
-    SELECT COUNT(*) AS total
-    FROM (
-        SELECT ar.reactionid
-        FROM article_reactions ar
-        JOIN articles a ON ar.articleid = a.articleid
-        WHERE a.author::text = %s AND ar.created_at > %s
-        UNION ALL
-        SELECT cr.reactionid
-        FROM comment_reactions cr
-        JOIN comments c ON cr.commentid = c.commentid
-        WHERE c.userid::text = %s AND cr.created_at > %s
-    ) x;
-    """
-    params = (str(userid), last_check, str(userid), last_check)
-    cur.execute(sql, params)
-    r = cur.fetchone()
-    count = int(r["total"]) if r and r.get("total") is not None else 0
-
-    cur.close()
-    conn.close()
-
-    return jsonify({"ok": True, "count": count})
-
-@app.route("/api/notifications/list")
-def api_notification_list():
-    userid = session.get("userid")
-    if not userid:
-        return jsonify({"ok": False, "items": []}), 401
-
-    conn = get_db_connection()
-    cur  = get_cursor(conn)
-
-    # Combine latest article and comment reactions
-    sql = """
-            SELECT 'article' AS type,
-                ar.reaction::text AS reaction,
-                ar.created_at,
-                u.name AS actor,
-                a.title AS target_title
-            FROM article_reactions ar
-            JOIN articles a ON ar.articleid = a.articleid
-            JOIN users u ON ar.userid = u.userid
-            WHERE a.author::text = %s
-
-            UNION ALL
-
-            SELECT 'comment' AS type,
-                cr.reaction::text AS reaction,
-                cr.created_at,
-                u.name AS actor,
-                LEFT(c.comment_text, 50) AS target_title
-            FROM comment_reactions cr
-            JOIN comments c ON cr.commentid = c.commentid
-            JOIN users u ON cr.userid = u.userid
-            WHERE c.userid::text = %s
-
-            ORDER BY created_at DESC
-            LIMIT 10;
-    """
-    cur.execute(sql, (str(userid), str(userid)))
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-
-    return jsonify({"ok": True, "items": rows})
-
-
-@app.route("/api/notifications/mark_seen", methods=["POST"])
-def api_notifications_mark_seen():
-    userid = session.get("userid")
-    if not userid:
-        return jsonify({"ok": False, "message": "Not logged in"}), 401
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-    try:
-        cur.execute("UPDATE users SET last_notif_check = NOW() WHERE userid::text = %s", (str(userid),))
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        cur.close()
-        conn.close()
-        return jsonify({"ok": False, "message": str(e)}), 500
-
-    cur.close()
-    conn.close()
-    return jsonify({"ok": True})
 
 
 # (YY)
