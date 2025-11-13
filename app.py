@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort, make_response,g
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, Response, abort, make_response,g, get_flashed_messages
 import os, io, re, time, uuid, time, zipfile, shutil, secrets
 from functools import wraps
 import webbrowser
@@ -335,7 +335,7 @@ def modHomepage():
         flagged_comments = cursor.fetchone()["total"]
 
         # Optionally: count pending articles
-        cursor.execute("SELECT COUNT(*) AS total FROM articles WHERE status = 'pending'")
+        cursor.execute("SELECT COUNT(*) AS total FROM articles WHERE status = 'pending_approval'")
         pending_articles = cursor.fetchone()["total"]
 
     except mysql.connector.Error as err:
@@ -2890,35 +2890,43 @@ def login():
     # On GET, render login page with remembered email if any
     return render_template("login.html", remembered_email=remembered_email)
 
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
         name = request.form["name"]
         email = request.form["email"]
         password = request.form["password"]
-        usertype = request.form.get("role", "Subscriber")  # default to Subscriber if not set
+        usertype = request.form.get("role", "Subscriber")
 
         conn = get_db_connection()
         cursor = get_cursor(conn)
-        try:
-            cursor.execute(
-                "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
-                (name, email, password, usertype)
-            )
-            conn.commit()
-            return redirect(url_for("login"))
-        except mysql.connector.IntegrityError:
-            # Render template with error message
-            return render_template(
-                "register.html",
-                error="This email is already registered. Please use a different email."
-            )
-        finally:
+
+        # Check for existing email
+        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+        existing_user = cursor.fetchone()
+
+        if existing_user:
             cursor.close()
             conn.close()
+            flash("This email is already registered. Please use a different email.")
+            # redirect to GET request — clears POST data and prevents re-trigger on refresh
+            return redirect(url_for("register"))
 
-    return render_template("register.html")
+        cursor.execute(
+            "INSERT INTO users (name, email, password, usertype) VALUES (%s, %s, %s, %s)",
+            (name, email, password, usertype)
+        )
+        conn.commit()
 
+        cursor.close()
+        conn.close()
+        return redirect(url_for("login"))
+
+    # If redirected from an error, retrieve the message
+    messages = get_flashed_messages()
+    error = messages[0] if messages else None
+    return render_template("register.html", error=error)
 
 @app.route("/logout")
 def logout():
@@ -3205,41 +3213,6 @@ def create_user():
 
     return render_template("createUser.html", name=session.get("user", "Admin"))
 
-@app.route("/updateUser", methods=["GET", "POST"])
-@login_required("Admin")
-def update_user():
-    if "userid" not in session or session.get("usertype") != "Admin":
-        flash("Access denied.")
-        return redirect(url_for("login"))
-
-    conn = get_db_connection()
-    cursor = get_cursor(conn)
-
-    if request.method == "POST":
-        email = request.form["email"]
-
-        # Check if user exists and is a Subscriber
-        cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
-        user = cursor.fetchone()
-
-        if not user:
-            flash("User not found.")
-        elif user["usertype"] != "Subscriber":
-            flash("Only Subscribers can be updated to Author.")
-        else:
-            # Change Subscriber → Author
-            cursor.execute(
-                "UPDATE users SET usertype = 'Author' WHERE email = %s",
-                (email,),
-            )
-            conn.commit()
-            flash("User successfully updated to Author.")
-
-    cursor.close()
-    conn.close()
-
-    return render_template("updateUser.html", name=session.get("user", "Admin"))
-
 @app.route("/manageUserStatus", methods=["GET", "POST"])
 @login_required("Admin")
 def manage_user_status():
@@ -3477,7 +3450,16 @@ def review_article():
             return redirect("/flaggedArticles")
 
         conn.commit()
-        flash(f"Article {action}d successfully.", "success")
+
+        if action == "approve":
+            past = "approved"
+        elif action == "reject":
+            past = "rejected"
+        else:
+            past = action  # fallback, just in case
+
+        flash(f"Article {past} successfully.", "success")
+
 
     except mysql.connector.Error as err:
         print("Database error:", err)
@@ -3604,7 +3586,15 @@ def reviewComment():
             )
 
         conn.commit()
-        flash(f"Comment {action}d successfully.", "success")
+
+        if action == "approve":
+            past = "approved"
+        elif action == "reject":
+            past = "rejected"
+        else:
+            past = action  # fallback, just in case
+
+        flash(f"Comment {past} successfully.", "success")
 
     except mysql.connector.Error as err:
         print("Database error:", err)
@@ -3766,7 +3756,7 @@ def delete_category_page():
     cursor = get_cursor(conn)
 
     if search:
-        cursor.execute("SELECT * FROM categories WHERE name LIKE %s ORDER BY name ASC", ('%' + search + '%',))
+        cursor.execute("SELECT * FROM categories WHERE name ILIKE %s ORDER BY name ASC", ('%' + search + '%',))
     else:
         cursor.execute("SELECT * FROM categories ORDER BY name ASC")
 

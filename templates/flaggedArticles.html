@@ -270,7 +270,12 @@
 
                 if (!res.ok) throw new Error("Failed to review article.");
 
-                alert(`Article ${action}d successfully.`);
+                const verb = {
+                approve: "approved",
+                reject: "rejected"
+                }[action] || action;
+
+                alert(`Article ${verb} successfully.`);
 
                 // Remove the article from table
                 const tableRows = document.querySelectorAll(".users-table tbody tr");

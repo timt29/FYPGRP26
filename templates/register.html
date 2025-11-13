@@ -188,6 +188,10 @@
   const agreementModal = document.getElementById("agreementModal");
   const errorModal = document.getElementById("errorModal");
 
+  window.closeModal = function() {
+    errorModal.style.display = "none";
+  };
+
   //Ensure preRegisterModal always shows first on page load
   window.addEventListener("DOMContentLoaded", () => {
     preRegisterModal.style.display = "flex"; // show role selection first
@@ -277,8 +281,23 @@
 
   //Show error modal if email already exists
   {% if error %}
-    errorModal.style.display = "block";
+    errorModal.style.display = "flex";
+    document.querySelector("#errorModal p").textContent = "{{ error }}";
   {% endif %}
+
+  // Click outside the modal closes it
+  window.addEventListener("click", (e) => {
+    if (e.target === errorModal) {
+      errorModal.style.display = "none";
+    }
+  });
+
+  // Pressing ESC closes the modal
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && errorModal.style.display === "block") {
+      errorModal.style.display = "none";
+    }
+  });
 })();
 </script>
 </body>

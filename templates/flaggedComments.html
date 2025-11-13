@@ -251,7 +251,12 @@
 
                 if (!res.ok) throw new Error("Failed to review comment.");
 
-                alert(`Comment ${action}d successfully.`);
+                const verb = {
+                approve: "approved",
+                reject: "rejected"
+                }[action] || action;
+
+                alert(`Comment ${verb} successfully.`);
 
                 // Remove row from table and array
                 const tableRows = document.querySelectorAll(".users-table tbody tr");
