@@ -383,7 +383,7 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
 /* ===== Buttons & Ads ===== */
 .ads {
   height: 360px;            
-  padding: 5px;
+  padding: 10px;
   overflow: hidden;         
   position: relative;
 }
@@ -1628,15 +1628,11 @@ header.topbar .menu-panel a:last-child{ border-bottom:0; }
   animation: toastPop .15s ease-out;
 }
 
+
 /* Article view */
-main .article-view .article-title { font-size: clamp(18px, 3.2vw + 18px, 30px) !important; }
 .article-view .article-title {
-  font-size: clamp(18px, 3.2vw + 18px, 30px);
-  line-height: 1.15;
-  font-weight: 800;
-  letter-spacing: 0.2px;
+  margin: 6px 0 4px;
   text-align: center;
-  margin: 8px 18px 14px;
 }
 
 .article-header {
@@ -1736,23 +1732,20 @@ main .article-view .article-title { font-size: clamp(18px, 3.2vw + 18px, 30px) !
   justify-content: center;
 }
 
-/* Centered hero image between Translate and Summary */
-.article-hero {
-  max-width: 940px;              
-  margin: 10px auto 8px;         
-  text-align: center;
-  padding: 0 18px;               
-}
-.article-hero img {
-  display: block;
-  width: min(100%, 904px);      
-  height: auto;
-  margin: 0 auto;
-  border-radius: 10px;
+/* Two-column article body (text + image on the right) */
+.article-view .two-col {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  /* text | image width */
+  gap: 16px;
+  align-items: start;
 }
 
-.article-view .article-content {
-  padding: 0 18px;               
+.thumb-wrap.side img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  display: block;
 }
 
 /* On small screens, stack */
