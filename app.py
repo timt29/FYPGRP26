@@ -2949,7 +2949,7 @@ def manage_users():
     cursor.close()
     conn.close()
 
-    return render_template("manageUsers.html", users=users, name=session.get("user", "Moderator"))
+    return render_template("manageUsers.html", users=users, name=session.get("user", "Moderator")
 
 @app.route("/warnUser", methods=["POST"])
 @login_required("Moderator")
