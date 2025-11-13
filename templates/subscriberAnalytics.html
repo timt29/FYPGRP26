@@ -21,6 +21,23 @@
           (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
       {% set is_author = (role == 'author') %}
 
+      <!-- Notification bell -->
+        <button id="notifBtn" class="bell" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z"/>
+          </svg>
+          <span id="notifBadge" class="badge hidden" aria-hidden="true">0</span>
+        </button>
+
+        <div id="notifPanel" class="notif-panel" role="dialog" aria-label="Notifications" aria-hidden="true">
+          <div class="notif-head">
+            <strong>Notifications</strong>
+            <button id="notifMarkAll" class="btn btn-light sm" type="button">Mark all as read</button>
+          </div>
+          <ul id="notifList" class="notif-list" role="list"></ul>
+          <div class="notif-empty hidden">No new notifications</div>
+        </div>
+
       <span class="welcome">
         Welcome, {{ session.get('user','Subscriber') }}
         {% if is_author %}
@@ -412,6 +429,259 @@
     if (y) y.textContent = new Date().getFullYear();
   })();
 </script>
+
+<script>
+  (function () {
+    const btn    = document.getElementById('notifBtn');
+    const badge  = document.getElementById('notifBadge');
+    const panel  = document.getElementById('notifPanel');
+    const listEl = document.getElementById('notifList');
+    const emptyEl= panel ? panel.querySelector('.notif-empty') : null;
+    const markAll= document.getElementById('notifMarkAll');
+
+    if (!btn || !panel || !listEl || !emptyEl || !markAll) return;
+
+    // Format MySQL datetime -> "DD/MM/YYYY, H,MM am/pm"
+    function formatSqlDate(s) {
+      if (!s) return '';
+
+      let d = new Date(s);       
+
+      // If that failed (NaN), try "YYYY-MM-DD HH:MM:SS"
+      if (isNaN(d.getTime())) {
+        const str = String(s).trim();
+        const m = str.match(/^(\d{4})-(\d{2})-(\d{2})[ ](\d{2}):(\d{2})(?::(\d{2}))?/);
+        if (!m) return str;
+        d = new Date(
+          Number(m[1]),          // year
+          Number(m[2]) - 1,      // month 0–11
+          Number(m[3]),          // day
+          Number(m[4]),          // hour
+          Number(m[5]),          // minute
+          Number(m[6] || 0)      // second
+        );
+      }
+
+      const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const pad  = n => String(n).padStart(2, '0');
+
+      const dayName = days[d.getDay()];
+      const dd      = pad(d.getDate());
+      const mm      = pad(d.getMonth() + 1);
+      const yyyy    = d.getFullYear();
+
+      let h   = d.getHours();
+      const ampm = h >= 12 ? 'pm' : 'am';
+      const h12  = (h % 12) || 12;
+      const mins = pad(d.getMinutes());
+
+      // Day, DD/MM/YYYY HH:MM (am/pm)
+      return `${dayName}, ${dd}/${mm}/${yyyy} ${h12}:${mins} ${ampm}`;
+    }
+
+    // HTML escape (works for numbers too)
+    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;'
+    }[c]));
+
+    function fmtItem(it) {
+      const who   = (it.actor_name && it.actor_name.trim())
+                    || (it.actor_id ? 'User #' + it.actor_id : 'Someone');
+      const when  = formatSqlDate(it.ts);
+      const title = (it.article_title && it.article_title.trim()) || '(untitled article)';
+
+      const href  = '/subscriber/article/' + it.article_id;
+      const link  =
+        '<a href="' + href + '" class="notif-link" ' +
+        'data-kind="' + esc(it.kind) + '" ' +
+        'data-id="' + esc(it.id) + '" ' +
+        'data-article="' + esc(it.article_id) + '"' +
+        (it.comment_id ? ' data-comment="' + esc(it.comment_id) + '"' : '') +
+        '>' + esc(title) + '</a>';
+
+      // 1) Article like / dislike
+      if (it.kind === 'article_reaction') {
+        return '<li><b>' + esc(who) + '</b> ' + esc(it.action) +
+              'd your article ' + link +
+              ' <span style="color:#888">· ' + when + '</span></li>';
+      }
+
+      // 2) Reply to your comment
+      if (it.kind === 'comment_reply') {
+        return '<li><b>' + esc(who) + '</b> replied to your comment on ' + link +
+              ' <span style="color:#888">· ' + when + '</span></li>';
+      }
+
+      // 3) Like / dislike on your comment
+      if (it.kind === 'comment_reaction') {
+        return '<li><b>' + esc(who) + '</b> ' + esc(it.action) +
+              'd your comment on ' + link +
+              ' <span style="color:#888">· ' + when + '</span></li>';
+      }
+
+      // 4) Comment reported (pending / reviewed / removed)
+      if (it.kind === 'comment_report') {
+        const st = (it.action || '').toLowerCase();  // cp.status
+        let statusMsg;
+        if (st === 'pending') {
+          statusMsg = 'has been reported and is pending moderator review';
+        } else if (st === 'reviewed') {
+          statusMsg = 'has been reviewed by a moderator';
+        } else if (st === 'removed') {
+          statusMsg = 'has been removed by a moderator';
+        } else {
+          statusMsg = 'has an updated status: ' + esc(it.action || '');
+        }
+        const reasonText = it.reason ? ' (Reason: ' + esc(it.reason) + ')' : '';
+        return '<li>Your comment on ' + link + ' ' + statusMsg + reasonText +
+              ' <span style="color:#888">· ' + when + '</span></li>';
+      }
+
+      // 5) Article reported (pending / reviewed / dismissed)
+      if (it.kind === 'article_report') {
+        const st = (it.action || '').toLowerCase();  // ap.status
+        let statusMsg;
+        if (st === 'pending') {
+          statusMsg = 'has been reported and is pending moderator review';
+        } else if (st === 'reviewed') {
+          statusMsg = 'has been reviewed by a moderator';
+        } else if (st === 'dismissed') {
+          statusMsg = 'report has been dismissed by a moderator';
+        } else {
+          statusMsg = 'has an updated status: ' + esc(it.action || '');
+        }
+        const reasonText = it.reason ? ' (Reason: ' + esc(it.reason) + ')' : '';
+        return '<li>Your article ' + link + ' ' + statusMsg + reasonText +
+              ' <span style="color:#888">· ' + when + '</span></li>';
+      }
+
+      // Fallback
+      return '<li>New activity on ' + link +
+            ' <span style="color:#888">· ' + when + '</span></li>';
+    }
+
+    async function loadNotifs() {
+      try {
+        const r = await fetch('/api/notifications', { cache: 'no-store' });
+        const data = await r.json();
+        if (!data.ok) throw new Error('bad response');
+
+        const items = Array.isArray(data.items) ? data.items : [];
+
+        // badge
+        if (data.unread > 0) {
+          badge.textContent = data.unread > 99 ? '99+' : String(data.unread);
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+
+        // list
+        listEl.innerHTML = items.map(fmtItem).join('');
+        if (items.length === 0) {
+          emptyEl.classList.remove('hidden');
+        } else {
+          emptyEl.classList.add('hidden');
+        }
+      } catch (e) {
+        // on error, show "No new notifications"
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+      }
+    }
+
+    // Panel open/close
+    const toggle = () => {
+      panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+    };
+    const hide = () => { panel.style.display = 'none'; };
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggle();
+    });
+    document.addEventListener('click', (e) => {
+      if (!panel.contains(e.target) && e.target !== btn) hide();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') hide();
+    });
+
+    // Mark all as read
+    markAll.addEventListener('click', async () => {
+      try {
+        await fetch('/api/notifications/mark_read', { method: 'POST' });
+        hide();
+        badge.classList.add('hidden');
+        listEl.innerHTML = '';
+        emptyEl.classList.remove('hidden');
+      } catch (_) {}
+    });
+
+    // When a notification link is clicked, mark that one, then go to article
+    document.addEventListener('click', async (e) => {
+      const a = e.target.closest('a.notif-link');
+      if (!a) return;
+      e.preventDefault();
+
+      const kind = a.dataset.kind;
+      const id   = Number(a.dataset.id);
+      const href = a.getAttribute('href');
+
+      try {
+        await fetch('/api/notifications/mark_one', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind, id })
+        });
+      } catch (_) {}
+
+      if (a.dataset.comment) {
+        window.location.href = href + '#c' + a.dataset.comment;
+      } else {
+        window.location.href = href;
+      }
+    });
+
+    // initial + polling
+    loadNotifs();
+    setInterval(loadNotifs, 15000);
+  })();
+  </script>
+
+  <script>
+  document.addEventListener("click", async (e) => {
+    const a = e.target.closest("a.notif-link");
+    if (!a) return;
+    e.preventDefault();
+
+    const kind = a.dataset.kind;
+    const id   = Number(a.dataset.id);
+    const href = a.getAttribute("href");
+
+    try {
+      await fetch("/api/notifications/mark_one", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ kind, id })
+      });
+    } catch (_) {}
+
+    if (a.dataset.comment) {
+      window.location.href = href + "#c" + a.dataset.comment;
+    } else {
+      window.location.href = href;
+    }
+  });
+  </script>
+
+  <script>
+    const NOTIF_VIEW_URL = "{{ url_for('subscriber_article_view', article_id=0) }}";
+    function articleHref(id) { return NOTIF_VIEW_URL.replace(/0$/, String(id)); }
+  </script>
 
 </body>
 </html>

@@ -1,21 +1,49 @@
-<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>EchoPress</title>
-    <link rel="stylesheet" href="../static/css/style.css" />
-    <link rel="stylesheet" href="../static/css/accessibility_toolbar.css" />
-    <link rel="icon" href="../static/img/EchoPressLogo.png" type="image/png" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>EchoPress - Homepage</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+    <link
+      rel="icon"
+      href="{{ url_for('static', filename='img/EchoPressLogo.png') }}"
+      type="image/png"
+    />
   </head>
 
   <body>
     <!-- Header -->
     <header class="header">
-      <a href="/" class="logo">EchoPress</a>
+      <!-- 1) Logo image + EchoPress text -->
+      <a href="{{ url_for('index') }}" class="logo">
+        <img
+          src="{{ url_for('static', filename='img/EchoPressLogo.png') }}"
+          alt="EchoPress logo"
+          class="logo-img"
+        />
+        <span>EchoPress</span>
+      </a>
+
+      <!-- 2) Search bar moved to the left, beside EchoPress -->
+      <div class="search-container">
+        <form action="{{ url_for('search') }}" method="get">
+          <input
+            type="text"
+            name="q"
+            placeholder="Search for news..."
+            required
+          />
+          <button type="submit">Search</button>
+        </form>
+      </div>
+
+      <!-- Auth buttons stay on the far right -->
       <div class="auth-buttons">
-        <a href="/login" class="signin">Sign In</a>
-        <a href="/register" class="register">Register</a>
+        <a href="{{ url_for('login') }}" class="signin">Sign In</a>
+        <a href="{{ url_for('register') }}" class="register">Register</a>
       </div>
     </header>
 
@@ -30,7 +58,7 @@
 
 
     <!-- Main Content -->
-    <main class="main-content">
+    <main class="main-content article-page">
       <!-- Articles -->
       <section class="articles">
         <article class="article sel-article">
@@ -66,7 +94,9 @@
               </select>
             </div>
 
-            <img src="{{ article['image'] }}" alt="thumbnail" class="image" />
+              <div class="article-image-wrapper">
+                <img src="{{ article['image'] }}" alt="thumbnail" class="image" />
+              </div>
             {% endif %}
 
             <!-- AI summarizer section -->

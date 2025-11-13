@@ -22,6 +22,23 @@
           (user.usertype if (user is defined and user.usertype) else session.get('usertype','')) | trim | lower %}
       {% set is_author = (role == 'author') %}
 
+      <!-- Notification bell -->
+        <button id="notifBtn" class="bell" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm6-6V11a6 6 0 1 0-12 0v5l-2 2v1h16v-1l-2-2z"/>
+          </svg>
+          <span id="notifBadge" class="badge hidden" aria-hidden="true">0</span>
+        </button>
+
+        <div id="notifPanel" class="notif-panel" role="dialog" aria-label="Notifications" aria-hidden="true">
+          <div class="notif-head">
+            <strong>Notifications</strong>
+            <button id="notifMarkAll" class="btn btn-light sm" type="button">Mark all as read</button>
+          </div>
+          <ul id="notifList" class="notif-list" role="list"></ul>
+          <div class="notif-empty hidden">No new notifications</div>
+        </div>
+        
       <span class="welcome">
         Welcome, {{ session.get('user','Subscriber') }}
         {% if is_author %}
@@ -219,7 +236,20 @@
       </div>
     </div>
   </div>
-
+  <!-- Upgrade to Author Modal -->
+  <div id="upgradeModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal" role="document">
+      <h2>Upgrade to Author</h2>
+      <p>Scan the QR code below to complete your payment:</p>
+      <div class="qr-code-container" style="text-align:center; margin:16px 0;">
+        <img id="upgradeQr" src="" alt="Payment QR code" style="max-width:200px;">
+      </div>
+      <div class="buttons">
+        <button type="button" class="btn btn-light" id="upgradeCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="upgradeConfirm">Upgrade</button>
+      </div>
+    </div>
+  </div>
 
       <!-- Logout Confirmation Modal -->
   <div id="logoutModal" class="modal-overlay" aria-hidden="true" role="dialog" aria-modal="true">
@@ -663,14 +693,17 @@
   // Open modal and fetch QR code
   btn.addEventListener('click', async () => {
     try {
-      const res = await fetch("{{ url_for('api_get_upgrade_qr') }}", { cache:'no-store' });
+      const res  = await fetch("{{ url_for('api_get_upgrade_qr') }}", { cache:'no-store' });
       const data = await res.json();
       if (!data.ok || !data.qr_url) throw new Error('Failed to load QR code');
       qrImg.src = data.qr_url;
-    } catch(err) {
+    } catch (err) {
       showToast(err.message || 'Error loading QR code');
       return;
     }
+
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden','false');
   });
 
   // Close modal
@@ -684,11 +717,12 @@
 
   // Confirm upgrade
   confirm.addEventListener('click', async () => {
-  confirm.disabled = true;
+    confirm.disabled = true;
+
     try {
       const res = await fetch("{{ url_for('upgrade_author') }}", {
         method: 'POST',
-        headers: {'X-Requested-With': 'XMLHttpRequest'}
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
       });
 
       const data = await res.json().catch(async () => {
@@ -697,13 +731,17 @@
         throw new Error('Server error: expected JSON response');
       });
 
-      if (!res.ok || !data.ok) throw new Error(data.message || 'Upgrade failed');
+      if (!res.ok || !data.ok) {
+        throw new Error(data.message || 'Upgrade failed');
+      }
 
-      showToast(data.message  'Successfully upgraded to Author!');
+      showToast(data.message || 'Successfully upgraded to Author!');
       btn.style.display = 'none';
-      setTimeout(() => window.location.href = data.redirect || "/", 1000);
+      setTimeout(() => {
+        window.location.href = data.redirect || "/";
+      }, 1000);
 
-    } catch(err) {
+    } catch (err) {
       showToast(err.message || 'Error confirming upgrade');
     } finally {
       confirm.disabled = false;
@@ -712,6 +750,7 @@
   });
 })();
 </script>
+
 <script>
   (function () {
     const btn    = document.getElementById('notifBtn');
