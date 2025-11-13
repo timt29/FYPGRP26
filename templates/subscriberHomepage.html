@@ -682,6 +682,12 @@
               ' <span style="color:#888">· ' + when + '</span></li>';
       }
 
+      // 6) Moderator warning
+      if (it.kind === 'moderator_warning') {
+          return '<li><b>Moderator:</b> ' + esc(it.reason) +
+                ' <span style="color:#888">· ' + when + '</span></li>';
+      }
+      
       // Fallback
       return '<li>New activity on ' + link +
             ' <span style="color:#888">· ' + when + '</span></li>';

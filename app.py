@@ -2608,11 +2608,30 @@ def api_notifications():
         LIMIT 100
     """, (author_name,))
 
+    # 6) Moderator warnings
+    items_warn = q("""
+        SELECT
+            warningID AS id,
+            created_at AS ts,
+            'moderator_warning' AS kind,
+            NULL AS action,
+            NULL AS article_id,
+            NULL AS article_title,
+            NULL AS comment_id,
+            NULL AS actor_id,
+            NULL AS actor_name,
+            message AS reason
+        FROM warnings
+        WHERE userid = %s AND notification = 1
+        ORDER BY created_at DESC
+        LIMIT 100
+    """, (uid,))
+
     cur.close()
     conn.close()
 
     # merge + sort by timestamp (desc)
-    items = items_cr + items_reply + items_cp + items_ar + items_ap
+    items = items_cr + items_reply + items_cp + items_ar + items_ap + items_warn
     items.sort(key=lambda r: r["ts"], reverse=True)
     items = items[:50]
 
@@ -2683,6 +2702,13 @@ def api_notifications_mark_read():
           AND a.author = %s
           AND ap.notification = 1
     """, (author_name,))
+
+    # 6) Warning from Moderator
+    cur.execute("""
+        UPDATE warnings
+        SET notification = 0
+        WHERE userid = %s AND notification = 1
+    """, (uid,))
 
     conn.commit()
     cur.close()
@@ -2771,6 +2797,14 @@ def api_notifications_mark_one():
         """, (nid, author_name))
         updated = cur.rowcount
 
+    elif kind == "moderator_warning":
+        cur.execute("""
+            UPDATE warnings
+            SET notification = 0
+            WHERE warningID = %s AND userid = %s
+        """, (nid, uid))
+        updated = cur.rowcount
+        
     else:
         cur.close()
         conn.close()
@@ -2959,20 +2993,29 @@ def warn_user():
         return redirect(url_for("login"))
 
     warned_user_id = request.form.get("userid")
+    if not warned_user_id:
+        flash("No user selected.")
+        return redirect(url_for("manage_users"))
 
     conn = get_db_connection()
     cursor = get_cursor(conn)
 
     warning_message = "You have received a warning from the moderator."
-    cursor.execute(
-        "INSERT INTO warnings (userid, message) VALUES (%s, %s)",
-        (warned_user_id, warning_message)
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
 
-    flash("Warning sent successfully!")
+    try:
+        cursor.execute(
+            "INSERT INTO warnings (userID, message, notification) VALUES (%s, %s, 1)",
+            (warned_user_id, warning_message)
+        )
+        conn.commit()
+        flash("Warning sent successfully!", "success")
+    except Exception as e:
+        flash(f"Failed to send warning: {e}", "error")
+    finally:
+        conn.commit()
+        cursor.close()
+        conn.close()
+
     return redirect(url_for("manage_users"))
 
 @app.route("/toggleSuspend", methods=["POST"])
