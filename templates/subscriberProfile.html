@@ -655,7 +655,7 @@
   const qrImg = document.getElementById('upgradeQr');
   const toast = document.getElementById('profileToast');
 
-  if (!btn  !modal  !cancel  !confirm  !qrImg) return;
+  if (!btn || !modal || !cancel || !confirm || !qrImg) return;
 
   // Toast helper
   const showToast = (msg, ms=1600) => {
@@ -678,7 +678,7 @@
       if (!data.ok  !data.qr_url) throw new Error('Failed to load QR code');
       qrImg.src = data.qr_url;
     } catch(err) {
-      showToast(err.message  'Error loading QR code');
+      showToast(err.message || 'Error loading QR code');
       return;
     }
 
@@ -707,11 +707,11 @@
         throw new Error('Server error: expected JSON response');
       });
 
-      if (!res.ok  !data.ok) throw new Error(data.message  'Upgrade failed');
+      if (!res.ok || !data.ok) throw new Error(data.message || 'Upgrade failed');
 
       showToast(data.message  'Successfully upgraded to Author!');
       btn.style.display = 'none';
-      setTimeout(() => window.location.href = data.redirect  "/", 1000);
+      setTimeout(() => window.location.href = data.redirect || "/", 1000);
 
     } catch(err) {
       showToast(err.message || 'Error confirming upgrade');
