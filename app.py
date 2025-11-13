@@ -1419,10 +1419,10 @@ def _norm_img(p: Optional[str]) -> Optional[str]:
 @app.get("/subscriber/api/comments")
 @login_required("Author", "Subscriber")
 def subscriber_api_comments():
-    from app import get_db_connection  # if your factory exposes it here
+    from app import get_db_connection  
 
     article_id = int(request.args.get("article_id", 0))
-    uid = session.get("userid")  # your session key
+    uid = session.get("userid")  
 
     conn = get_db_connection()
     cur = get_cursor(conn)
@@ -2485,90 +2485,143 @@ def api_notifications():
     if not uid:
         return jsonify({"ok": False, "message": "Not logged in"}), 401
     uid = int(uid)
-    author_name = session.get("user")
+    author_name = session.get("user")  
 
     conn = get_db_connection()
-    cur  = get_cursor(conn)
+    cur  = get_cursor(conn)   
 
-    items_cr = []
-    items_cp    = []
-    items_reply = []
-    items_ar = []
+    def q(sql, params):
+        cur.execute(sql, params)
+        return cur.fetchall()
 
     # 1) Reactions on MY COMMENTS
-    cur.execute("""
-    SELECT
-        cr.reactionid                AS id,
-        cr.created_at                AS ts, 
-        'comment_reaction'           AS kind,
-        cr.reaction                  AS action,
-        a.articleid                  AS article_id,
-        a.title                      AS article_title,
-        c.commentid                  AS comment_id,
-        u.userid                     AS actor_id,
-        u.name                       AS actor_name
-    FROM comment_reactions cr
-    JOIN comments c   ON c.commentid = cr.commentid
-    JOIN articles a   ON a.articleid = c.articleid
-    JOIN users    u   ON u.userid    = cr.userid        -- who reacted
-    WHERE c.userid = %s AND cr.notification = 1
-    ORDER BY cr.created_at DESC
-    LIMIT 100
+    items_cr = q("""
+        SELECT
+            cr.reactionid                AS id,
+            cr.created_at                AS ts,
+            'comment_reaction'           AS kind,
+            cr.reaction                  AS action,
+            a.articleid                  AS article_id,
+            a.title                      AS article_title,
+            c.commentid                  AS comment_id,
+            u.userid                     AS actor_id,
+            u.name                       AS actor_name,
+            NULL                         AS reason
+        FROM comment_reactions cr
+        JOIN comments c   ON c.commentid = cr.commentid
+        JOIN articles a   ON a.articleid = c.articleid
+        JOIN users    u   ON u.userid    = cr.userid      -- who reacted
+        WHERE c.userid = %s
+          AND cr.notification = 1
+        ORDER BY cr.created_at DESC
+        LIMIT 100
     """, (uid,))
-    items_cr = cur.fetchall()
 
     # 2) Replies to MY COMMENTS
-    cur.execute("""
-    SELECT
-        c2.commentid                 AS id,
-        c2.created_at                AS ts,
-        'comment_reply'              AS kind,
-        'replied'                    AS action,
-        a.articleid                  AS article_id,
-        a.title                      AS article_title,
-        c2.commentid                 AS comment_id,
-        u.userid                     AS actor_id,
-        u.name                       AS actor_name
-    FROM comments c2                                   -- the reply
-    JOIN comments c1  ON c1.commentid = c2.reply_to_comment_id
-    JOIN articles a   ON a.articleid  = c2.articleid
-    JOIN users   u    ON u.userid     = c2.userid      -- who replied
-    WHERE c1.userid = %s            -- replies to MY comments
-        AND c2.notification = 1
-    ORDER BY c2.created_at DESC
-    LIMIT 100
+    items_reply = q("""
+        SELECT
+            c2.commentid                 AS id,
+            c2.created_at                AS ts,
+            'comment_reply'              AS kind,
+            'replied'                    AS action,
+            a.articleid                  AS article_id,
+            a.title                      AS article_title,
+            c2.commentid                 AS comment_id,
+            u.userid                     AS actor_id,
+            u.name                       AS actor_name,
+            NULL                         AS reason
+        FROM comments c2                          -- the reply
+        JOIN comments c1 ON c1.commentid = c2.reply_to_comment_id
+        JOIN articles a  ON a.articleid  = c2.articleid
+        JOIN users   u   ON u.userid     = c2.userid      -- who replied
+        WHERE c1.userid = %s                            -- replies to MY comments
+          AND c2.notification = 1
+        ORDER BY c2.created_at DESC
+        LIMIT 100
     """, (uid,))
-    items_reply = cur.fetchall()
 
     # 3) Reactions on MY ARTICLES
-    author_name = session.get("user")
-    cur.execute("""
+    items_ar = q("""
         SELECT
-          ar.reactionid      AS id,
-          COALESCE(ar.updated_at, ar.created_at) AS ts,
-          'article_reaction' AS kind,
-          ar.reaction        AS action,          -- 'like'/'dislike'
-          a.articleid        AS article_id,
-          a.title            AS article_title,
-          NULL               AS comment_id,
-          u.name             AS actor_name,      -- liker/disliker name
-          ar.userid          AS actor_id
+            ar.reactionid                       AS id,
+            COALESCE(ar.updated_at, ar.created_at) AS ts,
+            'article_reaction'                  AS kind,
+            ar.reaction                         AS action,    -- like/dislike
+            a.articleid                         AS article_id,
+            a.title                             AS article_title,
+            NULL                                AS comment_id,
+            u.userid                            AS actor_id,
+            u.name                              AS actor_name,
+            NULL                                AS reason
         FROM article_reactions ar
         JOIN articles a   ON a.articleid = ar.articleid
         LEFT JOIN users u ON u.userid    = ar.userid
-        WHERE a.author = %s              -- must be the string author
+        WHERE a.author = %s                      -- plain author name
           AND ar.notification = 1
-        ORDER BY ar.updated_at DESC
+        ORDER BY COALESCE(ar.updated_at, ar.created_at) DESC
         LIMIT 100
     """, (author_name,))
-    items_ar = cur.fetchall()
 
-    cur.close(); conn.close()
+    # 4) Reports on MY COMMENTS
+    items_cp = q("""
+        SELECT
+            cp.report_id                        AS id,
+            COALESCE(cp.updated_at, cp.created_at) AS ts,
+            'comment_report'                    AS kind,
+            cp.status                           AS action,   -- pending/reviewed/removed
+            a.articleid                         AS article_id,
+            a.title                             AS article_title,
+            c.commentid                         AS comment_id,
+            u.userid                            AS actor_id,
+            u.name                              AS actor_name,
+            cp.reason                           AS reason
+        FROM comment_reports cp
+        JOIN comments c  ON c.commentid  = cp.comment_id
+        JOIN articles a  ON a.articleid  = c.articleid
+        JOIN users    u  ON u.userid     = cp.reporter_id
+        WHERE c.userid = %s               -- my comments
+          AND cp.notification = 1
+          AND cp.status IN ('pending','reviewed','removed')
+        ORDER BY COALESCE(cp.updated_at, cp.created_at) DESC
+        LIMIT 100
+    """, (uid,))
 
-    items = items_cr + items_cp + items_reply + items_ar
+    # 5) Reports on MY ARTICLES
+    items_ap = q("""
+        SELECT
+            ap.report_id                        AS id,
+            COALESCE(ap.updated_at, ap.created_at) AS ts,
+            'article_report'                    AS kind,
+            ap.status                           AS action,   -- pending/reviewed/dismissed
+            a.articleid                         AS article_id,
+            a.title                             AS article_title,
+            NULL                                AS comment_id,
+            u.userid                            AS actor_id,
+            u.name                              AS actor_name,
+            ap.reason                           AS reason
+        FROM article_reports ap
+        JOIN articles a  ON a.articleid  = ap.article_id
+        LEFT JOIN users u ON u.userid    = ap.reporter_id
+        WHERE a.author = %s               -- my articles
+          AND ap.notification = 1
+          AND ap.status IN ('pending','reviewed','dismissed')
+        ORDER BY COALESCE(ap.updated_at, ap.created_at) DESC
+        LIMIT 100
+    """, (author_name,))
+
+    cur.close()
+    conn.close()
+
+    # merge + sort by timestamp (desc)
+    items = items_cr + items_reply + items_cp + items_ar + items_ap
     items.sort(key=lambda r: r["ts"], reverse=True)
     items = items[:50]
-    return jsonify({"ok": True, "unread": len(items), "items": items})
+
+    return jsonify({
+        "ok": True,
+        "unread": len(items),
+        "items": items
+    })
 
 @app.route("/api/notifications/mark_read", methods=["POST"])
 @login_required("Subscriber", "Author")
@@ -2582,113 +2635,152 @@ def api_notifications_mark_read():
     conn = get_db_connection()
     cur  = get_cursor(conn)
 
-        # reactions on my comments
+    # 1) Reactions on my comments (likes/dislikes)
     cur.execute("""
-        UPDATE comment_reactions cr
+        UPDATE comment_reactions AS cr
         SET notification = 0
-        FROM comments c
+        FROM comments AS c
         WHERE c.commentid = cr.commentid
-        AND c.userid = %s
-        AND cr.notification = 1
+          AND c.userid = %s
+          AND cr.notification = 1
     """, (uid,))
 
-    # replies to my comments
+    # 2) Reports on my comments
     cur.execute("""
-        UPDATE comments c2
+        UPDATE comment_reports AS cp
         SET notification = 0
-        FROM comments c1
-        WHERE c1.commentid = c2.reply_to_comment_id
-        AND c1.userid = %s
-        AND c2.notification = 1
+        FROM comments AS c
+        WHERE c.commentid = cp.comment_id
+          AND c.userid = %s
+          AND cp.notification = 1
     """, (uid,))
 
-    # article reactions to my articles
+    # 3) Replies to my comments
     cur.execute("""
-        UPDATE article_reactions ar
+        UPDATE comments AS c2
         SET notification = 0
-        FROM articles a
+        FROM comments AS c1
+        WHERE c2.reply_to_comment_id = c1.commentid
+          AND c1.userid = %s
+          AND c2.notification = 1
+    """, (uid,))
+
+    # 4) Reactions on my articles (likes/dislikes)
+    cur.execute("""
+        UPDATE article_reactions AS ar
+        SET notification = 0
+        FROM articles AS a
         WHERE a.articleid = ar.articleid
-        AND a.author = %s
-        AND ar.notification = 1
+          AND a.author = %s
+          AND ar.notification = 1
     """, (author_name,))
 
+    # 5) Reports on my articles
+    cur.execute("""
+        UPDATE article_reports AS ap
+        SET notification = 0
+        FROM articles AS a
+        WHERE a.articleid = ap.article_id
+          AND a.author = %s
+          AND ap.notification = 1
+    """, (author_name,))
 
     conn.commit()
-    cur.close(); conn.close()
+    cur.close()
+    conn.close()
     return jsonify({"ok": True})
 
 @app.route("/api/notifications/mark_one", methods=["POST"])
 @login_required("Subscriber", "Author")
 def api_notifications_mark_one():
-    author_name = session.get("user")
     uid = session.get("userid")
     if not uid:
         return jsonify({"ok": False, "message": "Not logged in"}), 401
     uid = int(uid)
 
+    author_name = session.get("user")
+
     data = request.get_json(silent=True) or {}
     kind = (data.get("kind") or "").strip()
     nid  = data.get("id")
+
     if not kind or not isinstance(nid, (int, str)):
         return jsonify({"ok": False, "message": "Missing kind/id"}), 400
     nid = int(nid)
 
     conn = get_db_connection()
-    cur  = get_cursor(conn)
+    cur  = conn.cursor()
     updated = 0
 
     if kind == "comment_reaction":
+        # like/dislike on *my* comment
         cur.execute("""
-            UPDATE comment_reactions cr
+            UPDATE comment_reactions AS cr
             SET notification = 0
-            FROM comments c
+            FROM comments AS c
             WHERE c.commentid = cr.commentid
-            AND cr.reactionid = %s
-            AND c.userid = %s
+              AND cr.reactionid = %s
+              AND c.userid = %s
         """, (nid, uid))
         updated = cur.rowcount
 
     elif kind == "comment_report":
+        # my comment was reported
         cur.execute("""
-            UPDATE comment_reports cp
+            UPDATE comment_reports AS cp
             SET notification = 0
-            FROM comments c
-            WHERE c.comment_id = cp.comment_id
-            AND cp.report_id = %s
-            AND c.userid = %s
+            FROM comments AS c
+            WHERE c.commentid = cp.comment_id
+              AND cp.report_id = %s
+              AND c.userid = %s
         """, (nid, uid))
         updated = cur.rowcount
 
     elif kind == "comment_reply":
+        # someone replied to my comment
         cur.execute("""
-            UPDATE comments c2
+            UPDATE comments AS c2
             SET notification = 0
-            FROM comments c1
-            WHERE c1.commentid = c2.reply_to_comment_id
-            AND c2.commentid = %s
-            AND c1.userid = %s
+            FROM comments AS c1
+            WHERE c2.reply_to_comment_id = c1.commentid
+              AND c2.commentid = %s
+              AND c1.userid = %s
         """, (nid, uid))
         updated = cur.rowcount
 
     elif kind == "article_reaction":
+        # like/dislike on my article
         cur.execute("""
-            UPDATE article_reactions ar
+            UPDATE article_reactions AS ar
             SET notification = 0
-            FROM articles a
+            FROM articles AS a
             WHERE a.articleid = ar.articleid
-            AND ar.reactionid = %s
-            AND a.author = %s
+              AND ar.reactionid = %s
+              AND a.author = %s
+        """, (nid, author_name))
+        updated = cur.rowcount
+
+    elif kind == "article_report":
+        # my article was reported
+        cur.execute("""
+            UPDATE article_reports AS ap
+            SET notification = 0
+            FROM articles AS a
+            WHERE a.articleid = ap.article_id
+              AND ap.report_id = %s
+              AND a.author = %s
         """, (nid, author_name))
         updated = cur.rowcount
 
     else:
-        cur.close(); conn.close()
+        cur.close()
+        conn.close()
         return jsonify({"ok": False, "message": "Unknown kind"}), 400
 
     conn.commit()
-    cur.close(); conn.close()
+    cur.close()
+    conn.close()
     return jsonify({"ok": True, "updated": updated})
-
 
 # (YY)
 # ---------- Auth ----------
