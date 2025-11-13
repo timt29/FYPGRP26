@@ -10,12 +10,22 @@
 
 <body>
   <!-- Header -->
-  <header class="header">
-    <a href="/" class="logo">EchoPress</a>
-    <div class="auth-buttons">
-      <a href="/register" class="register">Register</a>
-    </div>
-  </header>
+    <header class="header">
+      <!-- 1) Logo image + EchoPress text -->
+      <a href="{{ url_for('index') }}" class="logo">
+        <img
+          src="{{ url_for('static', filename='img/EchoPressLogo.png') }}"
+          alt="EchoPress logo"
+          class="logo-img"
+        />
+        <span>EchoPress</span>
+      </a>
+
+      <!-- Auth buttons stay on the far right -->
+      <div class="auth-buttons">
+        <a href="{{ url_for('register') }}" class="register">Register</a>
+      </div>
+    </header>
 
   <!-- Content -->
   <div class="container">
@@ -63,18 +73,16 @@
         <input type="password" id="password" name="password" required />
 
         <div class="form-bottom">
-            <div class="remember">
-                <input type="checkbox" id="remember" name="remember" {% if remembered_email %}checked{% endif %}/>
-                <label for="remember">Remember Me</label>
-            </div>
-            <button type="submit">Sign in</button>
+          <div class="remember">
+            <input type="checkbox" id="remember" name="remember" {% if remembered_email %}checked{% endif %}/>
+            <label for="remember">Remember Me</label>
+          </div>
+          <button type="submit">Sign in</button>
         </div>
 
         <div class="form-links">
           <p><a href="/forgot-password">Forgot Password? Click here to reset</a></p>
-          
           <p class="separator"></p>
-          
           <p>Not subscribed yet? <a href="/register">Join us now!</a></p>
         </div>
       </form>

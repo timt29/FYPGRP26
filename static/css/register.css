@@ -21,26 +21,71 @@ body {
   padding: 0;
 }
 
-/* Header */
 .header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 15px 30px;
-  border-bottom: 1px solid #ddd;
+  justify-content: flex-start;
+  padding: 10px 40px;
+  background-color: #1b73e8;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
+
+/* Logo: image + text */
 .logo {
-  font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.5rem;
   font-weight: bold;
   text-decoration: none;
-  color: #000;
+  color: inherit;
+  margin-right: 24px;       
 }
-.signin {
+
+.logo-img {
+  height: 28px;
+  width: auto;
+}
+
+.auth-buttons {
+  margin-left: auto;          
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-buttons a {
+  margin-left: 10px;
+  padding: 6px 14px;
+  cursor: pointer;
+  border-radius: 999px;
   text-decoration: none;
-  border: 1px solid #333;
-  padding: 5px 15px;
-  border-radius: 3px;
-  color: #000;
+  border: 1px solid transparent;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.auth-buttons a.signin {
+  background: transparent;
+  color: #ffffff;
+  border-color: rgba(255,255,255,0.7);
+}
+
+.auth-buttons a.signin:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+.auth-buttons a.register {
+  background: #ffb74d;
+  color: #1a1a1a;
+}
+
+.auth-buttons a.register:hover {
+  background: #ffa726;
 }
 
 /* Layout */
@@ -117,17 +162,23 @@ body {
 .register-box .remember {
   margin-top: 15px;
 }
-.register-box button {
-  margin-top: 20px;
-  padding: 10px 20px;
-  border: none;
-  background: #333;
+.register-box button,
+.form-bottom button {
+  background: #2575fc; /* same as subscriber highlight button */
   color: #fff;
-  border-radius: 4px;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.3s ease;
 }
-.register-box button:hover {
-  background: #555;
+
+.register-box button:hover,
+.form-bottom button:hover {
+  background: #0056d1; /* darker shade on hover */
+  box-shadow: 0 0 12px rgba(37,117,252,0.4);
 }
 
 .form-bottom {
@@ -151,7 +202,6 @@ body {
 .form-bottom button {
   margin: 0;                 /* remove top margin */
 }
-
 
 .form-links {
   margin-top: 15px;
@@ -337,7 +387,6 @@ body {
   justify-content: center;
   align-items: center;
 }
-
 
 #agreementModal .modal-content {
   background: #fff;
