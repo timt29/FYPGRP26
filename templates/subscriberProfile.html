@@ -677,17 +677,15 @@
   // Open modal and fetch QR code
   btn.addEventListener('click', async () => {
     try {
-      const res = await fetch("{{ url_for('api_get_upgrade_qr') }}", { cache:'no-store' });
+      const res = await fetch("/api/get_upgrade_qr", { cache: 'no-store' }); // ✅ matches Flask
       const data = await res.json();
       if (!data.ok || !data.qr_url) throw new Error('Failed to load QR code');
       qrImg.src = data.qr_url;
-    } catch(err) {
-      showToast(err.message || 'Error loading QR code');
-      return;
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden', 'false');
+    } catch (err) {
+      showToast(err.message || 'Error loading QR');
     }
-
-    modal.classList.add('show');
-    modal.setAttribute('aria-hidden','false');
   });
 
   // Close modal
@@ -697,34 +695,21 @@
 
   // Confirm upgrade
   confirm.addEventListener('click', async () => {
-    confirm.disabled = true;
-
+  confirm.disabled = true;
     try {
-      const res = await fetch("{{ url_for('upgrade_author') }}", {
-        method: 'POST',
-        headers: {'X-Requested-With': 'XMLHttpRequest'}
-      });
-
-      const data = await res.json().catch(async () => {
-        const text = await res.text();
-        console.error('Server returned non-JSON:', text);
-        throw new Error('Server error: expected JSON response');
-      });
-
+      const res = await fetch("/api/profile/upgrade-author", { method: 'POST' }); // ✅ matches Flask
+      const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.message || 'Upgrade failed');
-
-      showToast(data.message + 'Successfully upgraded to Author!');
+      showToast('Successfully upgraded to Author!');
       btn.style.display = 'none';
-      setTimeout(() => window.location.href = data.redirect || "/", 1000);
-
-    } catch(err) {
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (err) {
       showToast(err.message || 'Error confirming upgrade');
     } finally {
       confirm.disabled = false;
       closeModal();
     }
   });
-})();
 </script>
 <script>
   (function () {
