@@ -632,20 +632,23 @@
   });
 })();
 </script>
+
 #Upgrade to Author button
 <script>
+// Upgrade to Author button
 (function(){
-  const btn = document.getElementById('upgradeBtn');      // Upgrade button
-  const modal = document.getElementById('upgradeModal');  // Modal overlay
-  const cancel = document.getElementById('upgradeCancel');
+  const btn     = document.getElementById('upgradeBtn');      // Upgrade button
+  const modal   = document.getElementById('upgradeModal');    // Modal overlay
+  const cancel  = document.getElementById('upgradeCancel');
   const confirm = document.getElementById('upgradeConfirm');
-  const qrImg = document.getElementById('upgradeQr');
-  const toast = document.getElementById('profileToast');
+  const qrImg   = document.getElementById('upgradeQr');
+  const toast   = document.getElementById('profileToast');
 
+  // Guard: if any element missing, don't wire anything
   if (!btn || !modal || !cancel || !confirm || !qrImg) return;
 
   // Toast helper
-  const showToast = (msg, ms=1600) => {
+  const showToast = (msg, ms = 1600) => {
     if (!toast) return;
     toast.textContent = msg;
     toast.classList.add('show');
@@ -662,7 +665,7 @@
     try {
       const res = await fetch("{{ url_for('api_get_upgrade_qr') }}", { cache:'no-store' });
       const data = await res.json();
-      if (!data.ok  !data.qr_url) throw new Error('Failed to load QR code');
+      if (!data.ok || !data.qr_url) throw new Error('Failed to load QR code');
       qrImg.src = data.qr_url;
     } catch(err) {
       showToast(err.message || 'Error loading QR code');
@@ -672,8 +675,12 @@
 
   // Close modal
   cancel.addEventListener('click', closeModal);
-  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('show')) closeModal(); });
+  modal.addEventListener('click', e => {
+    if (e.target === modal) closeModal();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modal.classList.contains('show')) closeModal();
+  });
 
   // Confirm upgrade
   confirm.addEventListener('click', async () => {

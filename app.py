@@ -1941,7 +1941,6 @@ def upgrade_author():
                SET previous_usertype = usertype,
                    usertype = 'Author'
              WHERE userid = %s
-             LIMIT 1
         """, (uid,))
         conn.commit()
     except Exception as e:
@@ -1958,7 +1957,7 @@ def upgrade_author():
     return jsonify(
         ok=True,
         message="Role upgraded to Author.",
-        redirect=url_for("subscriberHomepage")  # or any Author homepage
+        redirect=url_for("subscriberHomepage")
     )
 
 @app.post("/api/profile/cancel-subscription")
