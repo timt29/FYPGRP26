@@ -1,4 +1,4 @@
-/* ========== Global Reset & Base ========== */
+/* General Reset */
 * {
   margin: 0;
   padding: 0;
@@ -6,160 +6,134 @@
   font-family: Arial, Helvetica, sans-serif;
 }
 
-body {
-  background: #f5f5f5;
-  color: #111;
-}
-
-/* ========== Header (top blue bar) ========== */
-
+/* Header */
 .header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: flex-start;
-  padding: 10px 40px;
-  background-color: #1b73e8;
-  color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
-  position: sticky;
-  top: 0;
-  z-index: 1000;
+  padding: 15px 20px;
+  background-color: #1a1a1a;
+  color: white;
 }
 
-/* Logo: image + text */
 .logo {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 1.5rem;
+  font-size: 1.5em;
   font-weight: bold;
   text-decoration: none;
+  /* Removes underline */
   color: inherit;
-  margin-right: 24px;       
-}
-
-.logo-img {
-  height: 28px;
-  width: auto;
-}
-
-.search-container {
-  flex: 0 0 320px;
-}
-
-.search-container form {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  /* Inherit text color from parent */
 }
 
 .search-container input {
-  padding: 7px 10px;
-  width: 260px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.6);
-  outline: none;
+  padding: 5px;
+  width: 200px;
 }
 
 .search-container button {
-  padding: 7px 14px;
+  padding: 6px 10px;
+  margin-left: 5px;
   cursor: pointer;
-  border-radius: 999px;
-  border: none;
-  background: #ffffff;
-  color: #1b73e8;
-  font-weight: 600;
-}
-
-.search-container button:hover {
-  background: #eef3ff;
-}
-
-/* Auth buttons (Sign in / Register) */
-
-.auth-buttons {
-  margin-left: auto;          
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .auth-buttons a {
   margin-left: 10px;
-  padding: 6px 14px;
+  padding: 6px 12px;
   cursor: pointer;
-  border-radius: 999px;
-  text-decoration: none;
-  border: 1px solid transparent;
-  font-weight: 600;
-  font-size: 0.9rem;
+  border: none;
+  border-radius: 3px;
 }
 
 .auth-buttons a.signin {
-  background: transparent;
-  color: #ffffff;
-  border-color: rgba(255,255,255,0.7);
-}
-
-.auth-buttons a.signin:hover {
-  background: rgba(255,255,255,0.15);
+  background: #555;
+  color: white;
 }
 
 .auth-buttons a.register {
-  background: #ffb74d;
-  color: #1a1a1a;
+  background: #f39c12;
+  color: white;
 }
 
-.auth-buttons a.register:hover {
-  background: #ffa726;
-}
-
-/* ========== Category Navbar (pills) ========== */
-
+/* Navigation */
 .navbar {
-  background: #ffffff;
-  padding: 12px 40px 16px;
+  background: #f2f2f2;
+  padding: 10px 20px;
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  border-bottom: 1px solid #e5e5e5;
-  flex-wrap: wrap;
+  gap: 15px;
 }
 
 .navbar a {
   text-decoration: none;
   color: #333;
   font-weight: 500;
-  padding: 6px 16px;
-  border-radius: 999px;
-  background: #f2f2f2;
-  font-size: 0.9rem;
-  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .navbar a:hover {
-  background: #1b73e8;
-  color: #ffffff;
+  color: #f39c12;
 }
 
-/* ========== Main Layout ========== */
-
+/* Main Content Layout */
 .main-content {
   display: flex;
-  padding: 24px 40px 40px;
-  gap: 24px;
+  padding: 20px;
+  gap: 20px;
 }
 
-/* Left column: articles grid */
+/* Articles Section */
 .articles {
   flex: 3;
-  display: grid;
-  grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.9fr);
-  grid-auto-flow: row;
-  gap: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
-/* Right column: sidebar */
+.article {
+  display: flex;
+  gap: 15px;
+  background: #fff;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.article .thumbnail {
+  width: 500px;
+  height: 200px;
+  object-fit: cover;
+  /* ensures the image fills box without distortion */
+  background: #ccc;
+  border-radius: 6px;
+}
+
+.big-article .thumbnail {
+  width: 600px;
+  height: 300px;
+  object-fit: cover;
+  /* ensures the image fills box without distortion */
+  border-radius: 6px;
+}
+
+.sel-article .image {
+  display: block;
+  margin: auto;
+  width: 50%;
+  padding: 20px;
+}
+
+.small-articles {
+  display: flex;
+  gap: 20px;
+}
+
+.small-article {
+  flex: 1;
+  background: #fff;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+/* Sidebar */
 .sidebar {
   flex: 1;
   display: flex;
@@ -167,156 +141,35 @@ body {
   gap: 20px;
 }
 
-/* ========== Register box (right rail) ========== */
-
 .register-box {
-  background: #ffffff;
+  background: #fafafa;
   border: 1px solid #ddd;
-  padding: 18px 16px;
-  border-radius: 10px;
+  padding: 15px;
+  border-radius: 6px;
   text-align: center;
-  font-size: 0.95rem;
-  line-height: 1.5;
 }
 
-.register-box .register {
-  display: inline-block;
-  margin-top: 12px;
-  padding: 8px 16px;
+.register-box button {
+  margin-top: 10px;
+  padding: 8px 12px;
   background: #27ae60;
-  border-radius: 999px;
-  color: #ffffff;
-  text-decoration: none;
-  font-weight: 600;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 3px;
 }
 
-.register-box .register:hover {
-  background: #219150;
-}
-
-/* ========== Article cards (hero + smaller cards) ========== */
-
-.article {
-  display: flex;
-  gap: 16px;
-  background: #ffffff;
-  padding: 16px 20px;
-  border: 1px solid #e2e2e2;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-  align-items: flex-start;
-}
-
-.article-link {
-  color: #000;
-  text-decoration: none;
-}
-
-.article-link:hover h2 {
-  text-decoration: underline;
-}
-
-.article .text {
-  flex: 1;
-}
-
-.article h2 {
-  font-size: 1.05rem;
-  margin-bottom: 6px;
-}
-
-.article p {
-  font-size: 0.95rem;
-  color: #555;
-  line-height: 1.5;
-}
-
-/* Hero article (first item) spans both columns and is larger */
-.articles .article:first-child {
-  grid-column: 1 / -1;
-  padding: 22px 24px;
-}
-
-.articles .article:first-child h2 {
-  font-size: 1.5rem;
-  margin-bottom: 8px;
-}
-
-.articles .article:first-child p {
-  font-size: 1rem;
-}
-
-/* Thumbnail images */
-
-.article .thumbnail {
-  width: 150px;
-  height: 110px;
-  object-fit: cover;
-  background: #cccccc;
-  border-radius: 8px;
-}
-
-/* Larger image for hero article */
-.articles .article:first-child .thumbnail {
-  width: 280px;
-  height: 180px;
-}
-
-/* “No results” fallback text: full width in the grid */
-.no-results-fallback {
-  grid-column: 1 / -1;
-  font-size: 1rem;
-  font-weight: bold;
-  margin: 4px 0 4px;
-  color: #000;
-}
-
-/* ===== Article detail page layout ===== */
-
-.article-page {
-  display: flex;
-  padding: 24px 40px 40px;
-  gap: 24px;
-}
-
-.article-page .articles {
-  flex: 3;
-  display: block;       
-}
-
-.article-page .article.sel-article {
-  width: 100%;
-}
-
-.article-page .article-image-wrapper {
-  display: flex;
-  justify-content: center; 
-  margin: 15px 20px 0;     
-}
-
-.article-page .article-image-wrapper .image {
-  max-width: 100%;
-  height: auto;
-  display: block;
-}
-
-.article-page .sidebar {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* ========== Ads area (kept from original) ========== */
+/* ===== Buttons & Ads ===== */
 .sidebar .ads,
 .right-rail .ads {
-  height: 360px;
+  height: 360px;          
   min-height: 360px;
   width: 100%;
-  flex: 0 0 auto;
+  flex: 0 0 auto;         
   position: relative;
 }
 
+/* Keep whole area clickable */
 .sidebar .ads .ad-link,
 .right-rail .ads .ad-link {
   display: block;
@@ -325,39 +178,39 @@ body {
   position: relative;
 }
 
+/* Ads Image "zooms out" to fit the box */
 .sidebar .ads .ad-image,
 .right-rail .ads .ad-image {
   position: absolute;
-  inset: 10px;
+  inset: 10px;                         
   width: calc(100% - 20px);
   height: calc(100% - 20px);
   object-fit: contain;
   display: block;
 }
 
-/* ========== Typography & misc paragraphs ========== */
 
 p {
-  padding: 5px;
-  font-size: 1rem;
-  line-height: 1.6;
+  font-family: Arial, Helvetica, sans-serif ,sans-serif; /* Change the font */
+  padding: 5px; /* Reduce padding to smaller value */
+  font-size: 1rem; /* Optionally, reduce the font size as well */
+  line-height: 1.6; /* Adjust line height for readability */
 }
 
 .small-text {
+  font-family: Arial, Helvetica, sans-serif;
   padding: 5px 100px 5px;
-  font-size: 18px;
+  font-size: 18px;  /* Smaller font size */
   line-height: 2;
 }
 
 .main-title {
-  font-size: 2rem;
+  font-size: 2rem;  /* Adjust size to your preference */
   text-align: center;
 }
 
-/* ========== Modal styles (search “no results”) ========== */
-
 .modal-overlay {
-  display: none;
+  display: none; 
   position: fixed;
   z-index: 9999;
   left: 0;
@@ -368,6 +221,7 @@ p {
   background-color: rgba(0,0,0,0.6);
 }
 
+/* Modal box */
 .modal-overlay .modal {
   background-color: #fff;
   margin: 15% auto;
@@ -379,6 +233,7 @@ p {
   position: relative;
 }
 
+/* Close button */
 .close {
   color: #aaa;
   float: right;
@@ -391,11 +246,9 @@ p {
   color: #000;
 }
 
-/* ========== Share button styles (used on other pages) ========== */
-
 .article.sel-article {
-  position: relative;
-  padding-bottom: 50px;
+  position: relative; /* needed for absolute positioning */
+  padding-bottom: 50px; /* space so text doesn’t overlap button */
 }
 
 .share-button {
@@ -405,10 +258,10 @@ p {
 }
 
 .share-button button {
-  background: transparent;
+  background: transparent;   /* no blue background */
   border: none;
-  padding: 12px;
-  border-radius: 8px;
+  padding: 12px;              /* tighter padding since no circle */
+  border-radius: 8px;        /* slight rounding for hover */
   cursor: pointer;
   transition: background 0.2s ease;
   display: flex;
@@ -417,17 +270,16 @@ p {
 }
 
 .share-button button:hover {
-  background: #f0f0f0;
+  background: #f0f0f0;       /* light gray hover effect */
 }
 
 .share-button img.share-icon {
-  width: 32px;
+  width: 32px;   /* adjust size */
   height: 32px;
   object-fit: contain;
 }
 
-/* ========== Summary box (for AI summariser etc.) ========== */
-
+/*Summary Box*/
 .summary-box {
   border-radius: 10px;
   padding: 16px 20px;
@@ -463,11 +315,10 @@ p {
   line-height: 1;
 }
 
-/* ========== Chatbot widget ========== */
-
+/* -- chatbot feature -- */
 #chatbot-button {
   position: fixed;
-  bottom: 0;
+  bottom: 0; 
   right: 25px;
   width: 70px;
   height: 70px;

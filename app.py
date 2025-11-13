@@ -2959,20 +2959,29 @@ def warn_user():
         return redirect(url_for("login"))
 
     warned_user_id = request.form.get("userid")
+    if not warned_user_id:
+        flash("No user selected.")
+        return redirect(url_for("manage_users"))
 
     conn = get_db_connection()
     cursor = get_cursor(conn)
 
     warning_message = "You have received a warning from the moderator."
-    cursor.execute(
-        "INSERT INTO warnings (userid, message) VALUES (%s, %s)",
-        (warned_user_id, warning_message)
-    )
-    conn.commit()
-    cursor.close()
-    conn.close()
 
-    flash("Warning sent successfully!")
+    try:
+        cursor.execute(
+            "INSERT INTO warnings (userID, message, notification) VALUES (%s, %s, 1)",
+            (warned_user_id, warning_message)
+        )
+        conn.commit()
+        flash("Warning sent successfully!", "success")
+    except Exception as e:
+        flash(f"Failed to send warning: {e}", "error")
+    finally:
+        conn.commit()
+        cursor.close()
+        conn.close()
+
     return redirect(url_for("manage_users"))
 
 @app.route("/toggleSuspend", methods=["POST"])

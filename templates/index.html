@@ -3,32 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <title>EchoPress - Homepage</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
-    <link
-      rel="icon"
-      href="{{ url_for('static', filename='img/EchoPressLogo.png') }}"
-      type="image/png"
-    />
+    <link rel="stylesheet" href="../static/css/style.css" />
+    <link rel="icon" href="../static/img/EchoPressLogo.png" type="image/png" />
   </head>
 
   <body>
     <!-- Header -->
     <header class="header">
-      <!-- 1) Logo image + EchoPress text -->
-      <a href="{{ url_for('index') }}" class="logo">
-        <img
-          src="{{ url_for('static', filename='img/EchoPressLogo.png') }}"
-          alt="EchoPress logo"
-          class="logo-img"
-        />
-        <span>EchoPress</span>
-      </a>
-
-      <!-- 2) Search bar moved to the left, beside EchoPress -->
+      <a href="/" class="logo">EchoPress</a>
       <div class="search-container">
         <form action="{{ url_for('search') }}" method="get">
           <input
@@ -40,20 +22,18 @@
           <button type="submit">Search</button>
         </form>
       </div>
-
-      <!-- Auth buttons stay on the far right -->
       <div class="auth-buttons">
-        <a href="{{ url_for('login') }}" class="signin">Sign In</a>
-        <a href="{{ url_for('register') }}" class="register">Register</a>
+        <a href="/login" class="signin">Sign In</a>
+        <a href="/register" class="register">Register</a>
       </div>
     </header>
 
     <!-- Navigation -->
     <nav class="navbar">
       {% for cat in nav_categories %}
-      <a href="{{ url_for('category', category_name=cat['name']) }}">
-        {{ cat['name'] }}
-      </a>
+      <a href="{{ url_for('category', category_name=cat['name']) }}"
+        >{{ cat['name'] }}</a
+      >
       {% endfor %}
     </nav>
 
@@ -61,69 +41,41 @@
     <main class="main-content">
       <!-- Articles -->
       <section class="articles">
-        {% if articles %}
-          {% for article in articles %}
-            <article class="article">
-              <div class="text">
-                <a
-                  href="{{ url_for('article', article_id=article['articleid']) }}"
-                  class="article-link"
-                >
-                  <h2>{{ article['title'] }}</h2>
-                </a>
-
-                {# 3 + 4) Only the TOP article shows snippet
-                   and snippet text has <p> / &nbsp; stripped #}
-                {% if loop.first %}
-                <p>
-                {{ article['content']|striptags|replace('&nbsp;', ' ')|truncate(250, True, '...') }}                </p>
-                </p>
-              {% endif %}
-              </div>
-
-              {% if article['image'] %}
-              <img
-                src="{{ article['image'] }}"
-                alt="thumbnail"
-                class="thumbnail"
-              />
-              {% endif %}
-            </article>
-          {% endfor %}
-
-        {% elif fallback_articles %}
-          <p class="no-results-fallback">
-            We couldn’t find any articles matching "{{ search_query }}". Showing
-            recent articles instead:
-          </p>
-          {% for article in fallback_articles %}
-            <article class="article">
-              <div class="text">
-                <a
-                  href="{{ url_for('article', article_id=article['articleid']) }}"
-                  class="article-link"
-                >
-                  <h2>{{ article['title'] }}</h2>
-                </a>
-
-                {% if loop.first %}
-                  <p>
-                    {{ article['content']|striptags|replace('&nbsp;', ' ')|truncate(250, True, '...') }}
-                  </p>
-                {% endif %}
-              </div>
-
-              {% if article['image'] %}
-              <img
-                src="{{ article['image'] }}"
-                alt="thumbnail"
-                class="thumbnail"
-              />
-              {% endif %}
-            </article>
-          {% endfor %}
+  {% if articles %}
+    {% for article in articles %}
+      <article class="article">
+        <div class="text">
+          <a href="{{ url_for('article', article_id=article['articleid']) }}" style="color:#000;text-decoration:none;">
+            <h2>{{ article['title'] }}</h2>
+          </a>
+          <p>{{ article['content'][:250] }}...</p>
+        </div>
+        {% if article['image'] %}
+        <img src="{{ article['image'] }}" alt="thumbnail" class="thumbnail">
         {% endif %}
-      </section>
+      </article>
+    {% endfor %}
+  
+  {% elif fallback_articles %}
+    <p style="font-size:18px;font-weight:bold;margin:20px;color:black;">
+      We couldn’t find any articles matching "{{ search_query }}". Showing recent articles instead:
+    </p>
+    {% for article in fallback_articles %}
+      <article class="article small-article">
+        <div class="text">
+          <a href="{{ url_for('article', article_id=article['articleid']) }}" style="color:#000;text-decoration:none;">
+            <h2>{{ article['title'] }}</h2>
+          </a>
+          <p>{{ article['content'][:250] }}...</p>
+        </div>
+        {% if article['image'] %}
+        <img src="{{ article['image'] }}" alt="thumbnail" class="thumbnail">
+        {% endif %}
+      </article>
+    {% endfor %}
+  {% endif %}
+</section>
+
 
       <!-- Sidebar -->
       <aside class="sidebar">
@@ -132,9 +84,7 @@
             Join us now as a registered member and be part of our discussion
             community!
           </p>
-          <a href="{{ url_for('register') }}" class="register"
-            >Register for Free</a
-          >
+          <a href="/register" class="register">Register for Free</a>
         </div>
         <div class="ads" id="adsBox" aria-live="polite"></div>
       </aside>
@@ -151,33 +101,36 @@
 
     {% if no_results %}
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
+    document.addEventListener("DOMContentLoaded", function () {
+        {% if no_results %}
         const modalOverlay = document.getElementById("noResultsModal");
         const closeBtn = modalOverlay.querySelector(".close");
 
+        // Show modal
         modalOverlay.style.display = "block";
 
+        // Close when clicking X
         closeBtn.addEventListener("click", function () {
           modalOverlay.style.display = "none";
         });
 
+        // Close when clicking outside the modal box
         window.addEventListener("click", function (event) {
           if (event.target === modalOverlay) {
             modalOverlay.style.display = "none";
           }
         });
+        {% endif %}
       });
     </script>
     {% endif %}
 
+
     <!-- chatbot floating button -->
     <div id="chatbot-button" onclick="toggleChatbot()">
-      <img
-        src="{{ url_for('static', filename='img/FAQ-robot.png') }}"
-        alt="Chatbot"
-      />
+      <img src="/static/img/FAQ-robot.png" alt="Chatbot" />
     </div>
-
+    
     <!-- chatbot popup -->
     <div id="chatbot-popup">
       <div id="chatbot-header">
@@ -192,80 +145,82 @@
     </div>
 
     <script>
-      function toggleChatbot() {
-        const popup = document.getElementById("chatbot-popup");
-        const input = document.getElementById("userMessage");
+    function toggleChatbot() {
+      const popup = document.getElementById("chatbot-popup");
+      const input = document.getElementById("userMessage");
 
-        if (popup.style.display === "block") {
-          popup.style.display = "none";
-        } else {
-          popup.style.display = "block";
-          input.focus();
-        }
+      if (popup.style.display === "block") {
+        popup.style.display = "none";
+      } else {
+        popup.style.display = "block";
+        input.focus();
       }
+    }
 
-      async function sendMessage() {
-        const input = document.getElementById("userMessage");
-        const message = input.value.trim();
-        if (!message) return;
+    async function sendMessage() {
+      const input = document.getElementById("userMessage");
+      const message = input.value.trim();
+      if (!message) return;
 
-        const chatBox = document.getElementById("chatbot-messages");
-        chatBox.innerHTML += `<p class="user"><b>You:</b> ${message}</p>`;
+      // display user message
+      const chatBox = document.getElementById("chatbot-messages");
+      chatBox.innerHTML += `<p class="user"><b>You:</b> ${message}</p>`;
 
-        const response = await fetch("/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message }),
-        });
-
-        const data = await response.json();
-        chatBox.innerHTML += `<p class="bot"><b>EchoBot:</b> ${data.response}</p>`;
-        chatBox.scrollTop = chatBox.scrollHeight;
-        input.value = "";
-      }
-
-      document.addEventListener("DOMContentLoaded", function () {
-        const input = document.getElementById("userMessage");
-        input.addEventListener("keypress", function (event) {
-          if (event.key === "Enter") {
-            event.preventDefault();
-            sendMessage();
-          }
-        });
+      // send to Flask backend
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
       });
+
+      const data = await response.json();
+
+      // display bot response
+      chatBox.innerHTML += `<p class="bot"><b>EchoBot:</b> ${data.response}</p>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+      input.value = "";
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const input = document.getElementById("userMessage");
+      input.addEventListener("keypress", function (event) {
+        if (event.key == "Enter") {
+          event.preventDefault();
+          sendMessage();
+        }
+      });
+    });
     </script>
 
-    <!-- Ads Box Functions -->
-    <script>
-      (function () {
-        const adsBox = document.getElementById("adsBox");
-        const ADS_API = "{{ url_for('api_random_ad') }}";
-        const esc = (s) =>
-          (s || "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+      <!-- Ads Box Functions -->
+  <script>
+  (function(){
+    const adsBox   = document.getElementById('adsBox');
+    const ADS_API  = "{{ url_for('api_random_ad') }}";
+    const esc = s => (s||"").replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
-        function renderAd(ad) {
-          if (!adsBox) return;
-          adsBox.innerHTML = `
-            <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
-              <img class="ad-image" src="${esc(ad.image)}" alt="${esc(
-                ad.title || "Advertisement"
-              )}">
-            </a>
-          `;
-        }
+    function renderAd(ad){
+      if(!adsBox) return;
+      adsBox.innerHTML = `
+        <a class="ad-link" href="${esc(ad.website)}" target="_blank" rel="noopener">
+          <img class="ad-image" src="${esc(ad.image)}" alt="${esc(ad.title || 'Advertisement')}">
+        </a>
+      `;
+    }
 
-        async function loadAd() {
-          try {
-            const res = await fetch(ADS_API, { cache: "no-store" });
-            if (!res.ok) return;
-            const data = await res.json();
-            if (data?.ok && data.ad) renderAd(data.ad);
-          } catch (_) {}
-        }
+    async function loadAd(){
+      try{
+        const res = await fetch(ADS_API, {cache:'no-store'});
+        if(!res.ok) return;
+        const data = await res.json();
+        if(data?.ok && data.ad) renderAd(data.ad);
+      }catch(_){}
+    }
 
-        loadAd();
-        setInterval(loadAd, 10_000); // 10s rotation
-      })();
-    </script>
+    loadAd();
+    setInterval(loadAd, 10_000); // your 10s rotation
+  })();
+  </script>
+
   </body>
 </html>
