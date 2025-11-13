@@ -2484,10 +2484,10 @@ def api_notifications():
     if not uid:
         return jsonify({"ok": False, "message": "Not logged in"}), 401
     uid = int(uid)
-    author_name = session.get("user")  
+    author_name = session.get("user")
 
     conn = get_db_connection()
-    cur  = get_cursor(conn)   
+    cur  = get_cursor(conn)
 
     def q(sql, params):
         cur.execute(sql, params)
@@ -2496,20 +2496,20 @@ def api_notifications():
     # 1) Reactions on MY COMMENTS
     items_cr = q("""
         SELECT
-            cr.reactionid                AS id,
-            cr.created_at                AS ts,
-            'comment_reaction'           AS kind,
-            cr.reaction                  AS action,
-            a.articleid                  AS article_id,
-            a.title                      AS article_title,
-            c.commentid                  AS comment_id,
-            u.userid                     AS actor_id,
-            u.name                       AS actor_name,
-            NULL                         AS reason
+            cr.reactionid AS id,
+            TO_CHAR(cr.created_at, 'YYYY-MM-DD HH24:MI:SS') AS ts,
+            'comment_reaction' AS kind,
+            cr.reaction AS action,
+            a.articleid AS article_id,
+            a.title AS article_title,
+            c.commentid AS comment_id,
+            u.userid AS actor_id,
+            u.name AS actor_name,
+            NULL AS reason
         FROM comment_reactions cr
-        JOIN comments c   ON c.commentid = cr.commentid
-        JOIN articles a   ON a.articleid = c.articleid
-        JOIN users    u   ON u.userid    = cr.userid      -- who reacted
+        JOIN comments c ON c.commentid = cr.commentid
+        JOIN articles a ON a.articleid = c.articleid
+        JOIN users u    ON u.userid = cr.userid
         WHERE c.userid = %s
           AND cr.notification = 1
         ORDER BY cr.created_at DESC
@@ -2519,21 +2519,21 @@ def api_notifications():
     # 2) Replies to MY COMMENTS
     items_reply = q("""
         SELECT
-            c2.commentid                 AS id,
-            c2.created_at                AS ts,
-            'comment_reply'              AS kind,
-            'replied'                    AS action,
-            a.articleid                  AS article_id,
-            a.title                      AS article_title,
-            c2.commentid                 AS comment_id,
-            u.userid                     AS actor_id,
-            u.name                       AS actor_name,
-            NULL                         AS reason
-        FROM comments c2                          -- the reply
+            c2.commentid AS id,
+            TO_CHAR(c2.created_at, 'YYYY-MM-DD HH24:MI:SS') AS ts,
+            'comment_reply' AS kind,
+            'replied' AS action,
+            a.articleid AS article_id,
+            a.title AS article_title,
+            c2.commentid AS comment_id,
+            u.userid AS actor_id,
+            u.name AS actor_name,
+            NULL AS reason
+        FROM comments c2
         JOIN comments c1 ON c1.commentid = c2.reply_to_comment_id
-        JOIN articles a  ON a.articleid  = c2.articleid
-        JOIN users   u   ON u.userid     = c2.userid      -- who replied
-        WHERE c1.userid = %s                            -- replies to MY comments
+        JOIN articles a  ON a.articleid = c2.articleid
+        JOIN users u     ON u.userid = c2.userid
+        WHERE c1.userid = %s
           AND c2.notification = 1
         ORDER BY c2.created_at DESC
         LIMIT 100
@@ -2542,20 +2542,20 @@ def api_notifications():
     # 3) Reactions on MY ARTICLES
     items_ar = q("""
         SELECT
-            ar.reactionid                       AS id,
-            COALESCE(ar.updated_at, ar.created_at) AS ts,
-            'article_reaction'                  AS kind,
-            ar.reaction                         AS action,    -- like/dislike
-            a.articleid                         AS article_id,
-            a.title                             AS article_title,
-            NULL                                AS comment_id,
-            u.userid                            AS actor_id,
-            u.name                              AS actor_name,
-            NULL                                AS reason
+            ar.reactionid AS id,
+            TO_CHAR(COALESCE(ar.updated_at, ar.created_at), 'YYYY-MM-DD HH24:MI:SS') AS ts,
+            'article_reaction' AS kind,
+            ar.reaction AS action,
+            a.articleid AS article_id,
+            a.title AS article_title,
+            NULL AS comment_id,
+            u.userid AS actor_id,
+            u.name AS actor_name,
+            NULL AS reason
         FROM article_reactions ar
-        JOIN articles a   ON a.articleid = ar.articleid
-        LEFT JOIN users u ON u.userid    = ar.userid
-        WHERE a.author = %s                      -- plain author name
+        JOIN articles a ON a.articleid = ar.articleid
+        LEFT JOIN users u ON u.userid = ar.userid
+        WHERE a.author = %s
           AND ar.notification = 1
         ORDER BY COALESCE(ar.updated_at, ar.created_at) DESC
         LIMIT 100
@@ -2564,21 +2564,21 @@ def api_notifications():
     # 4) Reports on MY COMMENTS
     items_cp = q("""
         SELECT
-            cp.report_id                        AS id,
-            COALESCE(cp.updated_at, cp.created_at) AS ts,
-            'comment_report'                    AS kind,
-            cp.status                           AS action,   -- pending/reviewed/removed
-            a.articleid                         AS article_id,
-            a.title                             AS article_title,
-            c.commentid                         AS comment_id,
-            u.userid                            AS actor_id,
-            u.name                              AS actor_name,
-            cp.reason                           AS reason
+            cp.report_id AS id,
+            TO_CHAR(COALESCE(cp.updated_at, cp.created_at), 'YYYY-MM-DD HH24:MI:SS') AS ts,
+            'comment_report' AS kind,
+            cp.status AS action,
+            a.articleid AS article_id,
+            a.title AS article_title,
+            c.commentid AS comment_id,
+            u.userid AS actor_id,
+            u.name AS actor_name,
+            cp.reason AS reason
         FROM comment_reports cp
-        JOIN comments c  ON c.commentid  = cp.comment_id
-        JOIN articles a  ON a.articleid  = c.articleid
-        JOIN users    u  ON u.userid     = cp.reporter_id
-        WHERE c.userid = %s               -- my comments
+        JOIN comments c ON c.commentid = cp.comment_id
+        JOIN articles a ON a.articleid = c.articleid
+        JOIN users u    ON u.userid = cp.reporter_id
+        WHERE c.userid = %s
           AND cp.notification = 1
           AND cp.status IN ('pending','reviewed','removed')
         ORDER BY COALESCE(cp.updated_at, cp.created_at) DESC
@@ -2588,20 +2588,20 @@ def api_notifications():
     # 5) Reports on MY ARTICLES
     items_ap = q("""
         SELECT
-            ap.report_id                        AS id,
-            COALESCE(ap.updated_at, ap.created_at) AS ts,
-            'article_report'                    AS kind,
-            ap.status                           AS action,   -- pending/reviewed/dismissed
-            a.articleid                         AS article_id,
-            a.title                             AS article_title,
-            NULL                                AS comment_id,
-            u.userid                            AS actor_id,
-            u.name                              AS actor_name,
-            ap.reason                           AS reason
+            ap.report_id AS id,
+            TO_CHAR(COALESCE(ap.updated_at, ap.created_at), 'YYYY-MM-DD HH24:MI:SS') AS ts,
+            'article_report' AS kind,
+            ap.status AS action,
+            a.articleid AS article_id,
+            a.title AS article_title,
+            NULL AS comment_id,
+            u.userid AS actor_id,
+            u.name AS actor_name,
+            ap.reason AS reason
         FROM article_reports ap
-        JOIN articles a  ON a.articleid  = ap.article_id
-        LEFT JOIN users u ON u.userid    = ap.reporter_id
-        WHERE a.author = %s               -- my articles
+        JOIN articles a ON a.articleid = ap.article_id
+        LEFT JOIN users u ON u.userid = ap.reporter_id
+        WHERE a.author = %s
           AND ap.notification = 1
           AND ap.status IN ('pending','reviewed','dismissed')
         ORDER BY COALESCE(ap.updated_at, ap.created_at) DESC
@@ -2612,7 +2612,7 @@ def api_notifications():
     items_warn = q("""
         SELECT
             warningID AS id,
-            created_at AS ts,
+            TO_CHAR(created_at, 'YYYY-MM-DD HH24:MI:SS') AS ts,
             'moderator_warning' AS kind,
             NULL AS action,
             NULL AS article_id,
@@ -2622,7 +2622,8 @@ def api_notifications():
             NULL AS actor_name,
             message AS reason
         FROM warnings
-        WHERE userid = %s AND notification = 1
+        WHERE userid = %s
+          AND notification = 1
         ORDER BY created_at DESC
         LIMIT 100
     """, (uid,))
@@ -2630,16 +2631,12 @@ def api_notifications():
     cur.close()
     conn.close()
 
-    # merge + sort by timestamp (desc)
     items = items_cr + items_reply + items_cp + items_ar + items_ap + items_warn
     items.sort(key=lambda r: r["ts"], reverse=True)
     items = items[:50]
 
-    return jsonify({
-        "ok": True,
-        "unread": len(items),
-        "items": items
-    })
+    return jsonify({"ok": True, "unread": len(items), "items": items})
+
 
 @app.route("/api/notifications/mark_read", methods=["POST"])
 @login_required("Subscriber", "Author")
