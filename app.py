@@ -1217,7 +1217,7 @@ def subscriber_edit_article(article_id):
 @app.route("/subscriber/api/article/<int:article_id>", methods=["POST"])
 @login_required("Author", "Subscriber")
 def subscriber_update_article(article_id):
-    action      = (request.form.get("action") or "").lower()   # 'draft' | 'publish' | 'review'
+    action      = (request.form.get("action") or "").lower()
     title       = (request.form.get("title") or "").strip()
     content     = (request.form.get("content") or "").strip()
     category_id = (request.form.get("category_id") or "").strip()
@@ -1230,7 +1230,7 @@ def subscriber_update_article(article_id):
     conn = get_db_connection()
     cur  = get_cursor(conn)
 
-    # Check ownership + fetch current status/visible/draft
+    # Check ownership
     cur.execute("""
         SELECT author, status, visible, draft
         FROM articles
@@ -1245,76 +1245,79 @@ def subscriber_update_article(article_id):
     current_status = (row["status"] or "").lower()
     is_restricted  = current_status in ("reported", "pending_revision", "pending_approval")
 
-    # Decide behavior by action
     is_draft   = (action == "draft")
     is_publish = (action == "publish")
     is_review  = (action == "review")
 
-    # Enforce rule: restricted articles can ONLY be saved for review
     if is_restricted and not is_review:
         cur.close(); conn.close()
         return jsonify(ok=False, message="This article is under review. Only 'Save & Submit' is allowed."), 400
 
-    # Handle image upload (optional)
-    image_name = None
+    # ----------------------------------------------------------
+    #   ✅ FIXED IMAGE UPLOAD (NOW MATCHES CREATE ROUTE)
+    # ----------------------------------------------------------
+    image_rel = None
     if image_file and image_file.filename:
-        image_name = image_file.filename
-        image_path = os.path.join(app.static_folder, "img", image_name)
-        image_file.save(image_path)
+        ext = os.path.splitext(image_file.filename)[1].lower()
 
-    # Build UPDATE fields common to all actions
-    fields = ["title=%s","content=%s","catid=%s"]
+        if ext in ALLOWED_IMAGE_EXTS:
+            safe_name = secure_filename(os.path.splitext(image_file.filename)[0])
+            unique = f"{safe_name}_{int(time.time())}{ext}"
+
+            img_dir = os.path.join(app.static_folder, "img")
+            os.makedirs(img_dir, exist_ok=True)
+
+            full_path = os.path.join(img_dir, unique)
+            image_file.save(full_path)
+
+            image_rel = f"/static/img/{unique}"
+    # ----------------------------------------------------------
+
+    fields = ["title=%s", "content=%s", "catid=%s"]
     params = [title, content, category_id]
-    
+
     flash_msg = "Saved."
 
     if is_review:
-        # Your requirement:
-        # status = pending_approval, draft = 1, visible = 0 (no publish_at)
         fields += ["status='pending_approval'", "draft=1", "visible=0"]
         flash_msg = "Submitted for review."
+
     elif is_draft:
-        # Regular draft save (keep visible as-is)
         fields += ["draft=1"]
         flash_msg = "Draft saved."
+
     elif is_publish:
-        # Publishing path (run moderation)
-        # -> Profanity check
         profanity_check = check_profanity(title, content)
         if not profanity_check.get("ok", False):
-            cur.close()
-            conn.close()
-            return jsonify(
-                ok=False,
-                message=profanity_check.get("message", "Failed profanity check."),
-            ), 400
+            cur.close(); conn.close()
+            return jsonify(ok=False, message=profanity_check.get("message", "Failed profanity check.")), 400
 
-        # when first publish article, publish and update time should be the same
-        if row["draft"] == 1: # was from draft
-            fields += ["status=%s", "draft=%s", "visible=%s", "published_at=NOW() "]
+        if row["draft"] == 1:
+            fields += ["status=%s", "draft=%s", "visible=%s", "published_at=NOW()"]
             params += ["published", 0, 1]
-        else: 
-            # edit article, publish time should remain unchange, only change the update time
-            fields += ["status=%s", "draft=%s", "visible=%s", "updated_at=NOW() "]
+        else:
+            fields += ["status=%s", "draft=%s", "visible=%s", "updated_at=NOW()"]
             params += ["published", 0, 1]
 
         flash_msg = "Article published successfully."
 
-    # Image if present
-    if image_name:
+    # Attach image path if uploaded
+    if image_rel:
         fields.append("image=%s")
-        params.append(image_name)
+        params.append(image_rel)
 
-    # WHERE + commit
     params.append(article_id)
+
     cur.execute(f"UPDATE articles SET {', '.join(fields)} WHERE articleid=%s", params)
     conn.commit()
     cur.close(); conn.close()
+
     return jsonify({
-            "ok": True,
-            "message": flash_msg,
-            "redirect": url_for("subscriber_my_articles")
-        })
+        "ok": True,
+        "message": flash_msg,
+        "redirect": url_for("subscriber_my_articles")
+    })
+
 
 # Edit Reported Articles Page
 @app.route("/subscriber/edit-reported-article/<int:article_id>")
