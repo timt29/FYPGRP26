@@ -2519,7 +2519,7 @@ def api_notifications():
         LIMIT 100
     """, (uid,))
 
-    # 2) Replies to MY COMMENTS
+    # 2) Replies to MY COMMENTS  – show ALL, but tag unread
     items_reply = q("""
         SELECT
             c2.commentid AS id,
@@ -2531,16 +2531,39 @@ def api_notifications():
             c2.commentid AS comment_id,
             u.userid AS actor_id,
             u.name AS actor_name,
-            NULL AS reason
+            NULL AS reason,
+            CASE WHEN c2.notification = 1 THEN 1 ELSE 0 END AS unread
         FROM comments c2
         JOIN comments c1 ON c1.commentid = c2.reply_to_comment_id
-        JOIN articles a  ON a.articleid = c2.articleid
-        JOIN users u     ON u.userid = c2.userid
-        WHERE c1.userid = %s
-          AND c2.notification = 1
+        JOIN articles a  ON a.articleid  = c2.articleid
+        JOIN users u     ON u.userid     = c2.userid
+        WHERE c1.userid = %s                   -- replies to MY comments
         ORDER BY c2.created_at DESC
         LIMIT 100
     """, (uid,))
+
+    # 2b) ALL comments on MY ARTICLES (top-level + replies, everything)
+    items_article_comments = q("""
+        SELECT
+            c.commentid AS id,
+            TO_CHAR(c.created_at, 'YYYY-MM-DD HH24:MI:SS') AS ts,
+            'article_comment' AS kind,
+            'commented' AS action,
+            a.articleid AS article_id,
+            a.title AS article_title,
+            c.commentid AS comment_id,
+            u.userid AS actor_id,
+            u.name AS actor_name,
+            NULL AS reason
+        FROM comments c
+        JOIN articles a ON a.articleid = c.articleid
+        JOIN users u ON u.userid = c.userid
+        WHERE a.author = %s               -- COMMENTS ON MY ARTICLES
+        AND c.userid <> %s             -- exclude comments made by myself
+        AND c.notification = 1         -- only unread notifications
+        ORDER BY c.created_at DESC
+        LIMIT 100
+    """, (author_name, uid))
 
     # 3) Reactions on MY ARTICLES
     items_ar = q("""
@@ -2634,7 +2657,7 @@ def api_notifications():
     cur.close()
     conn.close()
 
-    items = items_cr + items_reply + items_cp + items_ar + items_ap + items_warn
+    items = items_cr + items_reply + items_article_comments + items_cp + items_ar + items_ap + items_warn
     items.sort(key=lambda r: r["ts"], reverse=True)
     items = items[:50]
 
@@ -2682,6 +2705,16 @@ def api_notifications_mark_read():
           AND c1.userid = %s
           AND c2.notification = 1
     """, (uid,))
+
+    # 3b) ANY COMMENTS ON MY ARTICLES (kind = article_comment)
+    cur.execute("""
+        UPDATE comments AS c
+           SET notification = 0
+          FROM articles AS a
+         WHERE c.articleid      = a.articleid
+           AND a.author         = %s
+           AND c.notification   = 1
+    """, (author_name,))
 
     # 4) Reactions on my articles (likes/dislikes)
     cur.execute("""
@@ -2771,6 +2804,17 @@ def api_notifications_mark_one():
               AND c2.commentid = %s
               AND c1.userid = %s
         """, (nid, uid))
+        updated = cur.rowcount
+
+    elif kind == "article_comment":
+        cur.execute("""
+            UPDATE comments AS c
+               SET notification = 0
+              FROM articles AS a
+             WHERE c.commentid   = %s
+               AND c.articleid   = a.articleid
+               AND a.author      = %s
+        """, (nid, author_name))
         updated = cur.rowcount
 
     elif kind == "article_reaction":

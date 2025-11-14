@@ -626,6 +626,11 @@
                 <span class="notif-time">· ${when}</span></li>`;
     }
 
+    if (it.kind === 'article_comment') {
+      return `<li><b>${who}</b> commented on your article ${link}
+                <span class="notif-time">· ${when}</span></li>`;
+    }
+
     if (it.kind === 'comment_reaction') {
       return `<li><b>${who}</b> ${esc(it.action)}d your comment on ${link}
                 <span class="notif-time">· ${when}</span></li>`;
